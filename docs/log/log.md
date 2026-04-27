@@ -2,16 +2,31 @@
 
 ## Log Index
 
-1. 2026-04-27 GitHub main 초기 푸시 및 loadConfig dev/prd 분기
-2. 2026-04-27 프로젝트 폴더 git init 및 GitHub origin 연결
-3. 2026-04-27 갤러리 한 줄·번호 선택·기본 숨김 UI 수정
-4. 2026-04-27 frontend 폴더로 Expo 앱 이전 (모노레포)
-5. 2026-04-27 AT_TEST_PAGE Expo 풀 코드 구현 (PRD 정합)
-6. 2026-04-27 docs/main AT_TEST_PAGE PRD v1.0 작성
+1. 2026-04-27 환경별 config __DEV__ 분기·deploy.sh·README·REQUIREMENTS
+2. 2026-04-27 GitHub main 초기 푸시 및 loadConfig dev/prd 분기
+3. 2026-04-27 프로젝트 폴더 git init 및 GitHub origin 연결
+4. 2026-04-27 갤러리 한 줄·번호 선택·기본 숨김 UI 수정
+5. 2026-04-27 frontend 폴더로 Expo 앱 이전 (모노레포)
+6. 2026-04-27 AT_TEST_PAGE Expo 풀 코드 구현 (PRD 정합)
+7. 2026-04-27 docs/main AT_TEST_PAGE PRD v1.0 작성
 
 ## Log Body
 
-1. 2026-04-27 GitHub main 초기 푸시 및 loadConfig dev/prd 분기
+1. 2026-04-27 환경별 config __DEV__ 분기·deploy.sh·README·REQUIREMENTS
+
+Purpose: EXPO_PUBLIC 대신 __DEV__로 dev/prd JSON을 고르고, 리눅스 배포 스크립트와 루트 문서를 추가한다.
+
+Changes:
+
+loadConfig: __DEV__ ? devConfig : prdConfig, AppConfig.api_url 필수
+
+deploy.sh: monorepo 기준 frontend에서 expo export 후 serve로 dist 서빙, APP_DIR/PORT 환경변수 지원
+
+README.md, REQUIREMENTS.md 신규, env/config.prd.json 포맷 정리
+
+Changed files: frontend/utils/loadConfig.ts, env/config.prd.json, deploy.sh, README.md, REQUIREMENTS.md, docs/log/log.md
+
+2. 2026-04-27 GitHub main 초기 푸시 및 loadConfig dev/prd 분기
 
 Purpose: 원격 WhatDoThis/AT_TEST_PAGE에 초기 커밋을 푸시하고, env의 dev/prd JSON을 앱에서 로드하도록 맞춘다.
 
@@ -23,7 +38,7 @@ loadConfig: config.json 제거에 맞춰 config.dev.json 기본, EXPO_PUBLIC_CON
 
 Changed files: frontend/utils/loadConfig.ts, docs/log/log.md
 
-2. 2026-04-27 프로젝트 폴더 git init 및 GitHub origin 연결
+3. 2026-04-27 프로젝트 폴더 git init 및 GitHub origin 연결
 
 Purpose: 워크스페이스 루트에 독립 저장소를 두고 원격 WhatDoThis/AT_TEST_PAGE와 연결한다.
 
@@ -33,7 +48,7 @@ Target_Test_Web_Android에 git init 수행, remote origin을 https://github.com/
 
 Changed files: .git/ (신규), docs/log/log.md
 
-3. 2026-04-27 갤러리 한 줄·번호 선택·기본 숨김 UI 수정
+4. 2026-04-27 갤러리 한 줄·번호 선택·기본 숨김 UI 수정
 
 Purpose: 갤러리 줄바꿈 제거, 셀 전체 파란 배경 대신 번호만 선택 표시, 이미지 목록 기본 감춤.
 
@@ -45,7 +60,7 @@ app/index: galleryOpen 초기값 false
 
 Changed files: frontend/components/ImageGallery.tsx, frontend/app/index.tsx, docs/log/log.md
 
-4. 2026-04-27 frontend 폴더로 Expo 앱 이전 (모노레포)
+5. 2026-04-27 frontend 폴더로 Expo 앱 이전 (모노레포)
 
 Purpose: docs·env를 루트에 두고 프론트엔드(Expo) 구성요소를 frontend/로 이동해 이후 backend 추가가 가능한 구조로 만든다.
 
@@ -57,7 +72,7 @@ loadConfig가 ../../env/config.json을 참조하도록 수정, Metro watchFolder
 
 Changed files: frontend/** (이동·신규 metro.config.js·수정 tsconfig/loadConfig), package.json(루트), .gitignore, docs/log/log.md
 
-5. 2026-04-27 AT_TEST_PAGE Expo 풀 코드 구현 (PRD 정합)
+6. 2026-04-27 AT_TEST_PAGE Expo 풀 코드 구현 (PRD 정합)
 
 Purpose: PRD 및 제공 계획서에 맞춰 Expo Router 단일 페이지 앱(캐러셀·갤러리·토글·config)을 워크스페이스 루트에 구현한다.
 
@@ -69,7 +84,7 @@ Expo SDK 54 기반 package.json·babel·tsconfig·app.json 구성, app/_layout·
 
 Changed files: (이후 frontend/로 이전됨) package.json, package-lock.json, babel.config.js, tsconfig.json, app.json, expo-env.d.ts, .gitignore, env/config.json, utils/*, components/*, app/*, assets/images/*, docs/log/log.md
 
-6. 2026-04-27 docs/main AT_TEST_PAGE PRD v1.0 작성
+7. 2026-04-27 docs/main AT_TEST_PAGE PRD v1.0 작성
 
 Purpose: 개발 계획서 v1.0을 바탕으로 제품 요구사항 명세서(PRD)를 완성해 docs/main에 반영한다.
 

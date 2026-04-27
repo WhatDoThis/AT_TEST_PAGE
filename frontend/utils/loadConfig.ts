@@ -1,7 +1,7 @@
 /**
  * utils/loadConfig.ts (앱 설정 로드)
  * ================================================================================
- * 루트 env의 config.dev.json / config.prd.json 중 하나를 로드한다. EXPO_PUBLIC_CONFIG_PROFILE이 prd이면 prd, 아니면 dev.
+ * 루트 env의 config.dev.json / config.prd.json을 로드한다. Expo가 제공하는 __DEV__로 개발·프로덕션 번들을 구분한다.
  *
  * [Main Functions]
  * ===========
@@ -29,14 +29,11 @@ export interface ImageItem {
 export interface AppConfig {
   port: number;
   base_url: string;
+  api_url: string;
   image_dir: string;
   app_title: string;
   images: ImageItem[];
-  api_url?: string;
 }
 
-// 1. 빌드 타임에 프로필에 맞는 JSON을 고른다. 기본은 dev.
-const profile = process.env.EXPO_PUBLIC_CONFIG_PROFILE;
-const raw = profile === "prd" ? prdConfig : devConfig;
-
-export const config: AppConfig = raw as AppConfig;
+// 1. __DEV__: expo start 등 개발 시 true, export·release 빌드 시 false → 환경별 JSON 고정
+export const config: AppConfig = (__DEV__ ? devConfig : prdConfig) as AppConfig;
