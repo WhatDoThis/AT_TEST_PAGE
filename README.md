@@ -11,6 +11,33 @@ Expo(React Native + Expo Router) 기반 **웹 + Android** 단일 코드베이스
 | `env/config.prd.json` | `expo export` 등 프로덕션 번들용 설정 |
 | `docs/` | PRD·로그 등 문서 |
 | `deploy.sh` | 리눅스 서버에서 웹 정적 배포용 스크립트 |
+| `requirements.txt` | Python 패키지 목록 (백엔드·도구용) |
+| `venv/` | 로컬 Python 가상환경 디렉터리(생성 후 사용, Git 제외) |
+
+## Python 가상환경 (venv)
+
+백엔드·자동화 스크립트용 Python을 쓸 때 저장소 **루트**에 가상환경을 둔다. 폴더명은 `venv`를 권장한다.
+
+**Windows (PowerShell)**
+
+```powershell
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+pip install -U pip
+pip install -r requirements.txt
+```
+
+**macOS / Linux**
+
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install -U pip
+pip install -r requirements.txt
+```
+
+비활성화: `deactivate`  
+자세한 Python 버전은 [REQUIREMENTS.md](./REQUIREMENTS.md)를 참고한다.
 
 ## 요구 사항
 

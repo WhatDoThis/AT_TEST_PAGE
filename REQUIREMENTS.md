@@ -49,8 +49,26 @@ npm install -g serve pm2
 - Android Studio / JDK
 - Expo Go 또는 EAS Build 계정(별도 문서)
 
+## Python (백엔드·스크립트, 선택)
+
+| 항목 | 권장 |
+|------|------|
+| Python | **3.11** 또는 **3.12** (3.10+ LTS 계열) |
+| 가상환경 | 표준 라이브러리 `venv` (`python -m venv venv`) |
+| 의존성 파일 | 루트 `requirements.txt` |
+
+가상환경은 Git에 올리지 않는다(`.gitignore`에 `venv/`, `.venv/` 등 등록됨).  
+새 패키지 설치 후 배포·공유 시:
+
+```bash
+pip freeze > requirements.txt
+```
+
+(필요하면 `pip-tools` 등으로 고정 버전 관리)
+
 ## 관련 파일
 
 - `env/config.dev.json` — 로컬·개발
 - `env/config.prd.json` — export·릴리스 번들
 - `frontend/utils/loadConfig.ts` — `__DEV__` 기준 로드
+- `requirements.txt` — Python 패키지

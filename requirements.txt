@@ -1,0 +1,4 @@
+# Python 의존성 (백엔드·스크립트용). 가상환경 활성화 후:
+#   pip install -r requirements.txt
+#
+# 예정 백엔드 추가 시 여기에 패키지를 명시한다.

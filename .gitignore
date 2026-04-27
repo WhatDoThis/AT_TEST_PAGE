@@ -31,3 +31,16 @@ frontend/ios
 frontend/android
 
 expo_scaffold/
+
+# Python
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+*.egg-info/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
