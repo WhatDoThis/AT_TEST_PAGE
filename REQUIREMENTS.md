@@ -58,6 +58,8 @@ npm install -g serve pm2
 | 의존성 파일 | 루트 `requirements.txt` |
 
 가상환경은 Git에 올리지 않는다(`.gitignore`에 `venv/`, `.venv/` 등 등록됨).  
+Windows 가상환경에서는 `pip` 직접 호출 대신 **`python -m pip`** 사용을 권장한다(특히 pip 자체 업그레이드 시).
+
 새 패키지 설치 후 배포·공유 시:
 
 ```bash

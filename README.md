@@ -23,9 +23,11 @@ Expo(React Native + Expo Router) 기반 **웹 + Android** 단일 코드베이스
 ```powershell
 python -m venv venv
 .\venv\Scripts\Activate.ps1
-pip install -U pip
-pip install -r requirements.txt
+python -m pip install -U pip
+python -m pip install -r requirements.txt
 ```
+
+(`pip install -U pip`만 쓰면 Windows venv에서 자기 업그레이드 오류가 날 수 있어 `python -m pip`을 권장한다.)
 
 **macOS / Linux**
 
