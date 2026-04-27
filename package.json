@@ -1,0 +1,12 @@
+{
+  "name": "target-test-web-android",
+  "private": true,
+  "description": "Monorepo root: frontend (Expo), env config, docs. Add backend/ when needed.",
+  "scripts": {
+    "start": "npm --prefix frontend start",
+    "web": "npm --prefix frontend run web",
+    "android": "npm --prefix frontend run android",
+    "ios": "npm --prefix frontend run ios",
+    "export:web": "npm --prefix frontend run export:web"
+  }
+}

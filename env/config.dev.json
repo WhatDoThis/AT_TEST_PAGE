@@ -1,0 +1,12 @@
+{
+  "port": 3010,
+  "base_url": "http://localhost:3010",
+  "api_url": "",
+  "image_dir": "./assets/images",
+  "app_title": "AT_TEST_PAGE",
+  "images": [
+    { "id": 1, "filename": "default.png", "label": "메인 이미지" },
+    { "id": 2, "filename": "img_02.png", "label": "이미지 2" },
+    { "id": 3, "filename": "img_03.png", "label": "이미지 3" }
+  ]
+}
