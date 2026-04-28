@@ -18,6 +18,7 @@
  * - @/components/ImageCarousel
  * - @/components/ToggleButton
  * - @/components/ImageGallery
+ * - @/components/CouponTable (웹 전용 쿠폰 테이블)
  */
 
 import React, { useState } from "react";
@@ -25,6 +26,7 @@ import { ScrollView, StyleSheet } from "react-native";
 import ImageCarousel from "@/components/ImageCarousel";
 import ToggleButton from "@/components/ToggleButton";
 import ImageGallery from "@/components/ImageGallery";
+import CouponTable from "@/components/CouponTable";
 
 // 1. 캐러셀·갤러리가 같은 selectedIndex를 참조한다. 갤러리 본문은 기본 숨김.
 export default function HomeScreen() {
@@ -51,6 +53,8 @@ export default function HomeScreen() {
         selectedIndex={carouselIndex}
         onSelectIndex={setCarouselIndex}
       />
+
+      <CouponTable />
     </ScrollView>
   );
 }

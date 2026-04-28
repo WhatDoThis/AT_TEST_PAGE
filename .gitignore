@@ -44,3 +44,16 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+
+# 민감 정보 (DB 비밀번호 포함)
+env/config.prd.json
+
+# Python (백엔드 가상환경·바이트코드)
+backend/venv/
+backend/__pycache__/
+backend/app/__pycache__/
+backend/app/routers/__pycache__/
+*.pyc
+
+# Frontend 복사본 (빌드·배포 시 자동 생성)
+frontend/env/

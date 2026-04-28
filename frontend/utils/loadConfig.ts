@@ -9,7 +9,7 @@
  *
  * [Endpoints/Classes/Functions]
  * =======================
- * - ImageItem, AppConfig: 설정 스키마 타입
+ * - ImageItem, AppConfig: 설정 스키마 타입(api_url·선택 api_port)
  * - config: AppConfig (JSON 내용)
  *
  * [Dependencies]
@@ -29,6 +29,7 @@ export interface ImageItem {
 export interface AppConfig {
   port: number;
   base_url: string;
+  api_port?: number;
   api_url: string;
   image_dir: string;
   app_title: string;
