@@ -8,7 +8,7 @@ config의 DB 정보로 asyncpg 드라이버 엔진을 만들고 test_coupons_dat
 - get_engine: 비동기 엔진 생성·캐시
 - get_session_factory: AsyncSession 팩토리
 - get_db: FastAPI 의존성용 세션 제너레이터
-- select_coupon_rows: 모듈 레벨 base SELECT 참조 반환
+- select_coupon_rows: 모듈 레벨 base SELECT(정렬 created DESC, id DESC) 참조 반환
 
 [Endpoints/Classes/Functions]
 =======================
@@ -114,11 +114,12 @@ async def dispose_engine() -> None:
 # 3. [쿼리] immutable base — offset/limit은 호출부에서 매번 새 Select로 이어 붙인다.
 _BASE_COUPON_SELECT = (
     select(
+        TestCouponsData.id,
         TestCouponsData.created,
         TestCouponsData.campaign_label,
         TestCouponsData.workflow_label,
         TestCouponsData.coupon_id,
-    ).order_by(TestCouponsData.created.desc())
+    ).order_by(TestCouponsData.created.desc(), TestCouponsData.id.desc())
 )
 
 

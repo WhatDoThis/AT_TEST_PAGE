@@ -6,8 +6,10 @@
  * [Main Functions]
  * ===========
  * - 웹(Platform.OS === "web")에서만 UI 렌더
- * - 페이징 조회 및 ActivityIndicator·에러 재시도
- * - 현재 페이지 범위를 서버 CSV 엔드포인트로 다운로드
+ * - 이전/다음은 keyset(cursor), 맨앞/맨뒤는 점프 조회
+ * - 페이지 직접 입력 점프는 Enter/blur 시 OFFSET(page) 요청
+ * - ActivityIndicator·에러 재시도
+ * - 현재 조회 범위를 서버 CSV 엔드포인트로 다운로드
  *
  * [Endpoints/Classes/Functions]
  * =======================
@@ -26,6 +28,7 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  TextInput,
   useWindowDimensions,
   View,
 } from "react-native";
@@ -41,11 +44,18 @@ type CouponRow = {
   coupon_id: string;
 };
 
+type CursorPoint = {
+  created: string;
+  id: number;
+};
+
 type Pagination = {
   page: number;
   page_size: number;
   total_count: number;
   total_pages: number;
+  next_cursor?: CursorPoint | null;
+  prev_cursor?: CursorPoint | null;
 };
 
 type ApiResponse = {
@@ -61,12 +71,18 @@ export default function CouponTable() {
   const [page, setPage] = useState(1);
   const [rows, setRows] = useState<CouponRow[]>([]);
   const [pagination, setPagination] = useState<Pagination | null>(null);
+  const [nextCursor, setNextCursor] = useState<CursorPoint | null>(null);
+  const [prevCursor, setPrevCursor] = useState<CursorPoint | null>(null);
+  const [downloadQuery, setDownloadQuery] = useState<string>(
+    `page=1&page_size=${PAGE_SIZE}`
+  );
+  const [pageInput, setPageInput] = useState("1");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const baseUrl = (config.api_url || "").replace(/\/$/, "");
 
-  const fetchPage = useCallback(async (p: number) => {
+  const fetchByQuery = useCallback(async (query: string) => {
     if (!baseUrl) {
       setError("api_url이 비어 있습니다. env/config의 api_url을 설정하세요.");
       return;
@@ -74,7 +90,7 @@ export default function CouponTable() {
     setLoading(true);
     setError(null);
     try {
-      const url = `${baseUrl}/api/coupons?page=${p}&page_size=${PAGE_SIZE}`;
+      const url = `${baseUrl}/api/coupons?${query}`;
       const res = await fetch(url, { method: "GET" });
       if (!res.ok) {
         throw new Error(`HTTP ${res.status}`);
@@ -82,26 +98,56 @@ export default function CouponTable() {
       const body = (await res.json()) as ApiResponse;
       setRows(body.data ?? []);
       setPagination(body.pagination ?? null);
-      const serverPage = body.pagination?.page;
-      if (typeof serverPage === "number" && serverPage !== p) {
-        setPage(serverPage);
+      setNextCursor(body.pagination?.next_cursor ?? null);
+      setPrevCursor(body.pagination?.prev_cursor ?? null);
+      setDownloadQuery(query);
+      if (typeof body.pagination?.page === "number") {
+        setPage(body.pagination.page);
+        setPageInput(String(body.pagination.page));
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setError(msg);
       setRows([]);
       setPagination(null);
+      setNextCursor(null);
+      setPrevCursor(null);
     } finally {
       setLoading(false);
     }
   }, [baseUrl]);
 
+  const fetchPage = useCallback(async (p: number) => {
+    const query = `page=${p}&page_size=${PAGE_SIZE}`;
+    await fetchByQuery(query);
+  }, [fetchByQuery]);
+
+  const fetchByCursor = useCallback(async (direction: "next" | "prev") => {
+    const cursor = direction === "next" ? nextCursor : prevCursor;
+    if (!cursor) {
+      return;
+    }
+    const targetPage = direction === "next" ? page + 1 : Math.max(1, page - 1);
+    const query =
+      `page=${targetPage}&page_size=${PAGE_SIZE}` +
+      `&direction=${direction}` +
+      `&cursor_created=${encodeURIComponent(cursor.created)}` +
+      `&cursor_id=${cursor.id}`;
+    await fetchByQuery(query);
+  }, [fetchByQuery, nextCursor, page, prevCursor]);
+
+  const fetchLast = useCallback(async () => {
+    const totalPages = pagination?.total_pages ?? 1;
+    const query = `page=${totalPages}&page_size=${PAGE_SIZE}&direction=last`;
+    await fetchByQuery(query);
+  }, [fetchByQuery, pagination?.total_pages]);
+
   useEffect(() => {
     if (Platform.OS !== "web") {
       return;
     }
-    void fetchPage(page);
-  }, [page, fetchPage]);
+    void fetchPage(1);
+  }, [fetchPage]);
 
   if (Platform.OS !== "web") {
     return null;
@@ -109,18 +155,36 @@ export default function CouponTable() {
 
   const totalPages = pagination?.total_pages ?? 0;
   const canFirst = page > 1 && !loading;
-  const canPrev = page > 1 && !loading;
-  const canNext = totalPages > 0 && page < totalPages && !loading;
+  const canPrev = prevCursor !== null && !loading;
+  const canNext = nextCursor !== null && !loading;
   const canLast = totalPages > 0 && page < totalPages && !loading;
 
   const onDownloadCsv = () => {
     if (rows.length === 0) {
       return;
     }
-    const url = `${baseUrl}/api/coupons/csv?page=${page}&page_size=${PAGE_SIZE}`;
+    const url = `${baseUrl}/api/coupons/csv?${downloadQuery}`;
     if (typeof window !== "undefined") {
       window.open(url, "_blank");
     }
+  };
+
+  const commitPageInput = () => {
+    const trimmed = pageInput.trim();
+    const parsed = Number.parseInt(trimmed, 10);
+    if (!Number.isInteger(parsed)) {
+      setPageInput(String(page));
+      return;
+    }
+    if (parsed < 1 || totalPages < 1 || parsed > totalPages) {
+      setPageInput(String(page));
+      return;
+    }
+    if (parsed === page) {
+      setPageInput(String(page));
+      return;
+    }
+    void fetchPage(parsed);
   };
 
   return (
@@ -154,7 +218,7 @@ export default function CouponTable() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="다시 시도"
-            onPress={() => void fetchPage(page)}
+            onPress={() => void fetchByQuery(downloadQuery)}
             style={({ pressed }) => [
               styles.retryBtn,
               pressed && styles.retryBtnPressed,
@@ -196,7 +260,7 @@ export default function CouponTable() {
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="맨 앞 페이지"
-              onPress={() => setPage(1)}
+              onPress={() => void fetchPage(1)}
               disabled={!canFirst}
               style={({ pressed }) => [
                 styles.pageBtn,
@@ -209,7 +273,7 @@ export default function CouponTable() {
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="이전 페이지"
-              onPress={() => setPage((p) => Math.max(1, p - 1))}
+              onPress={() => void fetchByCursor("prev")}
               disabled={!canPrev}
               style={({ pressed }) => [
                 styles.pageBtn,
@@ -219,13 +283,27 @@ export default function CouponTable() {
             >
               <Text style={styles.pageBtnText}>이전</Text>
             </Pressable>
-            <Text style={styles.pageInfo}>
-              {totalPages > 0 ? `${page} / ${totalPages}` : `${page} / —`}
-            </Text>
+            <View style={styles.pageInfoRow}>
+              <TextInput
+                value={pageInput}
+                onChangeText={setPageInput}
+                onSubmitEditing={commitPageInput}
+                onBlur={commitPageInput}
+                keyboardType="number-pad"
+                style={styles.pageInput}
+                textAlign="center"
+                maxLength={8}
+                editable={!loading}
+                accessibilityLabel="페이지 직접 입력"
+              />
+              <Text style={styles.pageInfo}>
+                / {totalPages > 0 ? totalPages : "—"}
+              </Text>
+            </View>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="다음 페이지"
-              onPress={() => setPage((p) => p + 1)}
+              onPress={() => void fetchByCursor("next")}
               disabled={!canNext}
               style={({ pressed }) => [
                 styles.pageBtn,
@@ -238,7 +316,7 @@ export default function CouponTable() {
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="맨 뒤 페이지"
-              onPress={() => setPage(totalPages)}
+              onPress={() => void fetchLast()}
               disabled={!canLast}
               style={({ pressed }) => [
                 styles.pageBtn,
@@ -380,5 +458,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     color: "#333",
+  },
+  pageInfoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  pageInput: {
+    width: 72,
+    height: 34,
+    borderWidth: 1,
+    borderColor: "#cfd8e6",
+    borderRadius: 8,
+    backgroundColor: "#fff",
+    color: "#333",
+    fontSize: 14,
+    fontWeight: "600",
+    paddingHorizontal: 8,
+    paddingVertical: 0,
   },
 });

@@ -1,7 +1,7 @@
 """
 backend.app.config (JSON 기반 설정 로드)
 ================================================================================
-APP_ENV(dev|prd)에 따라 프로젝트 루트 env/config.{APP_ENV}.json을 읽고 DB·API 메타를 제공한다.
+APP_ENV(dev|prd)에 따라 backend/env/config.{APP_ENV}.json을 읽고 DB·API 메타를 제공한다.
 
 [Main Functions]
 ===========
@@ -26,13 +26,11 @@ from functools import lru_cache
 from typing import Any, Mapping
 
 
-# 1. [경로] backend/app 기준으로 프로젝트 루트 env 디렉터리를 가리킨다.
+# 1. [경로] backend/app 기준으로 backend/env 디렉터리를 가리킨다.
 def _config_path() -> str:
     env = os.getenv("APP_ENV", "dev")
     base = os.path.dirname(__file__)
-    return os.path.normpath(
-        os.path.join(base, "..", "..", "env", f"config.{env}.json")
-    )
+    return os.path.normpath(os.path.join(base, "..", "env", f"config.{env}.json"))
 
 
 @dataclass(frozen=True)

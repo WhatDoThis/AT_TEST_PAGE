@@ -1,0 +1,11 @@
+{
+  "api_port": 8010,
+  "cors_origins": ["http://localhost:3010"],
+  "db": {
+    "host": "127.0.0.1",
+    "port": 5432,
+    "name": "ibank_test_data",
+    "user": "ibankbi",
+    "password": ""
+  }
+}

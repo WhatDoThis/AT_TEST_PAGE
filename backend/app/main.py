@@ -25,6 +25,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.config import get_settings
 from app.database import dispose_engine
 from app.routers import coupons
 
@@ -37,13 +38,12 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="AT_TEST_PAGE API", lifespan=lifespan)
+settings = get_settings()
+cors_origins = settings.raw.get("cors_origins", [])
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://ajo.sdev-ibank.co.kr",
-        "http://localhost:3010",
-    ],
+    allow_origins=cors_origins,
     allow_methods=["GET"],
     allow_headers=["*"],
 )

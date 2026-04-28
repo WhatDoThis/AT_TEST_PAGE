@@ -1,7 +1,7 @@
 /**
  * utils/loadConfig.ts (앱 설정 로드)
  * ================================================================================
- * 루트 env의 config.dev.json / config.prd.json을 로드한다. Expo가 제공하는 __DEV__로 개발·프로덕션 번들을 구분한다.
+ * frontend/env의 config.dev.json / config.prd.json을 로드한다. Expo가 제공하는 __DEV__로 개발·프로덕션 번들을 구분한다.
  *
  * [Main Functions]
  * ===========
@@ -29,11 +29,11 @@ export interface ImageItem {
 export interface AppConfig {
   port: number;
   base_url: string;
-  api_port?: number;
   api_url: string;
-  image_dir: string;
   app_title: string;
   images: ImageItem[];
+  api_port?: number;
+  image_dir?: string;
 }
 
 // 1. __DEV__: expo start 등 개발 시 true, export·release 빌드 시 false → 환경별 JSON 고정

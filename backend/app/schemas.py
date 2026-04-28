@@ -19,7 +19,7 @@ backend.app.schemas (Pydantic 응답 모델)
 from __future__ import annotations
 
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -34,12 +34,14 @@ class CouponRowOut(BaseModel):
     coupon_id: str = ""
 
 
-# 2. [페이지네이션] total_count는 통계 기반 추정치일 수 있다.
+# 2. [페이지네이션] total_count는 통계 기반 추정치일 수 있고, next/prev 커서를 포함한다.
 class PaginationOut(BaseModel):
     page: int = Field(ge=1)
     page_size: int = Field(ge=1)
     total_count: int = Field(ge=0)
     total_pages: int = Field(ge=0)
+    next_cursor: Optional[Dict[str, Any]] = None
+    prev_cursor: Optional[Dict[str, Any]] = None
 
 
 class CouponsListResponse(BaseModel):

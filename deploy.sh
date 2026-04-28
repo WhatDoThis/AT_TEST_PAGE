@@ -22,30 +22,27 @@ cd "$APP_DIR"
 # 1. 소스 갱신 (필요 시 주석 해제)
 # git pull origin main
 
-# 2. env → frontend/env 복사 (빌드 시 __DEV__ 분기용 JSON)
-cp -r "$APP_DIR/env" "$FRONTEND_DIR/env"
-
-# 3. 의존성 (루트 스크립트 + frontend)
+# 2. 의존성 (루트 스크립트 + frontend)
 npm install
 npm install --prefix frontend
 
-# 4. 웹 정적 빌드 (프로덕션 번들 → __DEV__ false → config.prd.json)
+# 3. 웹 정적 빌드 (프로덕션 번들 → __DEV__ false → config.prd.json)
 cd "$FRONTEND_DIR"
 npx expo export --platform web
 
 cd "$APP_DIR"
 
-# 5. 프론트 pm2 재시작 (정적 서빙, 3010)
+# 4. 프론트 pm2 재시작 (정적 서빙, 3010)
 pm2 delete "$APP_NAME" 2>/dev/null || true
 pm2 start npx --name "$APP_NAME" -- serve "$FRONTEND_DIR/dist" -l "$PORT" -s
 
-# 6. 백엔드 venv 및 의존성
+# 5. 백엔드 venv 및 의존성
 if [ ! -d "$BACKEND_DIR/venv" ]; then
   python3 -m venv "$BACKEND_DIR/venv"
 fi
 "$BACKEND_DIR/venv/bin/pip" install -r "$BACKEND_DIR/requirements.txt"
 
-# 7. 백엔드 pm2 재시작 (APP_ENV=prd, 8010)
+# 6. 백엔드 pm2 재시작 (APP_ENV=prd, 8010)
 pm2 delete "$API_NAME" 2>/dev/null || true
 pm2 start bash --name "$API_NAME" -- -lc "cd '$BACKEND_DIR' && exec env APP_ENV=prd ./venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8010"
 

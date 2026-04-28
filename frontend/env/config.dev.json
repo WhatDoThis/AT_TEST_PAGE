@@ -1,20 +1,11 @@
 {
   "port": 3010,
   "base_url": "http://localhost:3010",
-  "api_port": 8010,
   "api_url": "http://localhost:8010",
-  "image_dir": "./assets/images",
   "app_title": "AT_TEST_PAGE",
   "images": [
     { "id": 1, "filename": "default.png", "label": "LGU" },
     { "id": 2, "filename": "img_02.png", "label": "KT" },
     { "id": 3, "filename": "img_03.png", "label": "SKT" }
-  ],
-  "db": {
-    "host": "127.0.0.1",
-    "port": 5432,
-    "name": "ibank_test_data",
-    "user": "ibankbi",
-    "password": ""
-  }
+  ]
 }
