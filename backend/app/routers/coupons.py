@@ -21,12 +21,15 @@ test_coupons_data에서 4컬럼만 조회하고 OFFSET/LIMIT 페이징·추정 t
 from __future__ import annotations
 
 import asyncio
+import csv
+import io
 import logging
 import math
 import time
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import Response
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -132,4 +135,56 @@ async def list_coupons(
         )
     except (DBAPIError, SQLAlchemyError, OSError) as exc:
         logger.exception("list_coupons DB error: %s", exc)
+        raise HTTPException(status_code=503, detail="database_unavailable") from exc
+
+
+# 4. [CSV] CSV 예약문자(쉼표, 따옴표, 줄바꿈)가 있는 값을 안전하게 직렬화한다.
+def _to_csv_text(rows: list[dict[str, object]]) -> str:
+    buffer = io.StringIO()
+    writer = csv.writer(buffer, lineterminator="\n", quoting=csv.QUOTE_MINIMAL)
+    writer.writerow(["created", "campaign_label", "workflow_label", "coupon_id"])
+    for row in rows:
+        writer.writerow(
+            [
+                "" if row["created"] is None else str(row["created"]),
+                "" if row["campaign_label"] is None else str(row["campaign_label"]),
+                "" if row["workflow_label"] is None else str(row["workflow_label"]),
+                "" if row["coupon_id"] is None else str(row["coupon_id"]),
+            ]
+        )
+    return "\ufeff" + buffer.getvalue()
+
+
+# 5. [다운로드] 현재 페이지 범위만 서버에서 CSV로 내려준다.
+@router.get("/coupons/csv")
+async def download_coupons_csv(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=100),
+    session: AsyncSession = Depends(get_db),
+) -> Response:
+    try:
+        offset = (page - 1) * page_size
+        stmt = select_coupon_rows().offset(offset).limit(page_size)
+        result = await session.execute(stmt)
+        rows = []
+        for r in result.all():
+            m = r._mapping
+            rows.append(
+                {
+                    "created": m["created"],
+                    "campaign_label": m["campaign_label"],
+                    "workflow_label": m["workflow_label"],
+                    "coupon_id": m["coupon_id"],
+                }
+            )
+        csv_text = _to_csv_text(rows)
+        return Response(
+            content=csv_text,
+            media_type="text/csv; charset=utf-8",
+            headers={
+                "Content-Disposition": f'attachment; filename="coupons_page_{page}.csv"'
+            },
+        )
+    except (DBAPIError, SQLAlchemyError, OSError) as exc:
+        logger.exception("download_coupons_csv DB error: %s", exc)
         raise HTTPException(status_code=503, detail="database_unavailable") from exc

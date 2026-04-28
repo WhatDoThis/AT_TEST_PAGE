@@ -2,6 +2,7 @@
 
 ## Log Index
 
+13. 2026-04-28 coupons CSV API 추가·CouponTable 서버 다운로드 전환·맨앞/맨뒤 버튼
 1. 2026-04-28 백엔드·CouponTable 점검 반영(reltuples 0 폴백·ORM NOT NULL·CSV BOM)
 2. 2026-04-28 FastAPI 쿠폰 API·웹 CouponTable·deploy·gitignore
 3. 2026-04-27 env 이미지 라벨 LGU·KT·SKT
@@ -16,6 +17,20 @@
 12. 2026-04-27 docs/main AT_TEST_PAGE PRD v1.0 작성
 
 ## Log Body
+
+13. 2026-04-28 coupons CSV API 추가·CouponTable 서버 다운로드 전환·맨앞/맨뒤 버튼
+
+Purpose: CSV를 클라이언트 생성이 아닌 백엔드 다운로드 엔드포인트로 통일하고, 페이지 이동 UX를 보강한다.
+
+Changes:
+
+backend: /api/coupons/csv 추가(UTF-8 BOM + 헤더 + 이스케이프 + Content-Disposition 파일명)
+
+frontend: CouponTable에서 buildCsv/downloadCsvWeb 제거, CSV 버튼을 서버 URL window.open 호출로 전환
+
+frontend: 페이징에 맨앞/맨뒤 버튼 추가
+
+Changed files: backend/app/routers/coupons.py, frontend/components/CouponTable.tsx, docs/log/log.md
 
 1. 2026-04-28 백엔드·CouponTable 점검 반영(reltuples 0 폴백·ORM NOT NULL·CSV BOM)
 

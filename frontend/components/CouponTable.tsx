@@ -7,7 +7,7 @@
  * ===========
  * - 웹(Platform.OS === "web")에서만 UI 렌더
  * - 페이징 조회 및 ActivityIndicator·에러 재시도
- * - 현재 페이지 행만 CSV 다운로드(Blob 시점에 UTF-8 BOM 부착)
+ * - 현재 페이지 범위를 서버 CSV 엔드포인트로 다운로드
  *
  * [Endpoints/Classes/Functions]
  * =======================
@@ -53,44 +53,7 @@ type ApiResponse = {
   pagination: Pagination;
 };
 
-// 1. [CSV] 현재 화면에 로드된 행만 이스케이프한다(BOM은 downloadCsvWeb에서 Blob에 붙임).
-function buildCsv(rows: CouponRow[]): string {
-  const header = ["created", "campaign_label", "workflow_label", "coupon_id"];
-  const escape = (v: string) => {
-    if (/[",\n\r]/.test(v)) {
-      return `"${v.replace(/"/g, '""')}"`;
-    }
-    return v;
-  };
-  const lines = [header.join(",")];
-  for (const row of rows) {
-    const vals = [
-      row.created ?? "",
-      row.campaign_label ?? "",
-      row.workflow_label ?? "",
-      row.coupon_id ?? "",
-    ].map((s) => escape(String(s)));
-    lines.push(vals.join(","));
-  }
-  return lines.join("\n");
-}
-
-// 2. [웹 전용] UTF-8 BOM + Blob으로 엑셀 호환 다운로드를 트리거한다.
-function downloadCsvWeb(filename: string, csvContent: string) {
-  if (typeof document === "undefined") {
-    return;
-  }
-  const BOM = "\uFEFF";
-  const blob = new Blob([BOM + csvContent], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-// 3. [데이터] api_url + 쿼리스트링으로 목록을 가져온다.
+// 1. [데이터] api_url + 쿼리스트링으로 목록을 가져온다.
 export default function CouponTable() {
   const { width } = useWindowDimensions();
   const cardOuterWidth = Math.min(width - 40, 540);
@@ -145,15 +108,19 @@ export default function CouponTable() {
   }
 
   const totalPages = pagination?.total_pages ?? 0;
+  const canFirst = page > 1 && !loading;
   const canPrev = page > 1 && !loading;
   const canNext = totalPages > 0 && page < totalPages && !loading;
+  const canLast = totalPages > 0 && page < totalPages && !loading;
 
   const onDownloadCsv = () => {
     if (rows.length === 0) {
       return;
     }
-    const name = `coupons_page_${page}.csv`;
-    downloadCsvWeb(name, buildCsv(rows));
+    const url = `${baseUrl}/api/coupons/csv?page=${page}&page_size=${PAGE_SIZE}`;
+    if (typeof window !== "undefined") {
+      window.open(url, "_blank");
+    }
   };
 
   return (
@@ -228,6 +195,19 @@ export default function CouponTable() {
           <View style={styles.pager}>
             <Pressable
               accessibilityRole="button"
+              accessibilityLabel="맨 앞 페이지"
+              onPress={() => setPage(1)}
+              disabled={!canFirst}
+              style={({ pressed }) => [
+                styles.pageBtn,
+                !canFirst && styles.pageBtnDisabled,
+                pressed && canFirst && styles.pageBtnPressed,
+              ]}
+            >
+              <Text style={styles.pageBtnText}>맨앞</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
               accessibilityLabel="이전 페이지"
               onPress={() => setPage((p) => Math.max(1, p - 1))}
               disabled={!canPrev}
@@ -254,6 +234,19 @@ export default function CouponTable() {
               ]}
             >
               <Text style={styles.pageBtnText}>다음</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="맨 뒤 페이지"
+              onPress={() => setPage(totalPages)}
+              disabled={!canLast}
+              style={({ pressed }) => [
+                styles.pageBtn,
+                !canLast && styles.pageBtnDisabled,
+                pressed && canLast && styles.pageBtnPressed,
+              ]}
+            >
+              <Text style={styles.pageBtnText}>맨뒤</Text>
             </Pressable>
           </View>
         </>
