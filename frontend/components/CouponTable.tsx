@@ -10,6 +10,7 @@
  * - 페이지 직접 입력 점프는 Enter/blur 시 OFFSET(page) 요청
  * - ActivityIndicator·에러 재시도
  * - 현재 조회 범위를 서버 CSV 엔드포인트로 다운로드
+ * - 카드 너비 기준 페이징 버튼 밀도·줄바꿈(반응형)
  *
  * [Endpoints/Classes/Functions]
  * =======================
@@ -21,7 +22,7 @@
  * - @/utils/loadConfig
  */
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Platform,
@@ -67,6 +68,12 @@ type ApiResponse = {
 export default function CouponTable() {
   const { width } = useWindowDimensions();
   const cardOuterWidth = Math.min(width - 40, 540);
+
+  const pagerDensity = useMemo(() => {
+    if (cardOuterWidth < 340) return "tiny";
+    if (cardOuterWidth < 460) return "compact";
+    return "comfortable";
+  }, [cardOuterWidth]);
 
   const [page, setPage] = useState(1);
   const [rows, setRows] = useState<CouponRow[]>([]);
@@ -256,7 +263,14 @@ export default function CouponTable() {
               </Text>
             </View>
           ))}
-          <View style={styles.pager}>
+          <View
+            style={[
+              styles.pager,
+              pagerDensity === "comfortable"
+                ? styles.pagerComfortable
+                : styles.pagerDense,
+            ]}
+          >
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="맨 앞 페이지"
@@ -264,11 +278,21 @@ export default function CouponTable() {
               disabled={!canFirst}
               style={({ pressed }) => [
                 styles.pageBtn,
+                pagerDensity === "compact" && styles.pageBtnCompact,
+                pagerDensity === "tiny" && styles.pageBtnTiny,
                 !canFirst && styles.pageBtnDisabled,
                 pressed && canFirst && styles.pageBtnPressed,
               ]}
             >
-              <Text style={styles.pageBtnText}>맨앞</Text>
+              <Text
+                style={[
+                  styles.pageBtnText,
+                  pagerDensity !== "comfortable" && styles.pageBtnTextDense,
+                  pagerDensity === "tiny" && styles.pageBtnTextTiny,
+                ]}
+              >
+                맨앞
+              </Text>
             </Pressable>
             <Pressable
               accessibilityRole="button"
@@ -277,26 +301,50 @@ export default function CouponTable() {
               disabled={!canPrev}
               style={({ pressed }) => [
                 styles.pageBtn,
+                pagerDensity === "compact" && styles.pageBtnCompact,
+                pagerDensity === "tiny" && styles.pageBtnTiny,
                 !canPrev && styles.pageBtnDisabled,
                 pressed && canPrev && styles.pageBtnPressed,
               ]}
             >
-              <Text style={styles.pageBtnText}>이전</Text>
+              <Text
+                style={[
+                  styles.pageBtnText,
+                  pagerDensity !== "comfortable" && styles.pageBtnTextDense,
+                  pagerDensity === "tiny" && styles.pageBtnTextTiny,
+                ]}
+              >
+                이전
+              </Text>
             </Pressable>
-            <View style={styles.pageInfoRow}>
+            <View
+              style={[
+                styles.pageInfoRow,
+                pagerDensity !== "comfortable" && styles.pageInfoRowBreak,
+              ]}
+            >
               <TextInput
                 value={pageInput}
                 onChangeText={setPageInput}
                 onSubmitEditing={commitPageInput}
                 onBlur={commitPageInput}
                 keyboardType="number-pad"
-                style={styles.pageInput}
+                style={[
+                  styles.pageInput,
+                  pagerDensity === "compact" && styles.pageInputCompact,
+                  pagerDensity === "tiny" && styles.pageInputTiny,
+                ]}
                 textAlign="center"
                 maxLength={8}
                 editable={!loading}
                 accessibilityLabel="페이지 직접 입력"
               />
-              <Text style={styles.pageInfo}>
+              <Text
+                style={[
+                  styles.pageInfo,
+                  pagerDensity !== "comfortable" && styles.pageInfoDense,
+                ]}
+              >
                 / {totalPages > 0 ? totalPages : "—"}
               </Text>
             </View>
@@ -307,11 +355,21 @@ export default function CouponTable() {
               disabled={!canNext}
               style={({ pressed }) => [
                 styles.pageBtn,
+                pagerDensity === "compact" && styles.pageBtnCompact,
+                pagerDensity === "tiny" && styles.pageBtnTiny,
                 !canNext && styles.pageBtnDisabled,
                 pressed && canNext && styles.pageBtnPressed,
               ]}
             >
-              <Text style={styles.pageBtnText}>다음</Text>
+              <Text
+                style={[
+                  styles.pageBtnText,
+                  pagerDensity !== "comfortable" && styles.pageBtnTextDense,
+                  pagerDensity === "tiny" && styles.pageBtnTextTiny,
+                ]}
+              >
+                다음
+              </Text>
             </Pressable>
             <Pressable
               accessibilityRole="button"
@@ -320,11 +378,21 @@ export default function CouponTable() {
               disabled={!canLast}
               style={({ pressed }) => [
                 styles.pageBtn,
+                pagerDensity === "compact" && styles.pageBtnCompact,
+                pagerDensity === "tiny" && styles.pageBtnTiny,
                 !canLast && styles.pageBtnDisabled,
                 pressed && canLast && styles.pageBtnPressed,
               ]}
             >
-              <Text style={styles.pageBtnText}>맨뒤</Text>
+              <Text
+                style={[
+                  styles.pageBtnText,
+                  pagerDensity !== "comfortable" && styles.pageBtnTextDense,
+                  pagerDensity === "tiny" && styles.pageBtnTextTiny,
+                ]}
+              >
+                맨뒤
+              </Text>
             </Pressable>
           </View>
         </>
@@ -434,14 +502,35 @@ const styles = StyleSheet.create({
   pager: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
     marginTop: 12,
   },
+  pagerComfortable: {
+    justifyContent: "space-between",
+    flexWrap: "nowrap",
+    gap: 0,
+  },
+  pagerDense: {
+    justifyContent: "center",
+    flexWrap: "wrap",
+    rowGap: 8,
+    columnGap: 6,
+  },
   pageBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderRadius: 8,
     backgroundColor: "#4A90D9",
+  },
+  pageBtnCompact: {
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 6,
+  },
+  pageBtnTiny: {
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    borderRadius: 6,
+    minWidth: 44,
   },
   pageBtnDisabled: {
     backgroundColor: "#cfd8e6",
@@ -452,29 +541,54 @@ const styles = StyleSheet.create({
   pageBtnText: {
     color: "#fff",
     fontWeight: "600",
-    fontSize: 14,
+    fontSize: 13,
+  },
+  pageBtnTextDense: {
+    fontSize: 11,
+  },
+  pageBtnTextTiny: {
+    fontSize: 10,
   },
   pageInfo: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "600",
     color: "#333",
+  },
+  pageInfoDense: {
+    fontSize: 11,
   },
   pageInfoRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
   },
+  pageInfoRowBreak: {
+    width: "100%",
+    justifyContent: "center",
+    marginVertical: 2,
+  },
   pageInput: {
-    width: 72,
-    height: 34,
+    width: 68,
+    height: 32,
     borderWidth: 1,
     borderColor: "#cfd8e6",
     borderRadius: 8,
     backgroundColor: "#fff",
     color: "#333",
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "600",
-    paddingHorizontal: 8,
+    paddingHorizontal: 6,
     paddingVertical: 0,
+  },
+  pageInputCompact: {
+    width: 60,
+    height: 30,
+    fontSize: 12,
+    borderRadius: 6,
+  },
+  pageInputTiny: {
+    width: 52,
+    height: 28,
+    fontSize: 11,
   },
 });

@@ -2,6 +2,7 @@
 
 ## Log Index
 
+19. 2026-04-28 CouponTable 페이징 반응형(밀도·줄바꿈)
 18. 2026-04-28 docs/main 아키 변경 반영(env 분리·CORS 설정화)
 17. 2026-04-28 env 프론트·백엔드 분리 및 설정 경로 전환
 16. 2026-04-28 docs/main 01~03 고객용 문서 정비
@@ -22,6 +23,16 @@
 12. 2026-04-27 docs/main AT_TEST_PAGE PRD v1.0 작성
 
 ## Log Body
+
+19. 2026-04-28 CouponTable 페이징 반응형(밀도·줄바꿈)
+
+Purpose: 좁은 화면에서 맨앞·이전·다음·맨뒤 버튼이 과도하게 커 레이아웃이 깨지는 문제를 카드 너비 기준 밀도·flexWrap으로 완화한다.
+
+Changes:
+
+CouponTable: pagerDensity(comfortable|compact|tiny)로 패딩·폰트·입력칸 크기 조절, 좁을 때 flexWrap·중앙 정렬 및 페이지 입력 행 전폭 줄바꿈
+
+Changed files: frontend/components/CouponTable.tsx, docs/log/log.md
 
 18. 2026-04-28 docs/main 아키 변경 반영(env 분리·CORS 설정화)
 
