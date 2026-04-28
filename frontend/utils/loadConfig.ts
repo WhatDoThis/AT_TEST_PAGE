@@ -14,11 +14,11 @@
  *
  * [Dependencies]
  * =========
- * - ../../env/config.dev.json, ../../env/config.prd.json
+ * - ../env/config.dev.json, ../env/config.prd.json
  */
 
-import devConfig from "../../env/config.dev.json";
-import prdConfig from "../../env/config.prd.json";
+import devConfig from "../env/config.dev.json";
+import prdConfig from "../env/config.prd.json";
 
 export interface ImageItem {
   id: number;
