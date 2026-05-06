@@ -18,13 +18,28 @@
  * - @/utils/loadConfig
  */
 
+import { useEffect } from "react";
 import { Stack } from "expo-router";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { StyleSheet } from "react-native";
+import { StyleSheet, Platform } from "react-native";
 import { config } from "@/utils/loadConfig";
 
 // 1. 전역 Stack 옵션과 제스처 루트를 설정한다.
 export default function RootLayout() {
+
+  // ★ 2. Adobe Target Launch 스크립트를 <head>에 삽입한다 (웹 전용).
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+    if (document.querySelector('script[data-at-js]')) return;
+
+    const script = document.createElement("script");
+    script.src =
+      "https://assets.adobedtm.com/ce8d64c4e8e1/4c86ea242857/launch-5485615ab996.min.js";
+    script.async = true;
+    script.setAttribute("data-at-js", "true");
+    document.head.appendChild(script);
+  }, []);
+
   return (
     <GestureHandlerRootView style={styles.root}>
       <Stack
