@@ -1,14 +1,14 @@
 """
 backend.app.database (비동기 SQLAlchemy 엔진·세션·ORM 매핑)
 ================================================================================
-config의 DB 정보로 asyncpg 드라이버 엔진을 만들고 test_coupons_data 테이블을 매핑한다.
+config의 DB 정보로 asyncpg 드라이버 엔진을 만들고 test_coupons_data 테이블을 매핑한다. 목록 API용 base SELECT는 id·시각·라벨·recipient_id·coupon_id를 포함한다.
 
 [Main Functions]
 ===========
 - get_engine: 비동기 엔진 생성·캐시
 - get_session_factory: AsyncSession 팩토리
 - get_db: FastAPI 의존성용 세션 제너레이터
-- select_coupon_rows: 모듈 레벨 base SELECT(정렬 created DESC, id DESC) 참조 반환
+- select_coupon_rows: 모듈 레벨 base SELECT(컬럼 5+id, 정렬 created DESC, id DESC) 참조 반환
 
 [Endpoints/Classes/Functions]
 =======================
@@ -118,6 +118,7 @@ _BASE_COUPON_SELECT = (
         TestCouponsData.created,
         TestCouponsData.campaign_label,
         TestCouponsData.workflow_label,
+        TestCouponsData.recipient_id,
         TestCouponsData.coupon_id,
     ).order_by(TestCouponsData.created.desc(), TestCouponsData.id.desc())
 )

@@ -1,7 +1,7 @@
 """
 backend.app.routers.coupons (쿠폰 목록 API)
 ================================================================================
-test_coupons_data에서 4컬럼을 조회하며 page(OFFSET)·cursor(keyset)·CSV 다운로드를 제공한다.
+test_coupons_data에서 5개 표시 컬럼을 조회하며 page(OFFSET)·cursor(keyset)·CSV 다운로드를 제공한다.
 
 [Main Functions]
 ===========
@@ -179,6 +179,7 @@ def _rows_to_response_data(rows) -> list[CouponRowOut]:
                 created=m["created"],
                 campaign_label=m["campaign_label"],
                 workflow_label=m["workflow_label"],
+                recipient_id=m["recipient_id"],
                 coupon_id=m["coupon_id"],
             )
         )
@@ -242,7 +243,15 @@ async def list_coupons(
 def _to_csv_text(rows) -> str:
     buffer = io.StringIO()
     writer = csv.writer(buffer, lineterminator="\n", quoting=csv.QUOTE_MINIMAL)
-    writer.writerow(["created", "campaign_label", "workflow_label", "coupon_id"])
+    writer.writerow(
+        [
+            "created",
+            "campaign_label",
+            "workflow_label",
+            "recipient_id",
+            "coupon_id",
+        ]
+    )
     for row in rows:
         m = row._mapping
         writer.writerow(
@@ -250,6 +259,7 @@ def _to_csv_text(rows) -> str:
                 "" if m["created"] is None else str(m["created"]),
                 "" if m["campaign_label"] is None else str(m["campaign_label"]),
                 "" if m["workflow_label"] is None else str(m["workflow_label"]),
+                "" if m["recipient_id"] is None else str(m["recipient_id"]),
                 "" if m["coupon_id"] is None else str(m["coupon_id"]),
             ]
         )

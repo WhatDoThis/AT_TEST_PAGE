@@ -11,6 +11,7 @@
  * - ActivityIndicator·에러 재시도
  * - 현재 조회 범위를 서버 CSV 엔드포인트로 다운로드
  * - 카드 너비 기준 페이징 버튼 밀도·줄바꿈(반응형)
+ * - 테이블 영역만 가로 스크롤·recipient_id 컬럼·행 단일 줄(줄바꿈 없음)
  *
  * [Endpoints/Classes/Functions]
  * =======================
@@ -27,6 +28,7 @@ import {
   ActivityIndicator,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -42,6 +44,7 @@ type CouponRow = {
   created: string | null;
   campaign_label: string;
   workflow_label: string;
+  recipient_id: string;
   coupon_id: string;
 };
 
@@ -238,31 +241,59 @@ export default function CouponTable() {
 
       {!loading && !error && (
         <>
-          <View style={styles.tableHeader}>
-            <Text style={[styles.th, styles.colCreated]}>created</Text>
-            <Text style={[styles.th, styles.colCamp]}>campaign</Text>
-            <Text style={[styles.th, styles.colFlow]}>workflow</Text>
-            <Text style={[styles.th, styles.colCoupon]}>coupon_id</Text>
-          </View>
-          {rows.map((row, idx) => (
-            <View
-              key={`${page}-${idx}`}
-              style={[styles.tr, idx % 2 === 1 && styles.trAlt]}
-            >
-              <Text style={[styles.td, styles.colCreated]} numberOfLines={2}>
-                {row.created ?? ""}
-              </Text>
-              <Text style={[styles.td, styles.colCamp]} numberOfLines={2}>
-                {row.campaign_label}
-              </Text>
-              <Text style={[styles.td, styles.colFlow]} numberOfLines={2}>
-                {row.workflow_label}
-              </Text>
-              <Text style={[styles.td, styles.colCoupon]} numberOfLines={2}>
-                {row.coupon_id}
-              </Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator
+            style={styles.tableScroll}
+            contentContainerStyle={styles.tableScrollInner}
+          >
+            <View style={styles.tableInner}>
+              <View style={styles.tableHeader}>
+                <Text style={[styles.th, styles.colCreated]}>created</Text>
+                <Text style={[styles.th, styles.colCamp]}>campaign</Text>
+                <Text style={[styles.th, styles.colFlow]}>workflow</Text>
+                <Text style={[styles.th, styles.colRecipient]}>recipient_id</Text>
+                <Text style={[styles.th, styles.colCoupon]}>coupon_id</Text>
+              </View>
+              {rows.map((row, idx) => (
+                <View
+                  key={`${page}-${idx}`}
+                  style={[styles.tr, idx % 2 === 1 && styles.trAlt]}
+                >
+                  <Text
+                    style={[styles.td, styles.colCreated, styles.tdNowrap]}
+                    numberOfLines={1}
+                  >
+                    {row.created ?? ""}
+                  </Text>
+                  <Text
+                    style={[styles.td, styles.colCamp, styles.tdNowrap]}
+                    numberOfLines={1}
+                  >
+                    {row.campaign_label}
+                  </Text>
+                  <Text
+                    style={[styles.td, styles.colFlow, styles.tdNowrap]}
+                    numberOfLines={1}
+                  >
+                    {row.workflow_label}
+                  </Text>
+                  <Text
+                    style={[styles.td, styles.colRecipient, styles.tdNowrap]}
+                    numberOfLines={1}
+                  >
+                    {row.recipient_id ?? ""}
+                  </Text>
+                  <Text
+                    style={[styles.td, styles.colCoupon, styles.tdNowrap]}
+                    numberOfLines={1}
+                  >
+                    {row.coupon_id}
+                  </Text>
+                </View>
+              ))}
             </View>
-          ))}
+          </ScrollView>
           <View
             style={[
               styles.pager,
@@ -470,8 +501,20 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontWeight: "600",
   },
+  tableScroll: {
+    alignSelf: "stretch",
+    marginBottom: 4,
+  },
+  tableScrollInner: {
+    flexGrow: 0,
+  },
+  tableInner: {
+    minWidth: 914,
+    flexShrink: 0,
+  },
   tableHeader: {
     flexDirection: "row",
+    flexWrap: "nowrap",
     borderBottomWidth: 1,
     borderBottomColor: "#e6e6e6",
     paddingBottom: 6,
@@ -484,6 +527,7 @@ const styles = StyleSheet.create({
   },
   tr: {
     flexDirection: "row",
+    flexWrap: "nowrap",
     paddingVertical: 8,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: "#eee",
@@ -495,10 +539,34 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: "#333",
   },
-  colCreated: { flex: 1.1, minWidth: 0, paddingRight: 4 },
-  colCamp: { flex: 1, minWidth: 0, paddingRight: 4 },
-  colFlow: { flex: 1, minWidth: 0, paddingRight: 4 },
-  colCoupon: { flex: 0.9, minWidth: 0 },
+  tdNowrap:
+    Platform.OS === "web"
+      ? ({ whiteSpace: "nowrap" } as const)
+      : ({} as const),
+  colCreated: {
+    width: 178,
+    flexShrink: 0,
+    paddingRight: 6,
+  },
+  colCamp: {
+    width: 208,
+    flexShrink: 0,
+    paddingRight: 6,
+  },
+  colFlow: {
+    width: 208,
+    flexShrink: 0,
+    paddingRight: 6,
+  },
+  colRecipient: {
+    width: 92,
+    flexShrink: 0,
+    paddingRight: 6,
+  },
+  colCoupon: {
+    width: 228,
+    flexShrink: 0,
+  },
   pager: {
     flexDirection: "row",
     alignItems: "center",

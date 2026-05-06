@@ -2,6 +2,8 @@
 
 ## Log Index
 
+21. 2026-05-06 쿠폰 목록 recipient_id·테이블 가로 스크롤
+20. 2026-05-06 git pull 및 손상 원격 ref 정리
 19. 2026-04-28 CouponTable 페이징 반응형(밀도·줄바꿈)
 18. 2026-04-28 docs/main 아키 변경 반영(env 분리·CORS 설정화)
 17. 2026-04-28 env 프론트·백엔드 분리 및 설정 경로 전환
@@ -23,6 +25,30 @@
 12. 2026-04-27 docs/main AT_TEST_PAGE PRD v1.0 작성
 
 ## Log Body
+
+21. 2026-05-06 쿠폰 목록 recipient_id·테이블 가로 스크롤
+
+Purpose: 쿠폰 조회 테이블에 `recipient_id`를 노출하고, 페이징 영역은 그대로 두고 테이블 블록만 가로 스크롤해 한 줄 표시로 줄바꿈을 막는다.
+
+Changes:
+
+backend: base SELECT·`CouponRowOut`·CSV에 `recipient_id` 포함, 목록 직렬화 반영
+
+frontend: `CouponTable`에 `recipient_id` 컬럼, `ScrollView` horizontal + 고정 열 너비·`nowrap`(웹)로 테이블만 스크롤
+
+Changed files: backend/app/database.py, backend/app/schemas.py, backend/app/routers/coupons.py, frontend/components/CouponTable.tsx, docs/log/log.md
+
+20. 2026-05-06 git pull 및 손상 원격 ref 정리
+
+Purpose: 원격 WhatDoThis/AT_TEST_PAGE의 main을 로컬에 반영한다. pull 실패 원인이 된 잘못된 경로 `refs/remotes/origin - 복사본/main` 하위 디렉터리를 제거한 뒤 pull을 완료했다.
+
+Changes:
+
+.git: 손상·비표준 원격 추적 ref 디렉터리 제거 후 `git pull` 성공, `e318c4a..126f145` fast-forward
+
+원격 반영: `.gitignore` 보강, `frontend/app/_layout.tsx` 변경
+
+Changed files: .gitignore, frontend/app/_layout.tsx, docs/log/log.md
 
 19. 2026-04-28 CouponTable 페이징 반응형(밀도·줄바꿈)
 
