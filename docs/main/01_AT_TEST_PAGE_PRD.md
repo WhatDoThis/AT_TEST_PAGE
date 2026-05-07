@@ -143,6 +143,7 @@
 | `01_AT_TEST_PAGE_PRD.md` | 제품 요약·요구사항·수용 기준 (본 문서) |
 | `02_AT_TEST_PAGE_FRONTEND_GUIDE.md` | 화면 구조·컴포넌트·설정 반영 규칙 |
 | `03_AT_TEST_PAGE_BACKEND_GUIDE.md` | API·DB 연동·운영/배포 기준 |
+| `04_AT_TEST_PAGE_ADOBE_TARGET_INTEGRATION.md` | Adobe Target 연동(프록시·설정·이식 점검) |
 
 ---
 
@@ -150,6 +151,7 @@
 
 | 버전 | 일자 | 요약 |
 |------|------|------|
+| 1.3 | 2026-05-07 | 연관 문서에 Adobe Target 연동 가이드(04) 추가 |
 | 1.2 | 2026-04-28 | env 분리 구조(frontend/env, backend/env) 및 CORS 설정 항목 반영 |
 | 1.1 | 2026-04-28 | 현재 코드 기준으로 기능/구성/수용 기준 재정리, 02~03 문서 참조 구조로 개편 |
 | 1.0 | 2026-04-27 | 초기 PRD 작성 |

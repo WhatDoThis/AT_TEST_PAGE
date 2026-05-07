@@ -3,7 +3,8 @@
   "compilerOptions": {
     "strict": true,
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "@adobe/*": ["./adobe_frontend/target_frontend/*"]
     }
   },
   "include": [

@@ -12,6 +12,7 @@
  * - 현재 조회 범위를 서버 CSV 엔드포인트로 다운로드
  * - 카드 너비 기준 페이징 버튼 밀도·줄바꿈(반응형)
  * - 테이블 영역만 가로 스크롤·recipient_id 컬럼·행 단일 줄(줄바꿈 없음)
+ * - 웹: 카드 그림자는 boxShadow(RN Web shadow* 경고 회피), 그 외 플랫폼은 shadow* 유지
  *
  * [Endpoints/Classes/Functions]
  * =======================
@@ -439,10 +440,14 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: CARD_PADDING,
     alignSelf: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
+    ...(Platform.OS === "web"
+      ? { boxShadow: "0px 2px 8px rgba(0, 0, 0, 0.1)" }
+      : {
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 8,
+        }),
     elevation: 3,
   },
   headerRow: {

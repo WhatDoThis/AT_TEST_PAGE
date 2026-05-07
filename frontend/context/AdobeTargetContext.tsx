@@ -1,24 +1,21 @@
 /**
- * components/ImageCarousel.tsx (브리지 — 구현은 adobe_frontend 패키지)
+ * context/AdobeTargetContext.tsx (브리지 — 구현은 adobe_frontend 패키지)
  * ================================================================================
- * 기존 `@/components/ImageCarousel` 임포트 경로를 유지한다. 실제 컴포넌트는
- * `frontend/adobe_frontend/target_frontend/components/targetImageCarousel.tsx` 에 있다.
+ * 기존 `@/context/AdobeTargetContext` 임포트 경로를 유지한다.
  *
  * [Main Functions]
  * ===========
- * - default export 재노출
+ * - adobe_frontend.target_frontend.context.targetContext 심볼 재노출
  *
  * [Dependencies]
  * =========
- * - adobe_frontend/target_frontend/components/targetImageCarousel
+ * - adobe_frontend/target_frontend/context/targetContext
  */
 
 // ════════════════════════════════════════════════════════════════════════════════
-// [BRIDGE · Adobe] 재export — 원본: frontend/adobe_frontend/target_frontend/components/targetImageCarousel.tsx
-// ── 목적: 앱 일반 코드(`app/index.tsx` 등)는 `@/components/ImageCarousel` 만 알면 됨
+// [BRIDGE · Adobe] 재export — 원본: frontend/adobe_frontend/target_frontend/context/targetContext.tsx
 // ════════════════════════════════════════════════════════════════════════════════
-export { default } from "../adobe_frontend/target_frontend/components/targetImageCarousel";
-export type { ImageCarouselProps } from "../adobe_frontend/target_frontend/components/targetImageCarousel";
+export * from "../adobe_frontend/target_frontend/context/targetContext";
 // ════════════════════════════════════════════════════════════════════════════════
 // [BRIDGE · Adobe] 끝
 // ════════════════════════════════════════════════════════════════════════════════

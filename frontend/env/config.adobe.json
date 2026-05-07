@@ -1,0 +1,6 @@
+{
+  "mboxes": {
+    "offer_mbox_name": "target-local-mbox",
+    "track_mbox_name": "click-tracking-mbox"
+  }
+}

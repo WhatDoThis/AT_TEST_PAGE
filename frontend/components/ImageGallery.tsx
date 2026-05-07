@@ -7,6 +7,7 @@
  * ===========
  * - 이미지 한 줄 행 렌더(줄바꿈 없음)
  * - 카드 선택 시 onSelectIndex 통지, 선택 강조는 번호 영역만
+ * - 웹: 카드 그림자 boxShadow, 네이티브는 shadow* 유지(RN Web 경고 회피)
  *
  * [Endpoints/Classes/Functions]
  * =======================
@@ -27,6 +28,7 @@ import {
   StyleSheet,
   useWindowDimensions,
   Pressable,
+  Platform,
 } from "react-native";
 import { config } from "@/utils/loadConfig";
 import { getImage } from "@/utils/imageMap";
@@ -104,10 +106,14 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: CARD_PADDING,
     alignSelf: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
+    ...(Platform.OS === "web"
+      ? { boxShadow: "0px 2px 8px rgba(0, 0, 0, 0.1)" }
+      : {
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 8,
+        }),
     elevation: 3,
   },
   cardTitle: {
