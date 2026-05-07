@@ -48,6 +48,10 @@ __pycache__/
 # 민감 정보 (DB 비밀번호 포함)
 backend/env/config.prd.json
 
+# Adobe Target 자격·mbox (저장소에는 config.adobe.example.json 만 유지)
+backend/env/config.adobe.json
+frontend/env/config.adobe.json
+
 # Python (백엔드 가상환경·바이트코드)
 backend/venv/
 backend/__pycache__/

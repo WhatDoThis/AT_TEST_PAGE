@@ -1,6 +1,6 @@
 # AT_TEST_PAGE Adobe Target 연동 가이드
 
-**문서 버전 2.5** (2026-05-07) — `backend/env/config.adobe.json` 평면·`administration`/`mboxes` 중첩 모두 로드(`target_config`). 프론트 동일·`mboxes`만 JSON인 경우 `loadConfig` 정규화.
+**문서 버전 2.6** (2026-05-08) — Adobe 공통 JSON은 Git에 **`config.adobe.example.json`** 만 두고, 런타임 **`config.adobe.json`** 은 로컬·배포 환경에서 생성한다(`.gitignore`). v2.5 중첩 로드 동작은 동일.
 
 본 문서는 **현재 저장소에 적용된 Adobe Target 연동**만 설명한다. 제품·화면 전체는 아래 문서를 본다.
 
@@ -55,7 +55,7 @@ flowchart LR
 ### 2.4 런타임 순서(저장소 현행)
 
 1. **앱 기동(웹)** — `_layout.tsx`가 `TargetAppProvider`(`adobe_frontend/target_frontend/app/targetApp.tsx`)로 트리를 감싼다.
-2. **오퍼 프리로드** — `TargetOffersPreload`의 `useEffect`가 한 번 `POST {api_url}/api/target/offers`를 보낸다. 본문에는 `config.adobe_target.offer_mbox_name`(출처: `frontend/env/config.adobe.json` + `loadConfig` 병합), `page_url`(가능 시 `window.location.href`), `getAdobeTargetVisitorPayload()`(sessionStorage 기반 `tnt_id`/`visitor_id`)가 포함된다.
+2. **오퍼 프리로드** — `TargetOffersPreload`의 `useEffect`가 한 번 `POST {api_url}/api/target/offers`를 보낸다. 본문에는 `config.adobe_target.offer_mbox_name`(출처: 로컬 `frontend/env/config.adobe.json` + `loadConfig` 병합), `page_url`(가능 시 `window.location.href`), `getAdobeTargetVisitorPayload()`(sessionStorage 기반 `tnt_id`/`visitor_id`)가 포함된다.
 3. **백엔드 offers** — `asyncio.to_thread` 안에서 `TargetClient.get_offers`가 Delivery `POST /rest/v1/delivery`를 호출한다. `mbox_name`이 `target-global-mbox`이면 요청 본문은 `execute.pageLoad`(URL 필수), 그 외 이름이면 `execute.mboxes` 한 건이다. 응답 오퍼는 `_offers_from_execute_response`가 `page_load.options`와 `mboxes[].options`를 합쳐 `{ type, content }[]`로 만든다.
 4. **프론트 반영** — 성공 시 `sessionStorage`에 `tnt_id` 등을 갱신하고, `parseAdobeTargetOffer` 결과를 Context에 넣는다. `index.tsx`가 `useAdobeTargetOffer()`로 읽어 `ImageCarousel`(실제 구현 `targetImageCarousel.tsx`)에 `adobeOffer`를 넘긴다.
 5. **클릭 트래킹(웹)** — 사용자가 다음 이미지를 누르면 캐러셀이 `POST {api_url}/api/target/track`을 보낸다. `mbox_name`은 `config.adobe_target.track_mbox_name`, 동일 방문자 페이로드를 붙인다.
@@ -82,7 +82,7 @@ flowchart LR
 |------|------|
 | 런타임 | Expo 54, React 19, RN Web |
 | Target 호출 | 브라우저 `fetch` (npm용 `@adobe/*` 패키지 없음) |
-| 설정 | `frontend/env/config.dev.json` / `config.prd.json` (`__DEV__`로 선택) + **`frontend/env/config.adobe.json`** (`loadConfig`에서 `adobe_target` 병합) |
+| 설정 | `frontend/env/config.dev.json` / `config.prd.json` (`__DEV__`로 선택) + **`frontend/env/config.adobe.json`**(로컬, `loadConfig`에서 `adobe_target` 병합; 없으면 `postinstall`이 example에서 생성) |
 
 ### 3.2 백엔드
 
@@ -101,7 +101,14 @@ flowchart LR
 
 ## 4. 설정
 
-### 4.1 백엔드 Adobe 공통 `backend/env/config.adobe.json`
+### 4.0 Git과 비밀 값
+
+- **`backend/env/config.adobe.json`**, **`frontend/env/config.adobe.json`** 은 `.gitignore` 로 저장소에서 제외한다(자격·mbox 등).
+- 템플릿은 각 디렉터리의 **`config.adobe.example.json`** 이다.
+- **백엔드**: 클론 후 `cp backend/env/config.adobe.example.json backend/env/config.adobe.json` 으로 만들고 실제 값으로 채운다.
+- **프론트**: `npm install` 의 `postinstall` 이 `frontend/env/config.adobe.json` 이 없을 때만 example 을 복사해 생성한다(이미 있으면 덮어쓰지 않음).
+
+### 4.1 백엔드 Adobe 공통 `backend/env/config.adobe.json`(로컬) / 템플릿 `config.adobe.example.json`
 
 `APP_ENV`(dev/prd)와 무관하게 한 파일에서 읽는다(`adobe_backend/target_backend/target_config.py`). dev·prd 전용 JSON과 같은 `backend/env/` 디렉터리에 둔다.
 
@@ -111,18 +118,18 @@ flowchart LR
 2. **`organization_id`** — `...@AdobeOrg` 형식 (ASCII만).
 3. **`property_token`** — Property 토큰 (ASCII만).
 4. **`timeout`** — SDK 타임아웃(ms).
-5. **`offer_mbox_name`** — `POST /api/target/offers` 요청 본문에서 `mbox_name`을 생략할 때 쓰는 기본값(프론트 `frontend/env/config.adobe.json` 과 동일 키 권장). JSON에 없거나 trim 후 빈 문자열이면 **`target-global-mbox`** 로 폴백한다.
+5. **`offer_mbox_name`** — `POST /api/target/offers` 요청 본문에서 `mbox_name`을 생략할 때 쓰는 기본값(프론트 로컬 `frontend/env/config.adobe.json` 과 동일 키 권장). JSON에 없거나 trim 후 빈 문자열이면 **`target-global-mbox`** 로 폴백한다.
 6. **`track_mbox_name`** — `POST /api/target/track` 에서 `mbox_name` 생략 시 기본값. 없거나 빈 문자열이면 **`click-tracking-mbox`** 로 폴백한다.
 
 `client`·`organization_id`·`property_token` 문자열은 **trim** 되고, 비ASCII·빈 값은 SDK 초기화 시 API **400**으로 막는다. mbox 이름 두 필드는 **trim만** 적용되며, 빈 값만 위 폴백 문자열로 대체된다.
 
 ### 4.2 백엔드 앱·DB `backend/env/config.{APP_ENV}.json`
 
-`api_port`, `cors_origins`, `db` 등 일반 설정만 둔다. **Adobe Target 자격·mbox 값은 `backend/env/config.adobe.json`에 둔다.**
+`api_port`, `cors_origins`, `db` 등 일반 설정만 둔다. **Adobe Target 자격·mbox 값은 로컬 `backend/env/config.adobe.json`에 둔다.**
 
 `cors_origins`에 웹 앱 출처를 넣는다. `POST /api/target/*` 도 CORS를 통과해야 한다.
 
-### 4.3 프론트 Adobe 공통 `frontend/env/config.adobe.json`
+### 4.3 프론트 Adobe 공통 `frontend/env/config.adobe.json`(로컬) / 템플릿 `config.adobe.example.json`
 
 1. **`offer_mbox_name`** — 오퍼 요청의 `mbox_name`.
 2. **`track_mbox_name`** — 클릭 트래킹 요청의 `mbox_name`.
@@ -131,7 +138,7 @@ flowchart LR
 
 ### 4.4 프론트 앱 `frontend/env/config.{dev|prd}.json`
 
-`api_url`, `port`, `images` 등 **앱 메타만** 둔다. mbox 이름은 **`frontend/env/config.adobe.json`** 으로 이전했다.
+`api_url`, `port`, `images` 등 **앱 메타만** 둔다. mbox 이름은 **로컬 `frontend/env/config.adobe.json`** 으로 이전했다.
 
 ### 4.5 mbox 이름과 백엔드 동작
 
@@ -154,7 +161,7 @@ flowchart LR
 
 1. **`adobe_backend/target_backend/target_client.py`** — `get_target_client()` 싱글톤, 설정 ASCII 검증.
 2. **`adobe_backend/target_backend/target_adobe_router.py`** — 위 두 엔드포인트, Delivery 요청 조립, `VisitorId` 생성·응답 `tnt_id` 반환.
-3. **`adobe_backend/target_backend/target_config.py`** — `backend/env/config.adobe.json` 로드, `AdobeTargetSettings`.
+3. **`adobe_backend/target_backend/target_config.py`** — 로컬 `backend/env/config.adobe.json` 로드(템플릿 `config.adobe.example.json`), `AdobeTargetSettings`.
 4. **`adobe_backend/target_backend/target_main.py`** — `register_target_routes(app)`.
 5. **`app/config.py`** — DB·raw 로드 후 `load_adobe_target_settings()`로 `Settings.adobe_target` 결합.
 6. **`app/main.py`** — `target_main.register_target_routes(app)`, CORS에 `POST` 허용.
@@ -207,7 +214,7 @@ flowchart LR
 
 **요청 (JSON)**
 
-- `mbox_name` (선택·생략 시 `backend/env/config.adobe.json` 의 `offer_mbox_name` → `get_settings().adobe_target.offer_mbox_name`, 없으면 `target-global-mbox`)
+- `mbox_name` (선택·생략 시 로컬 `backend/env/config.adobe.json` 의 `offer_mbox_name` → `get_settings().adobe_target.offer_mbox_name`, 없으면 `target-global-mbox`)
 - `page_url`, `tnt_id`, `visitor_id`, `params` (선택)
 
 **응답 (JSON)**
@@ -265,11 +272,11 @@ flowchart LR
 ## 9. 이식·점검 체크리스트
 
 1. 백엔드에 `target-python-sdk` 및 `requirements.txt` 정합.
-2. 백엔드 **`backend/env/config.adobe.json`** — `client`·`organization_id`·`property_token`·`timeout`(ASCII 검증) + `offer_mbox_name`·`track_mbox_name`; `backend/env` 에는 `cors_origins`·`db` 등만.
+2. 백엔드 **로컬 `backend/env/config.adobe.json`** — `client`·`organization_id`·`property_token`·`timeout`(ASCII 검증) + `offer_mbox_name`·`track_mbox_name`; `backend/env` 에는 `cors_origins`·`db` 등만.
 3. FastAPI에서 Target 라우터 등록(`target_main.register_target_routes`)·CORS `POST` 허용.
 4. 동기 SDK는 **`asyncio.to_thread`** 로 호출.
 5. 프론트는 **`api_url`** 로 백엔드만 호출 (`/api/target/...`).
-6. **`offer_mbox_name` / `track_mbox_name`** 을 프론트 `frontend/env/config.adobe.json` 과 백엔드 `backend/env/config.adobe.json` 에 동일 키로 두면, 프론트 생략·curl 단독 호출 시에도 기본 mbox가 일치한다.
+6. **`offer_mbox_name` / `track_mbox_name`** 을 프론트 `frontend/env/config.adobe.json`(로컬) 과 백엔드 `backend/env/config.adobe.json`(로컬) 에 동일 키로 두면, 프론트 생략·curl 단독 호출 시에도 기본 mbox가 일치한다.
 7. 오퍼는 **`TargetOffersPreload` + Context** 한 번 fetch 후 하위로 전달한다.
 8. offers·track 모두 **`tnt_id` / `visitor_id`** 를 맞춘다 (`targetSession` + `sessionStorage`).
 9. 글로벌 mbox는 서버가 **pageLoad**로만내도록 유지한다.
@@ -293,6 +300,7 @@ flowchart LR
 
 | 버전 | 일자 | 요약 |
 |------|------|------|
+| 2.6 | 2026-05-08 | `config.adobe.json` Git 제외·`config.adobe.example.json` 템플릿·프론트 `postinstall` 복사 |
 | 2.5 | 2026-05-07 | `config.adobe.json` administration/mboxes 중첩 로드(target_config·loadConfig 정규화) |
 | 2.4 | 2026-05-07 | Adobe 공통 JSON을 `backend/env`·`frontend/env` 의 `config.adobe.json` 으로 이동 |
 | 2.3 | 2026-05-07 | Adobe 패키지 통합(`adobe_backend/target_backend`, `adobe_frontend/target_frontend`), 공통 `config.adobe.json`, 레거시 경로 브리지·`@adobe/*` 별칭 |

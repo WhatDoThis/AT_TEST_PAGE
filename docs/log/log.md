@@ -2,6 +2,7 @@
 
 ## Log Index
 
+55. 2026-05-08 Adobe `config.adobe.json` Git 제외·example 템플릿·프론트 postinstall
 54. 2026-05-07 Adobe config.adobe.json 중첩(administration/mboxes) 로드 수정·프론트 mboxes 정규화
 53. 2026-05-07 Adobe 설정 경로 명시·프론트 BRIDGE 주석 통일(backend/env·frontend/env config.adobe.json)
 52. 2026-05-07 app/config·main 어도비 BRIDGE 주석 보강(위치·구분선)
@@ -58,6 +59,19 @@
 12. 2026-04-27 docs/main AT_TEST_PAGE PRD v1.0 작성
 
 ## Log Body
+
+55. 2026-05-08 Adobe `config.adobe.json` Git 제외·example 템플릿·프론트 postinstall
+
+Purpose: 저장소에는 Adobe 자격·mbox 민감 설정을 올리지 않고 `config.adobe.example.json` 만 유지한다. 런타임 `config.adobe.json` 은 로컬·서버에서 생성한다.
+
+Changes:
+
+- `.gitignore`: `backend/env/config.adobe.json`, `frontend/env/config.adobe.json` 추가
+- `backend/env/config.adobe.example.json`, `frontend/env/config.adobe.example.json` 추가(플레이스홀더)
+- `frontend/scripts/ensureAdobeEnv.cjs`, `package.json` postinstall
+- `target_config` 예외 메시지·문서 04 v2.6·코드 주석 정합
+
+Changed files: .gitignore, backend/env/config.adobe.example.json, frontend/env/config.adobe.example.json, frontend/scripts/ensureAdobeEnv.cjs, frontend/package.json, backend/adobe_backend/target_backend/target_config.py, target_client.py, target_adobe_router.py, __init__.py, backend/app/config.py, frontend/utils/loadConfig.ts, docs/main/04_AT_TEST_PAGE_ADOBE_TARGET_INTEGRATION.md, docs/log/log.md
 
 54. 2026-05-07 Adobe config.adobe.json 중첩(administration/mboxes) 로드 수정·프론트 mboxes 정규화
 

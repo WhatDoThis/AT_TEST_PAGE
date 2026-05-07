@@ -1,0 +1,12 @@
+{
+  "administration": {
+    "client": "your_adobe_client_code",
+    "organization_id": "your_org_id@AdobeOrg",
+    "property_token": "00000000-0000-0000-0000-000000000000",
+    "timeout": 3000
+  },
+  "mboxes": {
+    "offer_mbox_name": "target-global-mbox",
+    "track_mbox_name": "click-tracking-mbox"
+  }
+}

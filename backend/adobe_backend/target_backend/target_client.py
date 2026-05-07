@@ -51,14 +51,14 @@ def _assert_adobe_target_ascii(client: str, organization_id: str, property_token
     ):
         if not value or not value.strip():
             raise AdobeTargetConfigError(
-                f"adobe_target.{label} is empty; set `backend/env/config.adobe.json`"
+                f"adobe_target.{label} is empty; set `backend/env/config.adobe.json` (copy from config.adobe.example.json)"
             )
         try:
             value.encode("ascii")
         except UnicodeEncodeError as exc:
             raise AdobeTargetConfigError(
                 f"adobe_target.{label} must be ASCII only (Korean placeholder breaks urllib3 host parse). "
-                f"Replace with real Target {label} from Adobe admin (`backend/env/config.adobe.json`)."
+                f"Replace with real Target {label} from Adobe admin (`backend/env/config.adobe.json`, template: config.adobe.example.json)."
             ) from exc
 
 

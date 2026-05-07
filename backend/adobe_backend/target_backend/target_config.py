@@ -1,13 +1,14 @@
 """
 adobe_backend.target_backend.target_config (Adobe Target 전용 JSON 설정)
 ================================================================================
-backend/env/config.adobe.json 을 읽어 AdobeTargetSettings 를 구성한다.
+런타임은 **`backend/env/config.adobe.json`** 을 읽는다(저장소 미추적). 템플릿은
+**`backend/env/config.adobe.example.json`** 을 복사해 채운다.
 지원 형식: (1) 루트 평면 키 client·organization_id·… (2) administration / mboxes 중첩 블록.
 ASCII 검증은 target_client 에서 수행한다.
 
 [Main Functions]
 ===========
-- _adobe_config_path: backend/env/config.adobe.json 절대 경로
+- _adobe_config_path: backend/env/config.adobe.json 절대 경로(없으면 example 복사 안내)
 - _adobe_target_str: JSON 문자열 필드 strip 정규화
 - _str_admin_or_root / _str_mboxes_or_root / _int_timeout_ms: 평면·중첩 JSON 모두에서 값 추출
 - load_adobe_target_settings: adobe JSON 파싱 및 AdobeTargetSettings 반환
@@ -31,7 +32,7 @@ from typing import Any
 
 
 def _adobe_config_path() -> Path:
-    """Adobe 공통 설정 파일(저장소 기준 `backend/env/config.adobe.json`, APP_ENV 무관)."""
+    """Adobe 공통 설정 파일 경로(APP_ENV 무관). Git에는 `config.adobe.example.json` 만 있다."""
     backend_root = Path(__file__).resolve().parents[2]
     return backend_root / "env" / "config.adobe.json"
 
@@ -79,16 +80,19 @@ class AdobeTargetSettings:
 # 4. [로드] backend/env/config.adobe.json 에서 Adobe Target 설정을 읽는다.
 def load_adobe_target_settings() -> AdobeTargetSettings:
     path = _adobe_config_path()
+    example = path.with_name("config.adobe.example.json")
     try:
         with path.open(encoding="utf-8") as f:
             at_block: dict[str, Any] = json.load(f)
     except OSError as exc:
         raise RuntimeError(
-            f"adobe_config_unreadable path={path} (expected backend/env/config.adobe.json)"
+            "adobe_config_unreadable path="
+            f"{path} — create it from {example.name} (copy to config.adobe.json and fill values)"
         ) from exc
     except json.JSONDecodeError as exc:
         raise RuntimeError(
-            f"adobe_config_json_invalid path={path} (expected backend/env/config.adobe.json)"
+            "adobe_config_json_invalid path="
+            f"{path} — fix JSON or recreate from {example.name}"
         ) from exc
 
     offer_m = _str_mboxes_or_root(at_block, "offer_mbox_name")

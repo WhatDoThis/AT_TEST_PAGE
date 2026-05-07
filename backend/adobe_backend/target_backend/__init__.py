@@ -1,7 +1,7 @@
 """
 adobe_backend.target_backend (Adobe Target 백엔드 하위 패키지)
 ================================================================================
-Target Delivery 프록시 라우터, SDK 클라이언트, env/config.adobe.json 로더를 포함한다.
+Target Delivery 프록시 라우터, SDK 클라이언트, env/config.adobe.json(로컬)·config.adobe.example.json(템플릿) 로더를 포함한다.
 
 [Main Functions]
 ===========

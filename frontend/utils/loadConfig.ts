@@ -2,8 +2,9 @@
  * utils/loadConfig.ts (앱 설정 로드)
  * ================================================================================
  * `frontend/env/config.dev.json` / `config.prd.json` 을 __DEV__ 로 선택해 로드한다.
- * Adobe Target mbox 이름은 같은 env 폴더의 **`frontend/env/config.adobe.json`** 을 별도 임포트해
- * `config.adobe_target` 으로 병합한다(dev/prd 와 무관한 공통 값).
+ * Adobe Target mbox 이름은 **`frontend/env/config.adobe.json`**(로컬 전용, Git 미추적)을 정적 임포트해
+ * `config.adobe_target` 으로 병합한다. 저장소에는 **`frontend/env/config.adobe.example.json`** 만 있으며,
+ * `npm install` 의 `postinstall` 이 `config.adobe.json` 이 없을 때 example 을 복사해 만든다.
  * `config.adobe.json` 은 루트에 `offer_mbox_name`·`track_mbox_name` 을 두거나, `mboxes` 객체 안에 둘 수 있다.
  *
  * [Main Functions]
@@ -14,12 +15,13 @@
  * [Endpoints/Classes/Functions]
  * =======================
  * - ImageItem, AdobeTargetConfig, AppConfig: 설정 스키마 타입
- * - config: AppConfig (env JSON + adobe 병합)
+ * - config: AppConfig (env JSON + adobe 병합; adobe 는 로컬 config.adobe.json)
  *
  * [Dependencies]
  * =========
  * - ../env/config.dev.json, ../env/config.prd.json
- * - ../env/config.adobe.json (`frontend/env/config.adobe.json`)
+ * - ../env/config.adobe.json (`frontend/env/config.adobe.json`, 없으면 postinstall 이 example 에서 생성)
+ * - ../env/config.adobe.example.json (템플릿, Git 추적)
  */
 
 import devConfig from "../env/config.dev.json";
@@ -27,7 +29,7 @@ import prdConfig from "../env/config.prd.json";
 
 // ════════════════════════════════════════════════════════════════════════════════
 // [BRIDGE · Adobe] 구분선 — 위: 앱 env(dev/prd) / 아래: Adobe 공통 JSON 단독 로드
-// ── 파일(저장소 기준): frontend/env/config.adobe.json
+// ── 파일: 런타임 `frontend/env/config.adobe.json`(Git 미추적) · 템플릿 `config.adobe.example.json`
 // ── 런타임: Metro 번들 시 정적 import → `adobeTargetJson` 으로 합침
 // ════════════════════════════════════════════════════════════════════════════════
 import adobeTargetJson from "../env/config.adobe.json";
@@ -78,7 +80,7 @@ export interface AppConfig {
   images: ImageItem[];
   api_port?: number;
   image_dir?: string;
-  /** [BRIDGE · Adobe] 출처: frontend/env/config.adobe.json (`normalizeAdobeTarget` 병합) */
+  /** [BRIDGE · Adobe] 출처: `frontend/env/config.adobe.json` (로컬, `normalizeAdobeTarget` 병합) */
   adobe_target: AdobeTargetConfig;
 }
 
@@ -86,7 +88,7 @@ export interface AppConfig {
 const base = (__DEV__ ? devConfig : prdConfig) as Omit<AppConfig, "adobe_target">;
 
 // ════════════════════════════════════════════════════════════════════════════════
-// [BRIDGE · Adobe] `config` 최종 조립 — `adobe_target` 만 frontend/env/config.adobe.json
+// [BRIDGE · Adobe] `config` 최종 조립 — `adobe_target` 은 로컬 `frontend/env/config.adobe.json`
 // ════════════════════════════════════════════════════════════════════════════════
 export const config: AppConfig = {
   ...base,

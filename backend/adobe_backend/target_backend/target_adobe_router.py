@@ -287,7 +287,7 @@ def _api_exception_body_text(exc: ApiException) -> str:
     return str(raw)
 
 
-# ── Adobe Target ── 요청 JSON 에서 mbox_name 생략 시 backend/env/config.adobe.json 의 값과 프론트 키명을 맞춘다.
+# ── Adobe Target ── 요청 JSON 에서 mbox_name 생략 시 backend/env/config.adobe.json(로컬) 의 값과 프론트 키명을 맞춘다.
 def _default_offer_mbox_name_from_settings() -> str:
     return get_settings().adobe_target.offer_mbox_name
 
@@ -492,7 +492,7 @@ async def get_offers(body: OffersRequest) -> Dict[str, Any]:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except LocationParseError as exc:
         _clear_settings_and_target_client_caches()
-        logger.warning("Adobe Target get_offers URL parse failed (check backend/env/config.adobe.json ASCII): %s", exc)
+        logger.warning("Adobe Target get_offers URL parse failed (check backend/env/config.adobe.json ASCII, template config.adobe.example.json): %s", exc)
         raise HTTPException(
             status_code=400,
             detail=(
@@ -537,7 +537,7 @@ async def track_click(body: TrackRequest) -> Dict[str, Any]:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except LocationParseError as exc:
         _clear_settings_and_target_client_caches()
-        logger.warning("Adobe Target track URL parse failed (check backend/env/config.adobe.json ASCII): %s", exc)
+        logger.warning("Adobe Target track URL parse failed (check backend/env/config.adobe.json ASCII, template config.adobe.example.json): %s", exc)
         raise HTTPException(
             status_code=400,
             detail=(
