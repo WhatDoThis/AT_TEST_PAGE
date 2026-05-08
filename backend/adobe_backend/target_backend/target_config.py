@@ -12,21 +12,23 @@ ASCII 검증은 target_client 에서 수행한다.
 - _adobe_target_str: JSON 문자열 필드 strip 정규화
 - _str_admin_or_root / _str_mboxes_or_root / _int_timeout_ms: 평면·중첩 JSON 모두에서 값 추출
 - load_adobe_target_settings: adobe JSON 파싱 및 AdobeTargetSettings 반환
+- get_adobe_target_settings: Adobe 설정 싱글톤 캐시 반환
 
 [Endpoints/Classes/Functions]
 =======================
-- AdobeTargetSettings: client, organization_id, property_token, timeout, offer_mbox_name, track_mbox_name
+- AdobeTargetSettings: client, organization_id, property_token, timeout, offer_mbox_name
 - _str_admin_or_root, _str_mboxes_or_root, _int_timeout_ms: JSON 키 해석(평면·중첩)
 
 [Dependencies]
 =========
-- 표준 라이브러리 json, pathlib
+- 표준 라이브러리 json, pathlib, functools
 """
 
 from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -51,7 +53,7 @@ def _str_admin_or_root(at_block: dict[str, Any], key: str) -> str:
     return _adobe_target_str(at_block.get(key, ""))
 
 
-# 2. [경로] mboxes.* 또는 루트 offer_mbox_name·track_mbox_name
+# 2. [경로] mboxes.* 또는 루트 offer_mbox_name
 def _str_mboxes_or_root(at_block: dict[str, Any], key: str) -> str:
     mb = at_block.get("mboxes")
     if isinstance(mb, dict) and key in mb and mb.get(key) is not None:
@@ -74,7 +76,6 @@ class AdobeTargetSettings:
     property_token: str
     timeout: int
     offer_mbox_name: str
-    track_mbox_name: str
 
 
 # 4. [로드] backend/env/config.adobe.json 에서 Adobe Target 설정을 읽는다.
@@ -96,12 +97,16 @@ def load_adobe_target_settings() -> AdobeTargetSettings:
         ) from exc
 
     offer_m = _str_mboxes_or_root(at_block, "offer_mbox_name")
-    track_m = _str_mboxes_or_root(at_block, "track_mbox_name")
     return AdobeTargetSettings(
         client=_str_admin_or_root(at_block, "client"),
         organization_id=_str_admin_or_root(at_block, "organization_id"),
         property_token=_str_admin_or_root(at_block, "property_token"),
         timeout=_int_timeout_ms(at_block),
         offer_mbox_name=offer_m or "target-global-mbox",
-        track_mbox_name=track_m or "click-tracking-mbox",
     )
+
+
+# 5. [캐시] Adobe Target 설정 싱글톤(필요 시 cache_clear로 재로드)
+@lru_cache(maxsize=1)
+def get_adobe_target_settings() -> AdobeTargetSettings:
+    return load_adobe_target_settings()

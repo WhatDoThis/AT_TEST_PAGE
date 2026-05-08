@@ -39,7 +39,7 @@ from app.routers import coupons
 # [BRIDGE · Adobe] 구분선 — 위: 앱 코어 라우터·DB / 아래: 어도비 패키지 진입만 임포트
 # ── 위치: backend/adobe_backend/target_backend/target_main.py
 # ── 심볼: target_main (별칭 _adobe_target_main) → register_target_routes
-# ── 효과: /api/target/offers, /api/target/track 라우터가 app 에 붙음
+# ── 효과: /api/target/offers 라우터가 app 에 붙음
 # ════════════════════════════════════════════════════════════════════════════════
 from adobe_backend.target_backend import target_main as _adobe_target_main
 # ════════════════════════════════════════════════════════════════════════════════
@@ -60,7 +60,7 @@ cors_origins = settings.raw.get("cors_origins", [])
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
-    # ── [BRIDGE · Adobe] CORS — Target 프록시(/api/target/offers|track)가 POST 이므로 "POST" 필수
+    # ── [BRIDGE · Adobe] CORS — Target 프록시(/api/target/offers|notifications)가 POST 이므로 "POST" 필수
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )

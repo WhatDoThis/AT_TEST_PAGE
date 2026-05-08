@@ -7,7 +7,7 @@
  * ===========
  * - 이미지 한 줄 행 렌더(줄바꿈 없음)
  * - 카드 선택 시 onSelectIndex 통지, 선택 강조는 번호 영역만
- * - 웹: 카드 그림자 boxShadow, 네이티브는 shadow* 유지(RN Web 경고 회피)
+ * - // ── Adobe Target ── 클릭 시 `clickEvent{n}` 쿠키 저장 후 offers 재조회(웹)
  *
  * [Endpoints/Classes/Functions]
  * =======================
@@ -18,6 +18,8 @@
  * - react-native
  * - @/utils/loadConfig
  * - @/utils/imageMap
+ * - @adobe/utils/clickCookie
+ * - @/context/AdobeTargetContext (`useAdobeTargetRefreshOffers`)
  */
 
 import React from "react";
@@ -32,6 +34,8 @@ import {
 } from "react-native";
 import { config } from "@/utils/loadConfig";
 import { getImage } from "@/utils/imageMap";
+import { useAdobeTargetRefreshOffers } from "@/context/AdobeTargetContext";
+import { setClickCookie } from "@adobe/utils/clickCookie";
 
 const GAP = 12;
 const CARD_PADDING = 16;
@@ -57,6 +61,8 @@ export default function ImageGallery({
   const itemWidth =
     (innerWidth - GAP * Math.max(0, safeCount - 1)) / safeCount;
 
+  const refreshOffers = useAdobeTargetRefreshOffers();
+
   return (
     <View style={[styles.card, { width: cardOuterWidth }]}>
       <Text style={styles.cardTitle}>이미지 전체보기</Text>
@@ -71,7 +77,14 @@ export default function ImageGallery({
                 accessibilityRole="button"
                 accessibilityLabel={`${img.label} 보기`}
                 accessibilityState={{ selected }}
-                onPress={() => onSelectIndex(index)}
+                onPress={async () => {
+                  onSelectIndex(index);
+                  // ── Adobe Target ── 클릭 → 쿠키 저장 → get_offers 재조회
+                  setClickCookie(index + 1);
+                  if (Platform.OS === "web") {
+                    await refreshOffers();
+                  }
+                }}
                 style={[styles.item, { width: itemWidth }]}
               >
                 <Text

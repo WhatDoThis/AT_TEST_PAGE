@@ -2,6 +2,18 @@
 
 ## Log Index
 
+67. 2026-05-08 Adobe offers 엔드포인트 함수명 충돌 해소
+66. 2026-05-08 Adobe except 로그 메시지 요약(가독성 중심)
+65. 2026-05-08 Adobe 설정 로드 경로 단순화(app.config 경유 제거)
+64. 2026-05-08 Adobe Target 파일 역할 분리 리팩토링(라우터/디버그/유틸/파서)
+63. 2026-05-08 Adobe Target 전수 점검 후 경량 정리(미사용/중복 제거)
+62. 2026-05-08 Adobe Target offers-only 리팩토링(notification/track 제거)
+61. 2026-05-08 Target notification 후 `refreshOffers`·`profile_params`·offers fetch 공통화
+60. 2026-05-08 Adobe `notif_mbox_name`·`target-click-mbox`·라우터 `send_notifications` 명명 정합
+59. 2026-05-08 Target 클릭 API `POST /api/target/notifications` 권장·`/track` 레거시 병행
+58. 2026-05-08 갤러리 썸네일 클릭 시 Target track 전송·`sendAdobeTargetTrack` 공통화
+57. 2026-05-08 Target offers/track에 `clickEvent*` 쿠키 평탄 params 전달
+56. 2026-05-08 Adobe Target event-popup·click 쿠키(실행기-only)·팝업 Context
 55. 2026-05-08 Adobe `config.adobe.json` Git 제외·example 템플릿·프론트 postinstall
 54. 2026-05-07 Adobe config.adobe.json 중첩(administration/mboxes) 로드 수정·프론트 mboxes 정규화
 53. 2026-05-07 Adobe 설정 경로 명시·프론트 BRIDGE 주석 통일(backend/env·frontend/env config.adobe.json)
@@ -59,6 +71,155 @@
 12. 2026-04-27 docs/main AT_TEST_PAGE PRD v1.0 작성
 
 ## Log Body
+
+67. 2026-05-08 Adobe offers 엔드포인트 함수명 충돌 해소
+
+Purpose: FastAPI 핸들러 함수명이 SDK 메서드(`client.get_offers`)와 동일해 읽는 사람이 혼동하는 문제를 줄이기 위해 엔드포인트 함수명을 역할 중심으로 분리한다.
+
+Changes:
+
+- `target_adobe_router.py` 엔드포인트 함수명 변경: `get_offers` → `get_offers_endpoint`
+- 파일 상단 설명의 Main Functions 항목을 새 함수명 기준으로 동기화
+
+Changed files: backend/adobe_backend/target_backend/target_adobe_router.py, docs/log/log.md
+
+66. 2026-05-08 Adobe except 로그 메시지 요약(가독성 중심)
+
+Purpose: Adobe 전용 코드의 except/catch 구문에서 출력되는 문자열 로그를 짧고 일관된 형태로 압축해 빠르게 읽히도록 정리한다.
+
+Changes:
+
+- 백엔드 `target_adobe_router.py`: 예외 로그를 `[AT] offers ...` 형태로 축약(`config invalid`, `URL parse fail`, `API 400`, `API error`, `unexpected error`)
+- 백엔드 `target_debug_utils.py`: except 구간 로그/플레이스홀더를 `failed` → `fail`로 간소화(`to_str fail`, `to_dict fail`)
+- 프론트 `targetContext.tsx`, `targetApp.tsx`: catch/HTTP 실패 warn 메시지를 `[AT] ... fail` 형태로 통일
+
+Changed files: backend/adobe_backend/target_backend/target_adobe_router.py, backend/adobe_backend/target_backend/target_debug_utils.py, frontend/adobe_frontend/target_frontend/context/targetContext.tsx, frontend/adobe_frontend/target_frontend/app/targetApp.tsx, docs/log/log.md
+
+65. 2026-05-08 Adobe 설정 로드 경로 단순화(app.config 경유 제거)
+
+Purpose: Adobe 전용 설정이 일반 `app.config`를 통해 우회 로드되던 구조를 제거하고, Adobe 모듈이 `target_config`를 직접 참조하도록 단순화한다.
+
+Changes:
+
+- `target_config.py`에 `get_adobe_target_settings()` 캐시 엔트리 포인트 추가(`@lru_cache`)
+- `target_client.py`가 `app.config.get_settings().adobe_target` 대신 `get_adobe_target_settings()` 직접 사용
+- `target_adobe_router.py`의 기본 mbox 해석을 `get_adobe_target_settings().offer_mbox_name`으로 전환
+- `target_delivery_utils.py` 캐시 초기화 대상이 `get_settings.cache_clear()`에서 `get_adobe_target_settings.cache_clear()`로 변경
+- `app/config.py`에서 Adobe bridge import/필드/로드 제거, 앱 공통 설정은 `raw`/`db`만 유지
+
+Changed files: backend/adobe_backend/target_backend/target_config.py, backend/adobe_backend/target_backend/target_client.py, backend/adobe_backend/target_backend/target_adobe_router.py, backend/adobe_backend/target_backend/target_delivery_utils.py, backend/app/config.py, docs/log/log.md
+
+64. 2026-05-08 Adobe Target 파일 역할 분리 리팩토링(라우터/디버그/유틸/파서)
+
+Purpose: Adobe 전용 코드 파일 안에 섞여 있던 라우팅/디버그 로그 분석/Delivery 유틸/오퍼 파싱 책임을 기능 기준으로 분리해 유지보수성과 가독성을 높인다.
+
+Changes:
+
+- 백엔드 분리: `target_adobe_router.py`에서 디버그 로그 함수를 `target_debug_utils.py`로, Delivery 공통 함수(방문자 ID·오퍼 파싱·예외 본문·캐시 초기화)를 `target_delivery_utils.py`로 분리
+- 백엔드 라우터 정리: 라우터 파일은 요청 모델·엔드포인트·동기 실행 본문 중심으로 경량화하고 분리 유틸 import로 재구성
+- 프론트 분리: `targetContext.tsx`에 섞여 있던 offers 파싱/타입을 `utils/targetOfferParser.ts`로 분리
+- 프론트 참조 정리: `targetApp.tsx`, `targetImageCarousel.tsx`, `EventPopup.tsx`가 새 파서/타입 모듈을 직접 참조하도록 정리
+- 검증: refactor 대상 파일 lint 에러 없음, backend 대상 파일 `python -m py_compile` 성공
+
+Changed files: backend/adobe_backend/target_backend/target_adobe_router.py, backend/adobe_backend/target_backend/target_debug_utils.py, backend/adobe_backend/target_backend/target_delivery_utils.py, frontend/adobe_frontend/target_frontend/context/targetContext.tsx, frontend/adobe_frontend/target_frontend/utils/targetOfferParser.ts, frontend/adobe_frontend/target_frontend/app/targetApp.tsx, frontend/adobe_frontend/target_frontend/components/targetImageCarousel.tsx, frontend/adobe_frontend/target_frontend/components/EventPopup.tsx, docs/log/log.md
+
+63. 2026-05-08 Adobe Target 전수 점검 후 경량 정리(미사용/중복 제거)
+
+Purpose: Adobe Target 코드 전반을 다시 스캔해 실제 사용되지 않거나 의미가 중복된 helper/호환 코드를 제거해 파일을 더 가볍게 유지한다.
+
+Changes:
+
+- 백엔드 `target_adobe_router.py`: `_TARGET_GLOBAL_MBOX_NAME` 상수와 `_is_target_global_mbox` helper 제거 후 `_get_offers_sync` 분기에서 `"target-global-mbox"` 직접 비교로 인라인화
+- 프론트 `targetContext.tsx`: 외부 참조가 없는 `parseAdobeTargetOffer` 호환 export 제거
+- 백엔드 `target_client.py`: offers-only 구조와 맞지 않는 `send_notifications` 설명 문구 제거
+
+Changed files: backend/adobe_backend/target_backend/target_adobe_router.py, frontend/adobe_frontend/target_frontend/context/targetContext.tsx, backend/adobe_backend/target_backend/target_client.py, docs/log/log.md
+
+62. 2026-05-08 Adobe Target offers-only 리팩토링(notification/track 제거)
+
+Purpose: Adobe Target 연동을 "클릭 시 쿠키 저장 → get_offers 재조회 → offer 수신 시 팝업" 단일 흐름으로 단순화하기 위해 notification/track 레이어와 프론트 Adobe 전용 config 파일을 제거한다.
+
+Changes:
+
+- 백엔드: `target_adobe_router.py`에서 `TrackRequest`·notifications/track 엔드포인트·관련 동기 함수 및 notification 전용 디버그 분기 제거, `OffersRequest`는 `visitor_id` 제거 후 `profile_params` 유지, 응답에서 `visitor_third_party_id` 제거
+- 백엔드 설정: `target_config.py`에서 `notif_mbox_name`/`track_mbox_name` 처리 제거, `backend/env/config.adobe*.json`을 `offer_mbox_name`만 남기도록 정리
+- 프론트: `targetTrack.ts`, `frontend/env/config.adobe.json`, `frontend/env/config.adobe.example.json`, `frontend/scripts/ensureAdobeEnv.cjs` 삭제 및 `package.json` postinstall 제거
+- 프론트 흐름: `ImageGallery` 클릭을 `setClickCookie` + `refreshOffers`로 단순화, `targetImageCarousel` track 호출 제거, `targetOffersFetch`를 offers-only 요청/`tnt_id` 저장으로 정리, `loadConfig`에서 Adobe 별도 config 병합 제거
+- 검증: `npx tsc --noEmit` 실행 시 기존 `CouponTable.tsx` 타입 에러만 확인(이번 변경 파일 관련 에러 없음), 실행 중 uvicorn 로그에서 `/api/target/offers` 200 및 재시작 후 startup 오류 없음 확인
+
+Changed files: backend/adobe_backend/target_backend/target_adobe_router.py, backend/adobe_backend/target_backend/target_config.py, backend/env/config.adobe.json, backend/env/config.adobe.example.json, backend/app/main.py, frontend/components/ImageGallery.tsx, frontend/adobe_frontend/target_frontend/components/targetImageCarousel.tsx, frontend/adobe_frontend/target_frontend/context/targetContext.tsx, frontend/adobe_frontend/target_frontend/utils/targetOffersFetch.ts, frontend/adobe_frontend/target_frontend/utils/targetSession.ts, frontend/adobe_frontend/target_frontend/app/targetApp.tsx, frontend/app/_layout.tsx, frontend/utils/loadConfig.ts, frontend/package.json, docs/log/log.md (deleted: frontend/adobe_frontend/target_frontend/utils/targetTrack.ts, frontend/env/config.adobe.json, frontend/env/config.adobe.example.json, frontend/scripts/ensureAdobeEnv.cjs)
+
+61. 2026-05-08 Target notification 후 `refreshOffers`·`profile_params`·offers fetch 공통화
+
+Purpose: 갤러리 클릭 시 `send_notifications` 로 프로필 파라미터 반영 후 같은 세션에서 `get_offers` 를 이어 호출해 새로고침 없이 event-popup 오퍼를 받을 수 있게 한다.
+
+Changes:
+
+- 백엔드 `TrackRequest.profile_params` → SDK `Notification.profile_parameters`
+- 프론트 `sendAdobeTargetTrack` async·`onAfterTrack`·`targetOffersFetch`·Context `refreshOffers`·갤러리 `await` 연결
+
+Changed files: backend/adobe_backend/target_backend/target_adobe_router.py, frontend/adobe_frontend/target_frontend/utils/targetTrack.ts, frontend/adobe_frontend/target_frontend/utils/targetOffersFetch.ts, frontend/adobe_frontend/target_frontend/context/targetContext.tsx, frontend/adobe_frontend/target_frontend/app/targetApp.tsx, frontend/components/ImageGallery.tsx, frontend/context/AdobeTargetContext.tsx, docs/log/log.md
+
+60. 2026-05-08 Adobe `notif_mbox_name`·`target-click-mbox`·라우터 `send_notifications` 명명 정합
+
+Purpose: 설정 키를 `track_mbox_name` → `notif_mbox_name`, 기본·샘플 mbox 값을 `target-click-mbox` 로 통일하고, HTTP 핸들러명을 `get_offers` 와 대칭되게 `send_notifications` / `send_notifications_legacy` 로 바꾼다. 구 JSON 키·값은 로더 폴백으로 유지한다.
+
+Changes:
+
+- `AdobeTargetSettings.notif_mbox_name`, `target_config`·`target_adobe_router`·에러 코드 `adobe_target_send_notifications_failed`
+- 프론트 `AdobeTargetConfig.notif_mbox_name`, `targetTrack.ts`, 예시·로컬 `config.adobe.json`
+- 문서 04 v2.8
+
+Changed files: backend/adobe_backend/target_backend/target_config.py, backend/adobe_backend/target_backend/target_adobe_router.py, backend/env/config.adobe.json, backend/env/config.adobe.example.json, frontend/utils/loadConfig.ts, frontend/adobe_frontend/target_frontend/utils/targetTrack.ts, frontend/adobe_frontend/target_frontend/components/targetImageCarousel.tsx, frontend/env/config.adobe.json, frontend/env/config.adobe.example.json, docs/main/04_AT_TEST_PAGE_ADOBE_TARGET_INTEGRATION.md, docs/log/log.md
+
+59. 2026-05-08 Target 클릭 API `POST /api/target/notifications` 권장·`/track` 레거시 병행
+
+Purpose: 브라우저가 URL에 `/track` 이 포함된 요청을 광고·프라이버시 필터로 차단하는 사례에 대비해 동일 본문의 `POST /api/target/notifications` 를 두고 프론트는 이 경로로 호출한다.
+
+Changes:
+
+- 백엔드: `_track_click_route` 공유·`/target/notifications`·기존 `/target/track` 유지
+- 프론트: `targetTrack.ts` URL 변경·성공/실패 `console` 보강
+- 문서 04 v2.7·`app/main.py` 주석
+
+Changed files: backend/adobe_backend/target_backend/target_adobe_router.py, backend/app/main.py, frontend/adobe_frontend/target_frontend/utils/targetTrack.ts, docs/main/04_AT_TEST_PAGE_ADOBE_TARGET_INTEGRATION.md, docs/log/log.md
+
+58. 2026-05-08 갤러리 썸네일 클릭 시 Target track 전송·`sendAdobeTargetTrack` 공통화
+
+Purpose: track 은 기존에 캐러셀 `goNext` 에만 있어 갤러리만 클릭하면 `click-tracking-mbox` 요청이 없었다. 갤러리에서도 동일 API를 호출하고 fetch 본문은 유틸로 통일한다.
+
+Changes:
+
+- `utils/targetTrack.ts` 의 `sendAdobeTargetTrack`
+- `targetImageCarousel` 은 유틸 호출로 전환
+- `ImageGallery` 웹에서 `clickSource=gallery-thumb`, `gallerySlot` 과 함께 track
+
+Changed files: frontend/adobe_frontend/target_frontend/utils/targetTrack.ts, frontend/adobe_frontend/target_frontend/components/targetImageCarousel.tsx, frontend/components/ImageGallery.tsx, docs/log/log.md
+
+57. 2026-05-08 Target offers/track에 `clickEvent*` 쿠키 평탄 params 전달
+
+Purpose: 브라우저 `document.cookie`의 `clickEvent{n}` 을 서버 프록시 Target 요청 `parameters`에 실어 Audience·프로필 평가에 활용 가능하게 한다.
+
+Changes:
+
+- `getClickEventCookieParams()` 추가(이름 패턴 `clickEvent`+숫자, 값은 문자열)
+- `TargetOffersPreload` offers 본문에 `params` 병합(쿠키 있을 때만)
+- `targetImageCarousel` track `params`에 `clickButton`과 병합
+
+Changed files: frontend/adobe_frontend/target_frontend/utils/clickCookie.ts, frontend/adobe_frontend/target_frontend/app/targetApp.tsx, frontend/adobe_frontend/target_frontend/components/targetImageCarousel.tsx, docs/log/log.md
+
+56. 2026-05-08 Adobe Target event-popup·click 쿠키(실행기-only)·팝업 Context
+
+Purpose: Target Audience가 쿠키·오퍼를 판단하고, 프론트는 `clickEvent*` 저장·offers 파싱·`event-popup` Modal 렌더만 수행한다.
+
+Changes:
+
+- `clickCookie.ts`, `EventPopup.tsx`, `targetContext`(event-popup state·`parseAdobeTargetOffersPayload`·`useAdobeTargetEventPopup`)
+- `targetApp` 프리로드에서 캐러셀·팝업 오퍼 동시 반영 및 디버그 로그
+- `ImageGallery` 클릭 시 `setClickCookie(index+1)`; `index.tsx`에서 팝업 연결
+- 브리지 `@/components/EventPopup`; Context는 기존 `export *`로 훅 재노출
+
+Changed files: frontend/adobe_frontend/target_frontend/utils/clickCookie.ts, frontend/adobe_frontend/target_frontend/components/EventPopup.tsx, frontend/adobe_frontend/target_frontend/context/targetContext.tsx, frontend/adobe_frontend/target_frontend/app/targetApp.tsx, frontend/components/EventPopup.tsx, frontend/components/ImageGallery.tsx, frontend/app/index.tsx, docs/log/log.md
 
 55. 2026-05-08 Adobe `config.adobe.json` Git 제외·example 템플릿·프론트 postinstall
 

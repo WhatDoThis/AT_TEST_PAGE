@@ -16,26 +16,20 @@
  * =========
  * - react
  * - react-native Platform
- * - @/utils/loadConfig (`frontend/env/config.{dev|prd}.json` + `frontend/env/config.adobe.json` 병합)
+ * - @/utils/loadConfig (`frontend/env/config.{dev|prd}.json`)
  * - ../context/targetContext
- * - ../utils/targetSession
+ * - ../utils/targetOffersFetch (`fetchAdobeTargetOffersResponse`)
  */
 
 import { useEffect, type ReactNode } from "react";
 import { Platform } from "react-native";
-import { config } from "@/utils/loadConfig";
-import {
-  AT_TNT_STORAGE_KEY,
-  AT_VISITOR_STORAGE_KEY,
-  getAdobeTargetVisitorPayload,
-} from "../utils/targetSession";
 import {
   AdobeTargetProvider,
-  parseAdobeTargetOffer,
+  useAdobeTargetSetEventPopupOffer,
   useAdobeTargetSetOffer,
 } from "../context/targetContext";
-
-const API_BASE_URL = config.api_base_url ?? config.api_url ?? "http://localhost:8010";
+import { parseAdobeTargetOffersPayload } from "../utils/targetOfferParser";
+import { fetchAdobeTargetOffersResponse } from "../utils/targetOffersFetch";
 
 // 1. [Provider] 루트 레이아웃이 트리를 감싼다.
 export function TargetAppProvider({ children }: { children: ReactNode }) {
@@ -43,44 +37,34 @@ export function TargetAppProvider({ children }: { children: ReactNode }) {
 }
 
 // 2. [프리로드] 웹 전용 — offers 응답을 Context·sessionStorage에 반영한다.
-//    `mbox_name` 출처: frontend/env/config.adobe.json → `@/utils/loadConfig` → `config.adobe_target.offer_mbox_name`
 export function TargetOffersPreload() {
   const setAdobeTargetOffer = useAdobeTargetSetOffer();
+  const setEventPopupOffer = useAdobeTargetSetEventPopupOffer();
 
   useEffect(() => {
     if (Platform.OS !== "web") return;
 
-    fetch(`${API_BASE_URL}/api/target/offers`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        mbox_name: config.adobe_target.offer_mbox_name,
-        ...(typeof window !== "undefined" && window.location?.href
-          ? { page_url: window.location.href }
-          : {}),
-        ...getAdobeTargetVisitorPayload(),
-      }),
-    })
-      .then(async (res) => {
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          console.warn("[Adobe Target] offers HTTP error:", res.status, data);
+    fetchAdobeTargetOffersResponse()
+      .then(({ ok, status, data }) => {
+        if (!ok) {
+          console.warn("[AT] offers HTTP fail:", status, data);
           return;
         }
-        if (typeof sessionStorage !== "undefined") {
-          if (typeof data?.tnt_id === "string" && data.tnt_id) {
-            sessionStorage.setItem(AT_TNT_STORAGE_KEY, data.tnt_id);
-          }
-          if (typeof data?.visitor_third_party_id === "string" && data.visitor_third_party_id) {
-            sessionStorage.setItem(AT_VISITOR_STORAGE_KEY, data.visitor_third_party_id);
-          }
+        const { carousel, eventPopup } = parseAdobeTargetOffersPayload(data);
+        setAdobeTargetOffer(carousel);
+        setEventPopupOffer(eventPopup);
+        if (eventPopup !== null) {
+          // ── Adobe Target ──
+          console.log("[Adobe Target] event-popup offer received", eventPopup);
         }
-        const offer = parseAdobeTargetOffer(data);
-        setAdobeTargetOffer(offer);
-        console.log("[Adobe Target] offers loaded:", { offer, raw: data });
+        console.log("[Adobe Target] offers loaded:", {
+          carousel,
+          eventPopup,
+          raw: data,
+        });
       })
-      .catch((err) => console.warn("[Adobe Target] offers fetch failed:", err));
-  }, [setAdobeTargetOffer]);
+      .catch((err) => console.warn("[AT] offers fetch fail:", err));
+  }, [setAdobeTargetOffer, setEventPopupOffer]);
 
   return null;
 }

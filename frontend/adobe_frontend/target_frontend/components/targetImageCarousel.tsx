@@ -9,7 +9,7 @@
  * - 다음 이미지 애니메이션 전환
  * - 인덱스 변경 시 레이아웃 리셋(외부 동기화)
  * - (AT) Adobe Target 오퍼 기반 버튼 텍스트 / 자동 재생(autoPlayMs) 적용
- * - (AT) 다음 이미지 클릭 시 백엔드 트래킹 호출(fire-and-forget)
+ * - // ── Adobe Target ── 다음 이미지 클릭 시 offers-only 흐름 유지(트래킹 호출 제거)
  *
  * [Endpoints/Classes/Functions]
  * =======================
@@ -19,9 +19,8 @@
  * =========
  * - react-native
  * - react-native-reanimated
- * - @/utils/loadConfig (병합: frontend/env/config.{dev|prd}.json + `frontend/env/config.adobe.json`)
+ * - @/utils/loadConfig (frontend/env/config.{dev|prd}.json)
  * - @/utils/imageMap
- * - ../utils/targetSession
  * - ../context/targetContext
  */
 
@@ -33,7 +32,6 @@ import {
   Pressable,
   Text,
   useWindowDimensions,
-  Platform,
 } from "react-native";
 import Animated, {
   useSharedValue,
@@ -45,18 +43,9 @@ import Animated, {
 import { config } from "@/utils/loadConfig";
 import { getImage } from "@/utils/imageMap";
 
-// ════════════════════════════════════════════════════════════════════════════════
-// ▼▼▼  ADOBE TARGET — BEGIN: imports + 상수 + 오퍼 prop  ▼▼▼
-// ════════════════════════════════════════════════════════════════════════════════
-import { getAdobeTargetVisitorPayload } from "../utils/targetSession";
-import type { AdobeTargetOffer } from "../context/targetContext";
+import type { AdobeTargetOffer } from "../utils/targetOfferParser";
 
-const API_BASE_URL = config.api_base_url ?? config.api_url ?? "http://localhost:8010";
 const DEFAULT_NEXT_BUTTON_TEXT = "▶ 다음 이미지";
-// ════════════════════════════════════════════════════════════════════════════════
-// ▲▲▲  ADOBE TARGET — END:   imports + 상수  ▲▲▲
-// ════════════════════════════════════════════════════════════════════════════════
-
 const ANIM_DURATION = 300;
 
 export interface ImageCarouselProps {
@@ -121,25 +110,6 @@ export default function ImageCarousel({
     if (isAnimating) {
       return;
     }
-
-    // ════════════════════════════════════════════════════════════════════════
-    // ▼▼▼  ADOBE TARGET — BEGIN: 클릭 이벤트 전송 (fire-and-forget)  ▼▼▼
-    //   `mbox_name` 출처: frontend/env/config.adobe.json → loadConfig.config.adobe_target.track_mbox_name
-    // ════════════════════════════════════════════════════════════════════════
-    if (Platform.OS === "web") {
-      fetch(`${API_BASE_URL}/api/target/track`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          mbox_name: config.adobe_target.track_mbox_name,
-          ...getAdobeTargetVisitorPayload(),
-          params: { clickButton: "image-change" },
-        }),
-      }).catch((err) => console.warn("[Adobe Target] track failed:", err));
-    }
-    // ════════════════════════════════════════════════════════════════════════
-    // ▲▲▲  ADOBE TARGET — END:   클릭 이벤트 전송  ▲▲▲
-    // ════════════════════════════════════════════════════════════════════════
 
     setIsAnimating(true);
     const newIndex = (currentIndex + 1) % len;

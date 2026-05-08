@@ -1,6 +1,6 @@
 # AT_TEST_PAGE Adobe Target 연동 가이드
 
-**문서 버전 2.6** (2026-05-08) — Adobe 공통 JSON은 Git에 **`config.adobe.example.json`** 만 두고, 런타임 **`config.adobe.json`** 은 로컬·배포 환경에서 생성한다(`.gitignore`). v2.5 중첩 로드 동작은 동일.
+**문서 버전 2.9** (2026-05-08) — 갤러리 클릭 시 **`send_notifications` → `get_offers`** 순차 호출(Context `refreshOffers`). 요청 본문 **`profile_params`** → Delivery `Notification.profile_parameters`. v2.8 설정·핸들러 명명은 동일.
 
 본 문서는 **현재 저장소에 적용된 Adobe Target 연동**만 설명한다. 제품·화면 전체는 아래 문서를 본다.
 
@@ -24,7 +24,7 @@
 
 1. 브라우저는 Adobe JS SDK를 쓰지 않고, **우리 FastAPI**에 `POST`한다.
 2. FastAPI가 **Target Python SDK**로 Adobe Delivery API를 호출한다.
-3. 오퍼 조회와 클릭 트래킹은 각각 **`/api/target/offers`**, **`/api/target/track`** 이다.
+3. 오퍼 조회와 클릭 트래킹은 각각 **`/api/target/offers`**, **`/api/target/notifications`** 이다(구 경로 **`/api/target/track`** 동일 구현).
 
 ### 2.2 적용 범위
 
@@ -58,8 +58,8 @@ flowchart LR
 2. **오퍼 프리로드** — `TargetOffersPreload`의 `useEffect`가 한 번 `POST {api_url}/api/target/offers`를 보낸다. 본문에는 `config.adobe_target.offer_mbox_name`(출처: 로컬 `frontend/env/config.adobe.json` + `loadConfig` 병합), `page_url`(가능 시 `window.location.href`), `getAdobeTargetVisitorPayload()`(sessionStorage 기반 `tnt_id`/`visitor_id`)가 포함된다.
 3. **백엔드 offers** — `asyncio.to_thread` 안에서 `TargetClient.get_offers`가 Delivery `POST /rest/v1/delivery`를 호출한다. `mbox_name`이 `target-global-mbox`이면 요청 본문은 `execute.pageLoad`(URL 필수), 그 외 이름이면 `execute.mboxes` 한 건이다. 응답 오퍼는 `_offers_from_execute_response`가 `page_load.options`와 `mboxes[].options`를 합쳐 `{ type, content }[]`로 만든다.
 4. **프론트 반영** — 성공 시 `sessionStorage`에 `tnt_id` 등을 갱신하고, `parseAdobeTargetOffer` 결과를 Context에 넣는다. `index.tsx`가 `useAdobeTargetOffer()`로 읽어 `ImageCarousel`(실제 구현 `targetImageCarousel.tsx`)에 `adobeOffer`를 넘긴다.
-5. **클릭 트래킹(웹)** — 사용자가 다음 이미지를 누르면 캐러셀이 `POST {api_url}/api/target/track`을 보낸다. `mbox_name`은 `config.adobe_target.track_mbox_name`, 동일 방문자 페이로드를 붙인다.
-6. **백엔드 track** — `send_notifications`로 Delivery 요청을 보낸다. 본문에는 `execute`가 없고 `notifications[]`만 있다(아래 2.5 참고). HTTP 200과 함께 응답 `id.tnt_id` 등이 오면 다음 offers/track에 재사용할 수 있다.
+5. **클릭 트래킹(웹)** — 갤러리 썸네일·캐러셀「다음」 등에서 `POST {api_url}/api/target/notifications`을 보낸다(구현: `targetTrack.ts`). `mbox_name`은 `config.adobe_target.notif_mbox_name`, 동일 방문자 페이로드·`clickEvent*` 등 `params`를 붙인다.
+6. **백엔드 notifications** — `send_notifications`로 Delivery 요청을 보낸다. 본문에는 `execute`가 없고 `notifications[]`만 있다(아래 2.5 참고). HTTP 200과 함께 응답 `id.tnt_id` 등이 오면 다음 offers/notifications에 재사용할 수 있다.
 
 ### 2.5 Delivery 요청·응답 형태(진단 로그와 대응)
 
@@ -67,7 +67,7 @@ flowchart LR
 
 **track(`send_notifications`)** — 요청 요약 로그 예:
 
-- `mode=notifications`, `execute_mboxes=-`, `notification_mboxes=['click-tracking-mbox']`, `tntId=...`, `property_token=...`
+- `mode=notifications`, `execute_mboxes=-`, `notification_mboxes=['target-click-mbox']`, `tntId=...`, `property_token=...`
 - `request to_str` 안에 `execute: None`, `notifications: [{ type: 'click', mbox: { name: '...' }, parameters: {...}, tokens: [] }]` 가 보인다.
 
 응답은 성공 시 `status=200`, `request_id`, `client`, `edge_host` 등이 오고 **`execute`/`prefetch`/`notifications` 필드가 비어 있는 경우가 많다.** 이는 알림 전용 응답의 정상 형태이며, “오퍼가 안 왔다”는 뜻이 아니다. (향후 `eventToken`을 `tokens`에 넣는 개선은 별 작업.)
@@ -112,14 +112,14 @@ flowchart LR
 
 `APP_ENV`(dev/prd)와 무관하게 한 파일에서 읽는다(`adobe_backend/target_backend/target_config.py`). dev·prd 전용 JSON과 같은 `backend/env/` 디렉터리에 둔다.
 
-**키 배치(둘 중 하나):** (A) 루트에 `client`, `organization_id`, `property_token`, `timeout`, `offer_mbox_name`, `track_mbox_name` 평면으로 둔다. (B) `administration` 객체에 `client`·`organization_id`·`property_token`·`timeout`, `mboxes` 객체에 `offer_mbox_name`·`track_mbox_name` — 로더가 두 형식을 모두 읽는다.
+**키 배치(둘 중 하나):** (A) 루트에 `client`, `organization_id`, `property_token`, `timeout`, `offer_mbox_name`, `notif_mbox_name` 평면으로 둔다. (B) `administration` 객체에 `client`·`organization_id`·`property_token`·`timeout`, `mboxes` 객체에 `offer_mbox_name`·`notif_mbox_name` — 로더가 두 형식을 모두 읽는다(구 `track_mbox_name` 키는 백·프 로더가 폴백으로 읽음).
 
 1. **`client`** — Target 클라이언트 코드 (ASCII만).
 2. **`organization_id`** — `...@AdobeOrg` 형식 (ASCII만).
 3. **`property_token`** — Property 토큰 (ASCII만).
 4. **`timeout`** — SDK 타임아웃(ms).
 5. **`offer_mbox_name`** — `POST /api/target/offers` 요청 본문에서 `mbox_name`을 생략할 때 쓰는 기본값(프론트 로컬 `frontend/env/config.adobe.json` 과 동일 키 권장). JSON에 없거나 trim 후 빈 문자열이면 **`target-global-mbox`** 로 폴백한다.
-6. **`track_mbox_name`** — `POST /api/target/track` 에서 `mbox_name` 생략 시 기본값. 없거나 빈 문자열이면 **`click-tracking-mbox`** 로 폴백한다.
+6. **`notif_mbox_name`** — `POST /api/target/notifications`(·레거시 `/api/target/track`)에서 `mbox_name` 생략 시 기본값. 없거나 빈 문자열이면 **`target-click-mbox`** 로 폴백한다(구 `track_mbox_name` JSON 키는 폴백 입력).
 
 `client`·`organization_id`·`property_token` 문자열은 **trim** 되고, 비ASCII·빈 값은 SDK 초기화 시 API **400**으로 막는다. mbox 이름 두 필드는 **trim만** 적용되며, 빈 값만 위 폴백 문자열로 대체된다.
 
@@ -132,7 +132,7 @@ flowchart LR
 ### 4.3 프론트 Adobe 공통 `frontend/env/config.adobe.json`(로컬) / 템플릿 `config.adobe.example.json`
 
 1. **`offer_mbox_name`** — 오퍼 요청의 `mbox_name`.
-2. **`track_mbox_name`** — 클릭 트래킹 요청의 `mbox_name`.
+2. **`notif_mbox_name`** — `send_notifications` 요청의 `mbox_name`.
 
 `utils/loadConfig.ts`가 dev/prd JSON과 병합해 `config.adobe_target`으로 노출한다. JSON이 `mboxes` 안에만 mbox 키가 있어도 된다(정규화됨).
 
@@ -155,7 +155,8 @@ flowchart LR
 | 메서드·경로 | 설명 |
 |-------------|------|
 | `POST /api/target/offers` | 오퍼 조회. 본문: 선택 `mbox_name`(생략 시 `adobe_target.offer_mbox_name`), 선택 `page_url`, `tnt_id`, `visitor_id`, `params`. |
-| `POST /api/target/track` | 클릭 알림. 본문: 선택 `mbox_name`(생략 시 `adobe_target.track_mbox_name`), 선택 `tnt_id`, `visitor_id`, `params`. |
+| `POST /api/target/notifications` | 클릭 알림(Delivery SDK `send_notifications`). 라우터 함수명 `send_notifications`. 본문: 선택 `mbox_name`(생략 시 `adobe_target.notif_mbox_name`), 선택 `tnt_id`, `visitor_id`, `params`. **프론트 권장 URL**(경로에 `track` 없음 — 일부 광고·프라이버시 확장이 `/track` 요청을 차단하는 경우가 있음). |
+| `POST /api/target/track` | 위와 **동일 본문·동일 처리**. 레거시·curl 호환용. |
 
 ### 5.2 주요 파일
 
@@ -184,7 +185,7 @@ flowchart LR
 
 1. **공통** — 요청 `request summary` 한 줄, `DeliveryRequest.to_str()`, 응답 `repr(response.to_dict())` 분할.
 2. **get_offers만** — 응답 `execute`(pageLoad 옵션 수·mboxes 이름·옵션 미리보기), `prefetch` 존재 여부. `execute`가 비면 “오퍼 미매칭 가능”으로 해석할 수 있다.
-3. **track_click만** — `send_notifications` 응답은 `execute`가 비는 것이 정상이므로, **execute/prefetch 상세 분기는 생략**하고 한 줄로 “분기 생략”만 남긴다(오해 로그 방지). 첫 줄에 `edge_host`도 함께 찍는다.
+3. **`send_notifications` 디버그 라벨만** — SDK `send_notifications` 응답은 `execute`가 비는 것이 정상이므로, **execute/prefetch 상세 분기는 생략**하고 한 줄로 “분기 생략”만 남긴다(오해 로그 방지). 첫 줄에 `edge_host`도 함께 찍는다.
 
 ### 5.6 개발 시 주의
 
@@ -199,7 +200,7 @@ flowchart LR
 1. **`_layout.tsx`** — `TargetAppProvider`·`TargetOffersPreload`(`adobe_frontend/target_frontend/app/targetApp.tsx`)를 트리에 둔다.
 2. **`targetContext.tsx`** — Provider, `useAdobeTargetOffer`, `useAdobeTargetSetOffer`, 오퍼 JSON 파싱. 기존 경로는 `context/AdobeTargetContext.tsx` 브리지 재노출.
 3. **`index.tsx`** — `useAdobeTargetOffer()`로 읽어 **`ImageCarousel`** 에 `adobeOffer` prop 전달(구현은 `targetImageCarousel.tsx`).
-4. **`targetImageCarousel.tsx`** — 오퍼로 버튼 문구·`autoPlayMs` 적용, 웹에서만 `POST .../track`. **`getAdobeTargetVisitorPayload()`** 로 offers와 같은 방문자 ID를 붙인다.
+4. **`targetImageCarousel.tsx`** · **`ImageGallery.tsx`** — 오퍼로 버튼 문구·`autoPlayMs` 적용; 웹에서만 `targetTrack.ts`의 `sendAdobeTargetTrack`으로 `POST .../notifications`. **`getAdobeTargetVisitorPayload()`** 로 offers와 같은 방문자 ID를 붙인다.
 5. **`targetSession.ts`** — `sessionStorage` 키와 `tnt_id` 우선·`visitor_id` 보조 페이로드. 기존 경로는 `utils/adobeTargetSession.ts` 브리지.
 
 ### 6.2 UI 관련 (Target 비호출)
@@ -222,12 +223,13 @@ flowchart LR
 - `offers`: `{ type, content }[]` — pageLoad·mboxes 양쪽 옵션을 합친 결과.
 - `mbox`, 선택 `tnt_id`, `visitor_third_party_id`.
 
-### 7.2 `POST /api/target/track`
+### 7.2 `POST /api/target/notifications` (레거시: `POST /api/target/track`)
 
 **요청 (JSON)**
 
-- `mbox_name` (선택·생략 시 `adobe_target.track_mbox_name`, 없으면 `click-tracking-mbox`)
+- `mbox_name` (선택·생략 시 `adobe_target.notif_mbox_name`, 없으면 `target-click-mbox`)
 - `tnt_id`, `visitor_id`, `params` (선택·`params`는 객체)
+- `profile_params` (선택·객체) — SDK `Notification.profile_parameters`. 프로필 반영 직후 프론트에서 `POST /api/target/offers` 를 이어 호출하면 Audience 판단에 반영될 수 있다(구현: `refreshOffers`).
 
 **응답 (JSON)**
 
@@ -272,13 +274,13 @@ flowchart LR
 ## 9. 이식·점검 체크리스트
 
 1. 백엔드에 `target-python-sdk` 및 `requirements.txt` 정합.
-2. 백엔드 **로컬 `backend/env/config.adobe.json`** — `client`·`organization_id`·`property_token`·`timeout`(ASCII 검증) + `offer_mbox_name`·`track_mbox_name`; `backend/env` 에는 `cors_origins`·`db` 등만.
+2. 백엔드 **로컬 `backend/env/config.adobe.json`** — `client`·`organization_id`·`property_token`·`timeout`(ASCII 검증) + `offer_mbox_name`·`notif_mbox_name`; `backend/env` 에는 `cors_origins`·`db` 등만.
 3. FastAPI에서 Target 라우터 등록(`target_main.register_target_routes`)·CORS `POST` 허용.
 4. 동기 SDK는 **`asyncio.to_thread`** 로 호출.
 5. 프론트는 **`api_url`** 로 백엔드만 호출 (`/api/target/...`).
-6. **`offer_mbox_name` / `track_mbox_name`** 을 프론트 `frontend/env/config.adobe.json`(로컬) 과 백엔드 `backend/env/config.adobe.json`(로컬) 에 동일 키로 두면, 프론트 생략·curl 단독 호출 시에도 기본 mbox가 일치한다.
+6. **`offer_mbox_name` / `notif_mbox_name`** 을 프론트 `frontend/env/config.adobe.json`(로컬) 과 백엔드 `backend/env/config.adobe.json`(로컬) 에 동일 키로 두면, 프론트 생략·curl 단독 호출 시에도 기본 mbox가 일치한다.
 7. 오퍼는 **`TargetOffersPreload` + Context** 한 번 fetch 후 하위로 전달한다.
-8. offers·track 모두 **`tnt_id` / `visitor_id`** 를 맞춘다 (`targetSession` + `sessionStorage`).
+8. offers·notifications(클릭) 모두 **`tnt_id` / `visitor_id`** 를 맞춘다 (`targetSession` + `sessionStorage`).
 9. 글로벌 mbox는 서버가 **pageLoad**로만내도록 유지한다.
 10. 컨버전을 빡세게 잡으려면 **`eventToken` → `tokens`** 파이프를 추가한다.
 11. 장애 시에만 서버에 **`AT_DEBUG_DELIVERY=1`** 을 잠깐 켠다.
@@ -300,6 +302,9 @@ flowchart LR
 
 | 버전 | 일자 | 요약 |
 |------|------|------|
+| 2.9 | 2026-05-08 | `profile_params`·갤러리 클릭 후 `refreshOffers`(notification→offers 순서)·`targetOffersFetch` 공통 |
+| 2.8 | 2026-05-08 | `notif_mbox_name`·`target-click-mbox`·라우터 `send_notifications` / `send_notifications_legacy`·구 키 폴백 |
+| 2.7 | 2026-05-08 | 클릭 프록시 권장 경로 `POST /api/target/notifications`·레거시 `/track` 병행·프론트 `targetTrack.ts` 정합 |
 | 2.6 | 2026-05-08 | `config.adobe.json` Git 제외·`config.adobe.example.json` 템플릿·프론트 `postinstall` 복사 |
 | 2.5 | 2026-05-07 | `config.adobe.json` administration/mboxes 중첩 로드(target_config·loadConfig 정규화) |
 | 2.4 | 2026-05-07 | Adobe 공통 JSON을 `backend/env`·`frontend/env` 의 `config.adobe.json` 으로 이동 |

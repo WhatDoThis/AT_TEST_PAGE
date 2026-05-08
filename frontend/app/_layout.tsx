@@ -3,7 +3,6 @@
  * ================================================================================
  * Stack 네비게이션과 공통 헤더(앱 타이틀)를 적용한다.
  * Adobe Target UI 트리·오퍼 프리로드는 **앱 패키지 밖** `adobe_frontend/target_frontend/app/targetApp.tsx` 에서 주입한다.
- * (mbox 등 설정 값은 `frontend/env/config.adobe.json` → `@/utils/loadConfig` 병합 경로)
  *
  * [Main Functions]
  * ===========
@@ -33,7 +32,7 @@ import { config } from "@/utils/loadConfig";
 // ════════════════════════════════════════════════════════════════════════════════
 // [BRIDGE · Adobe] 패키지 임포트 — 실제 파일: frontend/adobe_frontend/.../targetApp.tsx
 // ── tsconfig 별칭: @adobe/app/targetApp
-// ── 심볼: TargetAppProvider(Context 루트), TargetOffersPreload(웹 offers fetch; mbox는 loadConfig 경유)
+// ── 심볼: TargetAppProvider(Context 루트), TargetOffersPreload(웹 offers fetch)
 // ════════════════════════════════════════════════════════════════════════════════
 import { TargetAppProvider, TargetOffersPreload } from "@adobe/app/targetApp";
 // ════════════════════════════════════════════════════════════════════════════════

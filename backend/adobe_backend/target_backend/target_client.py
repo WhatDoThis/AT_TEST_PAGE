@@ -2,7 +2,7 @@
 adobe_backend.target_backend.target_client (Adobe Target Python SDK 클라이언트)
 ================================================================================
 Adobe Target Python SDK를 초기화하고 싱글톤으로 제공한다.
-get_offers, send_notifications 등 Target 서버측 기능의 진입점이다.
+offers 호출용 Target 서버측 기능의 진입점이다.
 
 [Main Functions]
 ===========
@@ -19,7 +19,7 @@ get_offers, send_notifications 등 Target 서버측 기능의 진입점이다.
 [Dependencies]
 =========
 - target-python-sdk
-- app.config.get_settings
+- adobe_backend.target_backend.target_config.get_adobe_target_settings
 """
 
 # ════════════════════════════════════════════════════════════════════════════════
@@ -33,7 +33,7 @@ from functools import lru_cache
 
 from target_python_sdk import TargetClient as AdobeTargetClient
 
-from app.config import get_settings
+from adobe_backend.target_backend.target_config import get_adobe_target_settings
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +65,7 @@ def _assert_adobe_target_ascii(client: str, organization_id: str, property_token
 # 2. [SDK] Target Python SDK 클라이언트 싱글톤
 @lru_cache(maxsize=1)
 def get_target_client() -> AdobeTargetClient:
-    cfg = get_settings().adobe_target
+    cfg = get_adobe_target_settings()
     _assert_adobe_target_ascii(cfg.client, cfg.organization_id, cfg.property_token)
     client_options = {
         "client": cfg.client,
@@ -79,4 +79,4 @@ def get_target_client() -> AdobeTargetClient:
 
 # 3. [토큰] Delivery API property token
 def get_property_token() -> str:
-    return get_settings().adobe_target.property_token
+    return get_adobe_target_settings().property_token
