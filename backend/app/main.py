@@ -9,7 +9,7 @@ CORS·라우터·수명 주기를 구성하고 uvicorn에서 app 객체로 노�
 
 [Main Functions]
 ===========
-- FastAPI 인스턴스 생성 및 미들웨어(CORS) 설정 ([AT] POST 허용)
+- FastAPI 인스턴스 생성 및 미들웨어(CORS) 설정(쿠폰 GET + Target offers POST)
 - lifespan에서 DB 엔진 정리
 
 [Endpoints/Classes/Functions]
@@ -60,7 +60,7 @@ cors_origins = settings.raw.get("cors_origins", [])
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
-    # ── [BRIDGE · Adobe] CORS — Target 프록시(/api/target/offers|notifications)가 POST 이므로 "POST" 필수
+    # ── [BRIDGE · Adobe] CORS — Target 프록시 `POST /api/target/offers` 허용
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )

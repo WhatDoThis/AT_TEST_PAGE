@@ -1,34 +1,29 @@
 /**
  * adobe_frontend.target_frontend.utils.targetOffersFetch (Adobe Target offers POST 공통)
  * ================================================================================
- * `POST /api/target/offers` 요청 본문 구성·실행·sessionStorage(tnt) 갱신을 한곳에 둔다.
- * 초기 프리로드(`targetApp`)와 `refreshOffers`(클릭 직후 재조회)가 동일 경로를 쓴다.
- *
- * [Main Functions]
- * ===========
- * - fetchAdobeTargetOffersResponse: offers fetch + sessionStorage 반영, `{ ok, data }` 반환
- *
- * [Endpoints/Classes/Functions]
- * =======================
- * - fetchAdobeTargetOffersResponse()
- *
- * [Dependencies]
- * =========
- * - @/utils/loadConfig
- * - ./clickCookie (`getClickEventCookieParams`)
- * - ./targetSession (`getAdobeTargetVisitorPayload`, AT_TNT_STORAGE_KEY)
+ * `POST /api/target/offers` 요청·sessionStorage 갱신(tntId, thirdPartyId, SDK 쿠키·hint).
  */
 
 import { config } from "@/utils/loadConfig";
 import { getClickEventCookieParams } from "./clickCookie";
 import {
-  AT_TNT_STORAGE_KEY,
+  AT_LOCATION_HINT_KEY,
+  AT_TARGET_COOKIE_VALUE_KEY,
+  AT_THIRD_PARTY_ID_STORAGE_KEY,
+  AT_TNTID_STORAGE_KEY,
   getAdobeTargetVisitorPayload,
 } from "./targetSession";
 
 const API_BASE_URL = config.api_base_url ?? config.api_url ?? "http://localhost:8010";
 
-// 1. 웹 offers API 호출(호출부에서 `Platform.OS` 가드). 응답 JSON과 HTTP 성공 여부를 반환한다.
+function cookieValueFromResponse(v: unknown): string {
+  if (v && typeof v === "object" && "value" in v) {
+    const val = (v as { value?: unknown }).value;
+    return typeof val === "string" ? val : "";
+  }
+  return "";
+}
+
 export async function fetchAdobeTargetOffersResponse(): Promise<{
   ok: boolean;
   status: number;
@@ -43,7 +38,6 @@ export async function fetchAdobeTargetOffersResponse(): Promise<{
         ? { page_url: window.location.href }
         : {}),
       ...getAdobeTargetVisitorPayload(),
-      // ── Adobe Target ── 서버 Delivery `execute.*.parameters`에 평탄 전달
       ...(Object.keys(clickCookieParams).length > 0
         ? { params: clickCookieParams }
         : {}),
@@ -52,10 +46,34 @@ export async function fetchAdobeTargetOffersResponse(): Promise<{
   const data: unknown = await res.json().catch(() => ({}));
   if (res.ok && typeof sessionStorage !== "undefined") {
     const d = data as {
+      tntId?: unknown;
       tnt_id?: unknown;
+      thirdPartyId?: unknown;
+      third_party_id?: unknown;
+      target_cookie?: unknown;
+      target_location_hint_cookie?: unknown;
     };
-    if (typeof d?.tnt_id === "string" && d.tnt_id) {
-      sessionStorage.setItem(AT_TNT_STORAGE_KEY, d.tnt_id);
+    const tntVal =
+      (typeof d?.tntId === "string" && d.tntId) ||
+      (typeof d?.tnt_id === "string" && d.tnt_id) ||
+      "";
+    if (tntVal) {
+      sessionStorage.setItem(AT_TNTID_STORAGE_KEY, tntVal);
+    }
+    const thirdVal =
+      (typeof d?.thirdPartyId === "string" && d.thirdPartyId) ||
+      (typeof d?.third_party_id === "string" && d.third_party_id) ||
+      "";
+    if (thirdVal) {
+      sessionStorage.setItem(AT_THIRD_PARTY_ID_STORAGE_KEY, thirdVal);
+    }
+    const tcVal = cookieValueFromResponse(d.target_cookie);
+    if (tcVal) {
+      sessionStorage.setItem(AT_TARGET_COOKIE_VALUE_KEY, tcVal);
+    }
+    const lhVal = cookieValueFromResponse(d.target_location_hint_cookie);
+    if (lhVal) {
+      sessionStorage.setItem(AT_LOCATION_HINT_KEY, lhVal);
     }
   }
   return { ok: res.ok, status: res.status, data };

@@ -2,6 +2,14 @@
 
 ## Log Index
 
+75. 2026-05-11 원격 동기화: Adobe 05-11 일괄 반영·`backend/env/config.dev.json` 제외
+74. 2026-05-11 Adobe offers parameters 단일화(profileParameters 제거)
+73. 2026-05-11 Adobe Phase0: target_cookie·session_id·profileParameters 분리
+72. 2026-05-11 Adobe target_backend 경량 리팩터(주석·함수 통합·ASCII 검증을 config로)
+71. 2026-05-11 target_delivery_utils VisitorId import 주석 요약 보강
+70. 2026-05-11 docs/main 04 v3.0.1 JSON 키 id vs import VisitorId 설명
+69. 2026-05-11 docs/main 04 v3.0·README·02/03 Adobe 교차 참조 및 VisitorId 주석
+68. 2026-05-11 Adobe Delivery `id` 명명(tntId·thirdPartyId) 및 offers 파이프라인
 67. 2026-05-08 Adobe offers 엔드포인트 함수명 충돌 해소
 66. 2026-05-08 Adobe except 로그 메시지 요약(가독성 중심)
 65. 2026-05-08 Adobe 설정 로드 경로 단순화(app.config 경유 제거)
@@ -71,6 +79,110 @@
 12. 2026-04-27 docs/main AT_TEST_PAGE PRD v1.0 작성
 
 ## Log Body
+
+75. 2026-05-11 원격 동기화: Adobe 05-11 일괄 반영·`backend/env/config.dev.json` 제외
+
+Purpose: 2026-05-11 작업분(백엔드 Adobe 모듈·프론트 session/offers·docs/main 01~04·README)을 `origin/main`에 반영한다. DB 접속정보가 포함된 `backend/env/config.dev.json`은 커밋에서 제외한다.
+
+Changes:
+
+- Adobe `target_*`·`app/main`·`targetSession`·`targetOffersFetch` 및 문서 일괄 푸시
+- 민감 로컬 설정 파일 미추적 유지
+
+Changed files: README.md, backend/adobe_backend/**, backend/app/main.py, docs/main/01_AT_TEST_PAGE_PRD.md, docs/main/02_AT_TEST_PAGE_FRONTEND_GUIDE.md, docs/main/03_AT_TEST_PAGE_BACKEND_GUIDE.md, docs/main/04_AT_TEST_PAGE_ADOBE_TARGET_INTEGRATION.md, docs/log/log.md, frontend/adobe_frontend/target_frontend/utils/targetOffersFetch.ts, frontend/adobe_frontend/target_frontend/utils/targetSession.ts (제외: backend/env/config.dev.json)
+
+74. 2026-05-11 Adobe offers parameters 단일화(profileParameters 제거)
+
+Purpose: Custom Audience는 `parameters` 기반이므로 `profile_params` 이중 경로를 제거한다.
+
+Changes:
+
+- `target_adobe_router.py`: `OffersRequest.profile_params` 제거, `RequestDetails`/`MboxRequest`에 `parameters`만 전달
+- `targetOffersFetch.ts`: 클릭 쿠키를 `params`로 전송
+- `target_delivery_utils.py`: Audience/Profile Script 안내 주석
+- `docs/main/04_AT_TEST_PAGE_ADOBE_TARGET_INTEGRATION.md` v3.0.3
+- 검증: `python -m py_compile` 대상 `.py` 성공; `profile_param` 문자열 grep `backend/adobe_backend`·`frontend/adobe_frontend` 0건; 루트 `npx tsc --noEmit`은 기존 `CouponTable.tsx` 등 프로젝트 전역 오류로 실패(본 변경 `targetOffersFetch.ts`와 무관)
+
+Changed files: backend/adobe_backend/target_backend/target_adobe_router.py, backend/adobe_backend/target_backend/target_delivery_utils.py, frontend/adobe_frontend/target_frontend/utils/targetOffersFetch.ts, docs/main/04_AT_TEST_PAGE_ADOBE_TARGET_INTEGRATION.md, docs/log/log.md
+
+73. 2026-05-11 Adobe Phase0: target_cookie·session_id·profileParameters 분리
+
+Purpose: SDK 문서 권장에 맞춰 `get_offers` 옵션 쿠키·sessionId를 순환하고, Delivery `parameters`와 `profileParameters`를 분리한다.
+
+Changes:
+
+- `target_adobe_router.py`: `OffersRequest`에 `target_cookie`·`target_location_hint`·`session_id`, 응답에 쿠키 dict, `RequestDetails`/`MboxRequest`에 parameters·profile_parameters 분리
+- `targetSession.ts`·`targetOffersFetch.ts`: 쿠키·hint·session_id 저장/전송, 클릭 쿠키를 `profile_params`로 전송
+- `docs/main/04_AT_TEST_PAGE_ADOBE_TARGET_INTEGRATION.md` v3.0.2 HTTP 계약 보강
+
+Changed files: backend/adobe_backend/target_backend/target_adobe_router.py, frontend/adobe_frontend/target_frontend/utils/targetSession.ts, frontend/adobe_frontend/target_frontend/utils/targetOffersFetch.ts, docs/main/04_AT_TEST_PAGE_ADOBE_TARGET_INTEGRATION.md, docs/log/log.md
+
+72. 2026-05-11 Adobe target_backend 경량 리팩터(주석·함수 통합·ASCII 검증을 config로)
+
+Purpose: 동작 유지로 주석·배너·과분리 헬퍼를 줄이고, ASCII 검증을 설정 로드 시점으로 옮긴다.
+
+Changes:
+
+- `target_config.py`: `_get_str`/`_get_int` 통합, `AdobeTargetConfigError`·`_assert_adobe_target_ascii` 이전, docstring 압축
+- `target_client.py`: SDK 래퍼만 유지, 검증 제거
+- `target_delivery_utils.py`: `extract_id_field`, `TARGET_GLOBAL_MBOX`, 주석·docstring 축소, `is_target_global_mbox` 제거
+- `target_debug_utils.py`: 내부 함수명 단축·응답 로그 간소화
+- `target_adobe_router.py`: docstring·CAUTION·필드 주석 축소, `AdobeTargetConfigError`를 `target_config`에서 import
+- `target_main.py`·`__init__.py`·`adobe_backend/__init__.py`: docstring 압축
+
+Changed files: backend/adobe_backend/target_backend/target_config.py, backend/adobe_backend/target_backend/target_client.py, backend/adobe_backend/target_backend/target_delivery_utils.py, backend/adobe_backend/target_backend/target_debug_utils.py, backend/adobe_backend/target_backend/target_adobe_router.py, backend/adobe_backend/target_backend/target_main.py, backend/adobe_backend/target_backend/__init__.py, backend/adobe_backend/__init__.py, docs/main/04_AT_TEST_PAGE_ADOBE_TARGET_INTEGRATION.md, docs/log/log.md
+
+71. 2026-05-11 target_delivery_utils VisitorId import 주석 요약 보강
+
+Purpose: JSON `id` 키·생성자 인자 `id=`·타입 `VisitorId`·문서에 클래스명이 없을 수 있음을 import 한곳에 압축 정리한다.
+
+Changes:
+
+- `target_delivery_utils.py` VisitorId import 블록 주석 및 [Dependencies] 한 줄 정리
+
+Changed files: backend/adobe_backend/target_backend/target_delivery_utils.py, docs/log/log.md
+
+70. 2026-05-11 docs/main 04 v3.0.1 JSON 키 id vs import VisitorId 설명
+
+Purpose: Adobe 문서의 `id` 키와 Python `import` 줄의 차이를 문서·코드 주석으로 고정한다.
+
+Changes:
+
+- `docs/main/04_AT_TEST_PAGE_ADOBE_TARGET_INTEGRATION.md` v3.0.1 §0.3 및 표 보강(`DeliveryRequest` 인자 `id=`)
+- `target_delivery_utils.py` import 블록 주석 보강
+
+Changed files: docs/main/04_AT_TEST_PAGE_ADOBE_TARGET_INTEGRATION.md, backend/adobe_backend/target_backend/target_delivery_utils.py, docs/log/log.md
+
+69. 2026-05-11 docs/main 04 v3.0·README·02/03 Adobe 교차 참조 및 VisitorId 주석
+
+Purpose: Adobe Target 설명을 저장소 전역에서 동일 기준으로 찾을 수 있게 하고, SDK 클래스명 `VisitorId`가 JSON `VisitorId`가 아님을 문서·코드에 고정한다.
+
+Changes:
+
+- `docs/main/04_AT_TEST_PAGE_ADOBE_TARGET_INTEGRATION.md` v3.0 전면 갱신(offers-only·tntId/thirdPartyId·용어 §0)
+- `docs/main/02_AT_TEST_PAGE_FRONTEND_GUIDE.md` §6 Adobe·§7 연관 문서에 04 링크
+- `docs/main/03_AT_TEST_PAGE_BACKEND_GUIDE.md` §4.3 Adobe 프록시·§8 연관에 04 링크
+- `docs/main/01_AT_TEST_PAGE_PRD.md` 연관 표 04 설명 보강
+- `README.md` 경로 표·Adobe Target 절 추가
+- `target_delivery_utils.py` import 상단에 `VisitorId` 고정명 설명 주석
+- `target_adobe_router.py` 모듈 설명·`_get_offers_sync` 주석에 VisitorId/`id` 정합
+- `app/main.py` CORS 주석을 offers-only에 맞게 수정
+
+Changed files: docs/main/04_AT_TEST_PAGE_ADOBE_TARGET_INTEGRATION.md, docs/main/02_AT_TEST_PAGE_FRONTEND_GUIDE.md, docs/main/03_AT_TEST_PAGE_BACKEND_GUIDE.md, docs/main/01_AT_TEST_PAGE_PRD.md, README.md, backend/adobe_backend/target_backend/target_delivery_utils.py, backend/adobe_backend/target_backend/target_adobe_router.py, backend/app/main.py, docs/log/log.md
+
+68. 2026-05-11 Adobe Delivery `id` 명명(tntId·thirdPartyId) 및 offers 파이프라인
+
+Purpose: Adobe 문서의 Delivery JSON 필드명과 혼동되던 이름을 정리하고, 단일 웹·비로그인이어도 tntId+thirdPartyId 병행을 코드·주석으로 명시한다.
+
+Changes:
+
+- 백엔드 `target_delivery_utils.py`: `build_delivery_id`로 VisitorId 구성(tntId·thirdPartyId), 응답에서 thirdPartyId 추출
+- 백엔드 `target_adobe_router.py`: OffersRequest에 `tntId`/`thirdPartyId` 별칭 수신, 응답 키 `tntId`·`thirdPartyId`
+- 백엔드 `target_debug_utils.py`: 요약 로그에 thirdPartyId
+- 백엔드 `target_backend/__init__.py`: 의존성 설명에서 구 app.config 제거
+- 프론트 `targetSession.ts`·`targetOffersFetch.ts`: sessionStorage 및 요청/응답을 동일 필드명으로 맞춤(레거시 tnt_id 읽기 호환)
+
+Changed files: backend/adobe_backend/target_backend/target_delivery_utils.py, backend/adobe_backend/target_backend/target_adobe_router.py, backend/adobe_backend/target_backend/target_debug_utils.py, backend/adobe_backend/target_backend/__init__.py, frontend/adobe_frontend/target_frontend/utils/targetSession.ts, frontend/adobe_frontend/target_frontend/utils/targetOffersFetch.ts, docs/log/log.md
 
 67. 2026-05-08 Adobe offers 엔드포인트 함수명 충돌 해소
 

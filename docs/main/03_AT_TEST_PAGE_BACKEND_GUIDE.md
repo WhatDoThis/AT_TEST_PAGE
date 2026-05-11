@@ -112,6 +112,12 @@ uvicorn app.main:app --host 0.0.0.0 --port 8010 --reload
 - 현재 조회 범위를 CSV 파일로 반환한다.
 - UTF-8 BOM 포함으로 엑셀 한글 호환성을 보강한다.
 
+### 4.3 Adobe Target HTTP 프록시
+
+- **엔드포인트:** `POST /api/target/offers` 만 제공한다(`adobe_backend/target_backend`, `app/main.py`에서 `register_target_routes`로 마운트).
+- **자격·mbox 기본값:** `backend/env/config.adobe.json` — `adobe_backend/target_backend/target_config.py`의 `get_adobe_target_settings()`가 읽으며, 앱 DB 설정과는 분리되어 있다.
+- **Delivery JSON 필드명 vs SDK 클래스 `VisitorId`**, 요청/응답 키(`tntId`, `thirdPartyId`)는 **`docs/main/04_AT_TEST_PAGE_ADOBE_TARGET_INTEGRATION.md` v3.0** 을 참고한다.
+
 ---
 
 ## 5. 데이터 처리 방식
@@ -156,3 +162,4 @@ uvicorn app.main:app --host 0.0.0.0 --port 8010 --reload
 | `01_AT_TEST_PAGE_PRD.md` | 제품 요구사항 요약 |
 | `02_AT_TEST_PAGE_FRONTEND_GUIDE.md` | 프론트엔드 상세 |
 | `03_AT_TEST_PAGE_BACKEND_GUIDE.md` | 백엔드/API 상세 (본 문서) |
+| `04_AT_TEST_PAGE_ADOBE_TARGET_INTEGRATION.md` | Adobe Target 프록시·식별자(v3.0) |

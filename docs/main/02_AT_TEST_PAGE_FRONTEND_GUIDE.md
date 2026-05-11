@@ -125,10 +125,19 @@ frontend/
 
 ---
 
-## 6. 연관 문서
+## 6. Adobe Target (웹 전용)
+
+- 구현 위치: `frontend/adobe_frontend/target_frontend/` (오퍼 프리로드·Context·`POST /api/target/offers`·sessionStorage의 `tntId` / `thirdPartyId`).
+- 앱 설정 `loadConfig.ts`는 **dev/prd JSON만** 로드한다(Adobe mbox 자격은 백엔드 `backend/env/config.adobe.json`에서만 읽힌다).
+- **용어·HTTP 계약·`VisitorId`(SDK 클래스명) 설명은 `docs/main/04_AT_TEST_PAGE_ADOBE_TARGET_INTEGRATION.md` v3.0** 을 단일 기준으로 본다.
+
+---
+
+## 7. 연관 문서
 
 | 문서 | 용도 |
 |------|------|
 | `01_AT_TEST_PAGE_PRD.md` | 제품 요구사항 요약 |
 | `02_AT_TEST_PAGE_FRONTEND_GUIDE.md` | 프론트엔드 상세 구조 (본 문서) |
 | `03_AT_TEST_PAGE_BACKEND_GUIDE.md` | 백엔드/API/DB 상세 |
+| `04_AT_TEST_PAGE_ADOBE_TARGET_INTEGRATION.md` | Adobe Target 연동·식별자 명명(v3.0) |

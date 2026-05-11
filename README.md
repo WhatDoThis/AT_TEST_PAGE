@@ -7,9 +7,11 @@ Expo(React Native + Expo Router) 기반 **웹 + Android** 단일 코드베이스
 | 경로 | 설명 |
 |------|------|
 | `frontend/` | Expo 앱 (`app/`, `components/`, `assets/`, `package.json`) |
+| `backend/` | FastAPI 앱·`adobe_backend/`(Adobe Target `POST /api/target/offers` 프록시) |
 | `env/config.dev.json` | 로컬·개발 번들용 설정 |
 | `env/config.prd.json` | `expo export` 등 프로덕션 번들용 설정 |
 | `docs/` | PRD·로그 등 문서 |
+| `docs/main/04_AT_TEST_PAGE_ADOBE_TARGET_INTEGRATION.md` | **Adobe Target 단일 참고**(요청/응답 `tntId`·`thirdPartyId`, SDK `VisitorId` 용어) |
 | `deploy.sh` | 리눅스 서버에서 웹 정적 배포용 스크립트 |
 | `requirements.txt` | Python 패키지 목록 (백엔드·도구용) |
 | `venv/` | 로컬 Python 가상환경 디렉터리(생성 후 사용, Git 제외) |
@@ -52,6 +54,10 @@ npm install
 npm install --prefix frontend
 npm run web
 ```
+
+## Adobe Target
+
+웹에서만 사용한다. HTTP·식별자·설정 파일 위치는 저장소 기준 문서 **`docs/main/04_AT_TEST_PAGE_ADOBE_TARGET_INTEGRATION.md` (v3.0)** 에 모아 두었다. 백엔드 자격은 `backend/env/config.adobe.json`(Git 제외)이다.
 
 ## 설정 분기
 

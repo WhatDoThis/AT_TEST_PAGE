@@ -143,7 +143,7 @@
 | `01_AT_TEST_PAGE_PRD.md` | 제품 요약·요구사항·수용 기준 (본 문서) |
 | `02_AT_TEST_PAGE_FRONTEND_GUIDE.md` | 화면 구조·컴포넌트·설정 반영 규칙 |
 | `03_AT_TEST_PAGE_BACKEND_GUIDE.md` | API·DB 연동·운영/배포 기준 |
-| `04_AT_TEST_PAGE_ADOBE_TARGET_INTEGRATION.md` | Adobe Target 연동(프록시·설정·이식 점검) |
+| `04_AT_TEST_PAGE_ADOBE_TARGET_INTEGRATION.md` | Adobe Target 연동 **v3.0 기준**(offers-only·`tntId`/`thirdPartyId`·SDK `VisitorId` 용어) |
 
 ---
 

@@ -1,35 +1,80 @@
 /**
- * adobe_frontend.target_frontend.utils.targetSession (웹 sessionStorage 기반 Adobe Target 방문자 식별자)
+ * adobe_frontend.target_frontend.utils.targetSession (웹 sessionStorage + Adobe Target SDK 옵션)
  * ================================================================================
- * 오퍼 프리로드와 클릭 후 재조회가 동일 `tnt_id`를 쓰도록 키·조회 로직을 한곳에 둔다.
- *
- * [Main Functions]
- * ===========
- * - getAdobeTargetVisitorPayload: 다음 Target API 요청 JSON에 넣을 `tnt_id` 조각
- *
- * [Endpoints/Classes/Functions]
- * =======================
- * - 상수 AT_TNT_STORAGE_KEY
- *
- * [Dependencies]
- * =========
- * - 브라우저 sessionStorage (웹 전용 호출부에서만 사용)
+ * Delivery `id`(tntId·thirdPartyId), `get_offers`용 target_cookie 문자열, location hint,
+ * session_id 를 sessionStorage에 두고 다음 `POST /api/target/offers` 본문에 넣는다.
  */
 
-// ════════════════════════════════════════════════════════════════════════════════
-// ████████  ADOBE TARGET 전용 파일 — 전체 코드가 Adobe Target 연동용  ████████
-// ════════════════════════════════════════════════════════════════════════════════
+/** Delivery `id.tntId` */
+export const AT_TNTID_STORAGE_KEY = "at_tntId";
+/** Delivery `id.thirdPartyId` */
+export const AT_THIRD_PARTY_ID_STORAGE_KEY = "at_thirdPartyId";
+/** SDK `target_cookie` 옵션에 넣을 쿠키 값 문자열(응답 dict의 `value`). */
+export const AT_TARGET_COOKIE_VALUE_KEY = "at_target_cookie_value";
+/** SDK `target_location_hint` 옵션(응답 `target_location_hint_cookie.value`). */
+export const AT_LOCATION_HINT_KEY = "at_location_hint";
+/** SDK `session_id` — 동일 tnt/thirdParty 조합에 30분 내 재사용 권장. */
+export const AT_SESSION_ID_KEY = "at_session_id";
 
-export const AT_TNT_STORAGE_KEY = "at_tnt_id";
+const LEGACY_AT_TNT_STORAGE_KEY = "at_tnt_id";
 
-// 1. sessionStorage에서 offers 응답으로 저장된 tnt_id를 읽어 다음 offers 본문에 병합한다.
-export function getAdobeTargetVisitorPayload(): { tnt_id?: string } {
+function createThirdPartyId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `tp_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 12)}`;
+}
+
+function getOrCreateSessionId(): string {
+  if (typeof sessionStorage === "undefined") {
+    return "";
+  }
+  let sid = sessionStorage.getItem(AT_SESSION_ID_KEY)?.trim();
+  if (!sid) {
+    sid =
+      typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+        ? crypto.randomUUID()
+        : `sid_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+    sessionStorage.setItem(AT_SESSION_ID_KEY, sid);
+  }
+  return sid;
+}
+
+export function getAdobeTargetVisitorPayload(): {
+  tntId?: string;
+  thirdPartyId?: string;
+  target_cookie?: string;
+  target_location_hint?: string;
+  session_id?: string;
+} {
   if (typeof sessionStorage === "undefined") {
     return {};
   }
-  const tnt = sessionStorage.getItem(AT_TNT_STORAGE_KEY)?.trim();
-  if (tnt) {
-    return { tnt_id: tnt };
+  let third = sessionStorage.getItem(AT_THIRD_PARTY_ID_STORAGE_KEY)?.trim();
+  if (!third) {
+    third = createThirdPartyId();
+    sessionStorage.setItem(AT_THIRD_PARTY_ID_STORAGE_KEY, third);
   }
-  return {};
+  const tnt =
+    sessionStorage.getItem(AT_TNTID_STORAGE_KEY)?.trim() ||
+    sessionStorage.getItem(LEGACY_AT_TNT_STORAGE_KEY)?.trim();
+  const out: {
+    tntId?: string;
+    thirdPartyId?: string;
+    target_cookie?: string;
+    target_location_hint?: string;
+    session_id?: string;
+  } = { thirdPartyId: third, session_id: getOrCreateSessionId() };
+  if (tnt) {
+    out.tntId = tnt;
+  }
+  const tc = sessionStorage.getItem(AT_TARGET_COOKIE_VALUE_KEY)?.trim();
+  if (tc) {
+    out.target_cookie = tc;
+  }
+  const lh = sessionStorage.getItem(AT_LOCATION_HINT_KEY)?.trim();
+  if (lh) {
+    out.target_location_hint = lh;
+  }
+  return out;
 }
