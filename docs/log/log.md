@@ -2,6 +2,27 @@
 
 ## Log Index
 
+96. 2026-05-13 README를 docs/main 기준으로 정합(구조·실행·Adobe·디버그)
+95. 2026-05-13 docs/main 04 v2.2 recommendation-test·프론트 정합(문서만)
+94. 2026-05-13 recommendation-test: customerIds·Product·build_delivery_id 확장
+93. 2026-05-13 docs/main 04 v2.1·02/03 Adobe 링크(연관 문서·저장소·브리지·트랙 제거)
+92. 2026-05-13 추천 테스트: ss(매장) 제외·entity.categoryId 미전송
+91. 2026-05-13 recommendation-test: price 필드·Delivery Order 객체
+90. 2026-05-13 recs_mbox_name 을 config.adobe.json·target_config 에 반영
+89. 2026-05-13 Target 연결 검증·docs/main 전면 갱신·main.py 주석 정합
+88. 2026-05-13 targetRecommendationTest 를 utils 로 이동·AT_RECS_* 를 targetSession 에 구획
+87. 2026-05-13 전역 하단 푸터(AppFooter)·메인·프로필·추천 테스트 이동
+86. 2026-05-13 profile-test: Alert 제거·EventPopup·event-popup 오퍼 연동
+85. 2026-05-13 Recommendation 테스트 페이지·백엔드 `/api/target/recommendation-test` 추가
+84. 2026-05-12 profile-test 모델·함수 포맷을 offers 와 1대1 정렬(가독성)
+83. 2026-05-12 profile-test mbox 이름을 config.adobe.json 의 offer_mbox_name 으로 단일화
+82. 2026-05-12 profile-test 를 named mbox(target-local-mbox)로 전환·MboxRequest.profile_parameters 사용
+81. 2026-05-12 tntId 클라이언트 생성 제거 — thirdPartyId 중심·Adobe 서버 생성 tntId 재활용
+80. 2026-05-12 Adobe Target 백엔드 4파일 전면 리팩터(global mbox 분기·중복 헬퍼·배너 주석 제거, 581→334줄)
+79. 2026-05-12 profile-test 패널 응답 중심 리팩터·백엔드 sent_profile_params 제거
+78. 2026-05-12 profile-test 응답 offers content 원본(dict|str) 유지·response_tokens 옵션별 부착
+77. 2026-05-12 profile-test 패널: testNotVal 버튼·popup 오퍼 감지·매칭 결과 표시
+76. 2026-05-12 profile script test 엔드포인트·프론트 패널·라우트 추가
 75. 2026-05-11 원격 동기화: Adobe 05-11 일괄 반영·`backend/env/config.dev.json` 제외
 74. 2026-05-11 Adobe offers parameters 단일화(profileParameters 제거)
 73. 2026-05-11 Adobe Phase0: target_cookie·session_id·profileParameters 분리
@@ -79,6 +100,324 @@
 12. 2026-04-27 docs/main AT_TEST_PAGE PRD v1.0 작성
 
 ## Log Body
+
+96. 2026-05-13 README를 docs/main 기준으로 정합(구조·실행·Adobe·디버그)
+
+Purpose: 루트 `env/` 등 구버전 경로를 제거하고 `docs/main` 01~04와 동일한 모노레포 구조·백엔드 실행·Adobe 설정·`AT_DEBUG_DELIVERY` 안내를 README에 반영한다.
+
+Changes:
+
+- README: `docs/main` 표, `frontend/env`·`backend/env`·`backend/requirements.txt`, 세 Target 엔드포인트 요약, 디버그 토글, 배포·원격 링크 정리
+
+Changed files: README.md, docs/log/log.md
+
+95. 2026-05-13 docs/main 04 v2.2 recommendation-test·프론트 정합(문서만)
+
+Purpose: 코드와 일치하도록 04의 recommendation-test 설명(§1·§6.4·§7·§8.4)·문서 이력 v2.2를 갱신하고, 02 §5.3 표에 추천 유틸의 세션·오류 처리 요약을 반영한다.
+
+Changes:
+
+- `04_AT_TEST_PAGE_ADOBE_TARGET_INTEGRATION.md`: `customerIds`·재시도·`Product`/`Order`·응답 `target_location_hint_cookie`, `targetRecommendationTest` 행·§8.4 프론트 규칙 반영
+- `02_AT_TEST_PAGE_FRONTEND_GUIDE.md`: §5.3 `targetRecommendationTest` 표 셀에 `AT_RECS_*`·`detail` 요약
+
+Changed files: docs/main/04_AT_TEST_PAGE_ADOBE_TARGET_INTEGRATION.md, docs/main/02_AT_TEST_PAGE_FRONTEND_GUIDE.md, docs/log/log.md
+
+94. 2026-05-13 recommendation-test: customerIds·Product·build_delivery_id 확장
+
+Purpose: Recommendations 테스트에서 thirdPartyId 유지, Customer Attributes 연동용 customerIds(recipient_id), 공식 product·order·parameters 병행, customerIds 실패 시 thirdPartyId 단독 재시도.
+
+Changes:
+
+- `target_delivery_utils.build_delivery_id`: `customer_ids` 선택 인자·VisitorId 전달, 모듈 설명 갱신
+- `_recommendation_test_sync`: `recipient_id` 시 `CustomerId`(integrationCode `recipient_id`, authenticated), `MboxRequest.product`, parameters에 `entity.categoryId` 키 유지(ss·빈 값은 빈 문자열), 예외 시 customerIds 제거 후 1회 재시도
+
+Changed files: backend/adobe_backend/target_backend/target_delivery_utils.py, backend/adobe_backend/target_backend/target_adobe_router.py, docs/log/log.md
+
+93. 2026-05-13 docs/main 04 v2.1·02/03 Adobe 링크(연관 문서·저장소·브리지·트랙 제거)
+
+Purpose: `adobe_backend`·`adobe_frontend`·브리지·`config.adobe.example`·API 3종·캐러셀 트랙 제거를 04에 반영하고, 02·03에서 04로 안내 링크를 추가한다.
+
+Changes:
+
+`04_AT_TEST_PAGE_ADOBE_TARGET_INTEGRATION.md`: 연관 문서(01~03), §2 저장소·브리지, 섹션 번호 재정렬(3~10), 체크리스트·문서 이력 v2.1
+
+`02_AT_TEST_PAGE_FRONTEND_GUIDE.md`, `03_AT_TEST_PAGE_BACKEND_GUIDE.md`: 상단 04 링크 한 줄
+
+Changed files: docs/main/04_AT_TEST_PAGE_ADOBE_TARGET_INTEGRATION.md, docs/main/02_AT_TEST_PAGE_FRONTEND_GUIDE.md, docs/main/03_AT_TEST_PAGE_BACKEND_GUIDE.md, docs/log/log.md
+
+92. 2026-05-13 추천 테스트: ss(매장) 제외·entity.categoryId 미전송
+
+Purpose: `categoryId` 가 `ss` 인 엔티티는 장소용이라 Recs 테스트 데이터로 부적합하므로 UI·요청에서 제외하고, API 에도 `ss` 가 category 로 넘어가지 않게 한다.
+
+Changes:
+
+- `RecommendationTestPanel.tsx`: `MENU_ENTITIES` 에서 `ss` 20건 삭제, 섹션은 음료·푸드만.
+- `targetRecommendationTest.ts`: `entity_category_id` 는 비어 있지 않고 `ss` 가 아닐 때만 payload 에 실음.
+- `target_adobe_router.py`: `entity.categoryId` mbox 파라미터는 값이 있고 `ss` 가 아닐 때만 추가.
+
+Changed files: frontend/adobe_frontend/target_frontend/components/RecommendationTestPanel.tsx, frontend/adobe_frontend/target_frontend/utils/targetRecommendationTest.ts, backend/adobe_backend/target_backend/target_adobe_router.py, docs/main/01_AT_TEST_PAGE_PRD.md, docs/main/02_AT_TEST_PAGE_FRONTEND_GUIDE.md, docs/main/03_AT_TEST_PAGE_BACKEND_GUIDE.md, docs/main/04_AT_TEST_PAGE_ADOBE_TARGET_INTEGRATION.md, docs/log/log.md
+
+검증:
+
+- `python -m py_compile target_adobe_router.py` 성공.
+
+Purpose: Recommendations 요청에 주문 컨텍스트(`Order`)와 단가(`price`)를 넣어 Target 이 엔티티·구매 맥락을 활용할 수 있게 한다.
+
+Changes:
+
+- `target_adobe_router.py`: `RecommendationTestRequest.price`(기본 1000), `MboxRequest`에 `Order(id=ord_*12, total, purchased_product_ids=[entity_id])`, `parameters`에 항상 `entity.categoryId`(빈 문자열 허용). `delivery_api_client.Order` import.
+- `targetRecommendationTest.ts` / `RecommendationTestPanel.tsx`: 요청에 `price` 전달.
+- `docs/main/03`, `04`: 계약 설명 갱신.
+
+검증:
+
+- `python -m py_compile target_adobe_router.py` 성공.
+
+Changed files: backend/adobe_backend/target_backend/target_adobe_router.py, frontend/adobe_frontend/target_frontend/utils/targetRecommendationTest.ts, frontend/adobe_frontend/target_frontend/components/RecommendationTestPanel.tsx, docs/main/03_AT_TEST_PAGE_BACKEND_GUIDE.md, docs/main/04_AT_TEST_PAGE_ADOBE_TARGET_INTEGRATION.md, docs/log/log.md
+
+90. 2026-05-13 recs_mbox_name 을 config.adobe.json·target_config 에 반영
+
+Purpose: Recommendations 테스트 mbox 명을 하드코딩 대신 `mboxes.recs_mbox_name` 으로 바꿀 수 있게 한다.
+
+Changes:
+
+- `target_config.py`: `AdobeTargetSettings.recs_mbox_name` 로드(`mboxes.recs_mbox_name`, 기본 `target-recs-mbox`).
+- `target_adobe_router.py`: `_recommendation_test_sync` 가 설정값 사용, 상수 `RECS_MBOX_NAME` 제거.
+- `config.adobe.example.json`: `recs_mbox_name` 예시 추가.
+- `docs/main/03`, `04`: 설정 기반 서술로 수정.
+
+검증:
+
+- `python -m py_compile` 대상: `target_config.py`, `target_adobe_router.py` 성공.
+
+Changed files: backend/adobe_backend/target_backend/target_config.py, target_adobe_router.py, backend/env/config.adobe.example.json, docs/main/03_AT_TEST_PAGE_BACKEND_GUIDE.md, docs/main/04_AT_TEST_PAGE_ADOBE_TARGET_INTEGRATION.md, docs/log/log.md
+
+89. 2026-05-13 Target 연결 검증·docs/main 전면 갱신·main.py 주석 정합
+
+Purpose: 로그 85~88 반영 후 API·프론트 import·세션 키 연결을 재검증하고, `docs/main` 네 문서를 상호 참조·변경 이력 없이 최신 구조만 서술하도록 갱신한다.
+
+Changes:
+
+- 연결 검증: `POST /api/target/{offers|profile-test|recommendation-test}` ↔ `targetOffersFetch`·`targetProfileTest`·`targetRecommendationTest` URL·필드 정합, `AppFooter` 경로, `ProfileTestPanel`→`EventPopup`·`parseAdobeTargetOffersPayload`, `AT_RECS_*` 키 문자열 유지. `targetOfferParser` 모듈 설명을 profile-test `offers` 파싱에도 맞게 수정.
+- `backend/app/main.py`: Adobe 마운트 주석을 세 엔드포인트·CORS `POST /api/target/*` 로 정리.
+- `docs/main/01~04*.md`: PRD·프론트·백엔드·Adobe 각각 자립 서술(다른 문서 링크·문서 이력 표 제거), recommendation-test·푸터·event-popup·utils 배치 반영.
+
+Changed files: backend/app/main.py, docs/main/01_AT_TEST_PAGE_PRD.md, docs/main/02_AT_TEST_PAGE_FRONTEND_GUIDE.md, docs/main/03_AT_TEST_PAGE_BACKEND_GUIDE.md, docs/main/04_AT_TEST_PAGE_ADOBE_TARGET_INTEGRATION.md, frontend/adobe_frontend/target_frontend/utils/targetOfferParser.ts, docs/log/log.md
+
+88. 2026-05-13 targetRecommendationTest 를 utils 로 이동·AT_RECS_* 를 targetSession 에 구획
+
+Purpose: `services/` 만 다른 Adobe Target 프론트 패턴을 없애고 `targetOffersFetch`·`targetProfileTest` 와 동일하게 `utils/` 에 두며, Recs 전용 sessionStorage 키는 `targetSession` 에 주석 구역으로 모아 혼동을 줄인다.
+
+Changes:
+
+- `utils/targetRecommendationTest.ts` 신설(기존 `services/` 내용 이전), `RecommendationTestPanel` import 경로 수정.
+- `targetSession.ts`: `AT_RECS_*` 상수 블록 추가, 모듈 설명 보강.
+- `RecommendationTestPanel.tsx`: `AT_RECS_RECIPIENT_ID_KEY` 사용.
+- `targetProfileTest.ts`·`targetOffersFetch.ts`: 형제 유틸 위치 안내 1줄.
+- 빈 `services/` 폴더 제거.
+
+Changed files: frontend/adobe_frontend/target_frontend/utils/targetRecommendationTest.ts, targetSession.ts, targetProfileTest.ts, targetOffersFetch.ts, components/RecommendationTestPanel.tsx, (삭제) services/targetRecommendationTest.ts, docs/log/log.md
+
+87. 2026-05-13 전역 하단 푸터(AppFooter)·메인·프로필·추천 테스트 이동
+
+Purpose: 모든 화면 하단에서 메인·프로필 테스트·추천 테스트로 빠르게 이동할 수 있도록 공통 푸터를 둔다.
+
+Changes:
+
+- `components/AppFooter.tsx`: `usePathname` 기준 현재 탭 강조, `router.replace` 로 `/`, `/profile-test`, `/recommendation-test` 이동(스택 과다 방지).
+- `app/_layout.tsx`: `Stack` 을 `flex:1` 영역에 두고 그 아래 `AppFooter` 고정 배치.
+
+검증:
+
+- ReadLints: `AppFooter.tsx`, `_layout.tsx` 무경고.
+
+Changed files: frontend/components/AppFooter.tsx, frontend/app/_layout.tsx, docs/log/log.md
+
+86. 2026-05-13 profile-test: Alert 제거·EventPopup·event-popup 오퍼 연동
+
+Purpose: profile-test 에서 JSON 오퍼를 `window.alert` 대신 메인과 동일한 `EventPopup`(Modal) 으로 표시하고, Target Activity 오퍼를 `type: event-popup` 포맷으로 맞출 수 있게 한다.
+
+Changes:
+
+- `ProfileTestPanel.tsx`: `findPopupContent`·`showAlert`·`Alert`·`Platform` 제거. `parseAdobeTargetOffersPayload(res.data)` 로 Re-fetch 시 `event-popup` 추출 후 `setPopupOffer`. `EventPopup` 렌더·Send 시 `setPopupOffer(null)` 로 이전 모달 정리·요청 실패 시에도 팝업 초기화.
+- Activity JSON 교체는 Target UI 수동 작업(사용자 가이드).
+
+검증:
+
+- `ProfileTestPanel.tsx` 내 `window.alert|Alert.alert|showAlert|_showPopup|findPopupContent` grep 0건.
+- ReadLints 해당 파일 무경고.
+
+Changed files: frontend/adobe_frontend/target_frontend/components/ProfileTestPanel.tsx, docs/log/log.md
+
+85. 2026-05-13 Recommendation 테스트 페이지·백엔드 `/api/target/recommendation-test` 추가
+
+Purpose: Adobe Target Recommendations 를 `target-recs-mbox` 로 호출해 entity 기반 추천 오퍼를 검증할 수 있는 전용 화면·API 를 추가한다.
+
+Changes:
+
+- `target_adobe_router.py`: `RecommendationTestRequest`·`_recommendation_test_sync`·`POST /target/recommendation-test` 추가(`RECS_MBOX_NAME=target-recs-mbox`, `parameters` 로 entity.id/categoryId, `offers_from_execute(..., parse_json=True)` 및 `recommendations` 배열 파싱).
+- 프론트: `services/targetRecommendationTest.ts`, `components/RecommendationTestPanel.tsx`, `app/recommendation-test.tsx` 추가(60개 메뉴 그리드·recipient_id·Top5 슬롯·세션 키 분리).
+
+검증:
+
+- `python -m py_compile target_adobe_router.py` 성공.
+- `npx tsc --noEmit`: 기존 `CouponTable.tsx` 등 프로젝트 전역 오류로 exit 2이나, 신규 Recommendation 관련 경로는 tsc 출력에 미포함.
+
+Changed files: backend/adobe_backend/target_backend/target_adobe_router.py, frontend/adobe_frontend/target_frontend/services/targetRecommendationTest.ts, frontend/adobe_frontend/target_frontend/components/RecommendationTestPanel.tsx, frontend/app/recommendation-test.tsx, docs/log/log.md
+
+84. 2026-05-12 profile-test 모델·함수 포맷을 offers 와 1대1 정렬(가독성)
+
+Purpose: `ProfileTestRequest`/`_profile_test_sync` 가 `OffersRequest`/`_get_offers_sync` 와 필드/라인 순서·반환 패턴이 미묘하게 달라 "offers 의 파생"이라는 의도가 코드만으로 드러나지 않았다. 사용자 피드백("기존 offer 모델에서 발전시켜서 만든다는 개념") 에 맞춰 두 쌍을 1대1 미러로 정렬해 차이점(`profile_parameters` 슬롯 사용)만 노출되도록 한다.
+
+Changes:
+
+- `ProfileTestRequest`: `mbox_name` 필드 추가(`OffersRequest` 와 동일 default factory). `profile_params: Dict[..] = Field(default_factory=dict)` → `Optional[Dict[..]] = None`(`OffersRequest.params` 와 동일 타입). 모델 docstring 1줄 추가로 "offers 와 같음 + 슬롯만 다름" 명시.
+- `_profile_test_sync`: 죽은 `page_url = ... DEFAULT_PAGE_URL` 라인 + `DEFAULT_PAGE_URL` import 제거. `MboxRequest.name` 을 `body.mbox_name` 으로 전환(`_get_offers_sync` 와 동일 패턴). 반환부를 `result: Dict[str, Any] = { ... }; return result` 구조로 교체. `"mbox": body.mbox_name` 키를 응답에 추가(offers 응답과 동일 위치). 주석을 1~2줄로 축소.
+- 키 순서: `mbox` → `status`/`request_id` → `offers` → `response_tokens` → `_id_and_cookies(...)` 스프레드. offers 와 같은 헤더 키부터 노출하고 디버그 키는 그 다음, 마지막에 id/cookies 가 오는 동일 레이아웃.
+- 응답 shape 변화: `mbox` 키 추가(additive). 기존 프론트(`targetProfileTest.ts`/`ProfileTestPanel.tsx`)는 raw JSON 만 렌더하므로 영향 없음.
+
+검증:
+
+- `python -m py_compile target_adobe_router.py` 성공. uvicorn 자동 리로드 `Application startup complete`.
+- 라이브 호출 1(mbox_name 미지정, `third_party_id=smoke-aligned-001`, `profile_params={testKey:testVal}`): 응답 `mbox=target-local-mbox`, `status=200`, `tntId=...32_0` 정상. wire-format 로그(terminal 1.txt:830-864)에서 `mboxes[0].name='target-local-mbox'`·`profile_parameters={'testKey':'testVal'}`·`parameters=None` 확인 → default factory 가 `config.adobe.json` 값으로 정상 채워짐.
+- 라이브 호출 2(mbox_name 명시): 동일 결과(L869-907). 명시·default 경로 모두 동작.
+- ReadLints 무경고. `DEFAULT_PAGE_URL` 미사용 import 제거 확인.
+
+Changed files: backend/adobe_backend/target_backend/target_adobe_router.py, docs/log/log.md
+
+83. 2026-05-12 profile-test mbox 이름을 config.adobe.json 의 offer_mbox_name 으로 단일화
+
+Purpose: 82 번 작업에서 임시로 `"target-local-mbox"` 를 하드코딩했으나, `OffersRequest.mbox_name` 이 이미 `get_adobe_target_settings().offer_mbox_name` 을 default factory 로 쓰고 있어 단일 진실 출처가 분리되어 있었다. profile-test 도 동일 설정값을 읽도록 일원화해 mbox 명 변경 시 `config.adobe.json` 한 곳만 수정하면 되도록 한다.
+
+Changes:
+
+- `target_adobe_router.py` `_profile_test_sync`: `MboxRequest(name="target-local-mbox", ...)` → `MboxRequest(name=get_adobe_target_settings().offer_mbox_name, ...)`. 주석도 일반화("Activity Location 이 named mbox(config.adobe.json 의 offer_mbox_name)").
+- 새 import 불필요(`get_adobe_target_settings` 는 `OffersRequest.mbox_name` default factory 가 이미 사용 중). `get_adobe_target_settings` 는 `lru_cache(maxsize=1)` 로 캐시되므로 호출 비용 없음.
+
+검증:
+
+- `python -m py_compile target_adobe_router.py` 성공. uvicorn `--reload` `Application startup complete`.
+- 라이브 호출(`third_party_id=smoke-cfg-001`, `profile_params={testKey:testVal}`) → `status=200`·`tntId` 발급.
+- 디버그 요약 로그(terminal 1.txt:869): `mode=mboxes mboxes=['target-local-mbox']` 로 config 값이 정상 해석됨을 확인. wire-format 은 82 번 작업과 동일.
+
+Changed files: backend/adobe_backend/target_backend/target_adobe_router.py, docs/log/log.md
+
+82. 2026-05-12 profile-test 를 named mbox(target-local-mbox)로 전환·MboxRequest.profile_parameters 사용
+
+Purpose: 운영 Activity Location 이 named mbox `target-local-mbox` 이고 Profile Script 조건도 동일 mbox 에서만 실행되므로, profile-test 가 `execute.pageLoad` 로 요청하면 매칭이 일어나지 않는다. offers 엔드포인트와 동일하게 `MboxRequest(name="target-local-mbox")` 로 호출하되, mbox 파라미터 슬롯이 아닌 `profile_parameters` 슬롯에 값을 실어 Profile Script 가 user 속성으로 받아쓰게 한다. offers 라인(`/api/target/offers`)·프론트엔드는 무변경.
+
+Changes:
+
+- `target_adobe_router.py` `_profile_test_sync`: `RequestDetails`/`pageLoad` 구성 삭제 → `MboxRequest(name="target-local-mbox", index=0, profile_parameters=body.profile_params or None)` 1건을 `ExecuteRequest(mboxes=[mbox])` 로 전달. `Context(channel=ChannelType.WEB)` 만 사용(주소 없음). `page_url` 로컬은 디버그 보존용으로 남기고 `# noqa: F841` 표시.
+- `target_adobe_router.py` imports: `Address`·`RequestDetails` 제거(이 파일에서 더 이상 사용 안 함). `MboxRequest` 는 offers 가 이미 쓰고 있어 그대로.
+- `PROFILE_TEST_DEFAULT_PAGE_URL`·`page_load_dict` 는 직전 리팩터에서 이미 제거됨(추가 정리 불필요).
+
+검증:
+
+- `python -m py_compile target_adobe_router.py` 성공. uvicorn `--reload` `Application startup complete`.
+- `AT_DEBUG_DELIVERY=1` 활성 상태에서 wire-format 로그(terminal 1.txt:844-851) 확인 — `execute.mboxes[0].name='target-local-mbox'`, `execute.mboxes[0].profile_parameters={'testKey':'testVal'}`, `execute.page_load=None`.
+- 라이브 1: `third_party_id` + `profile_params={testKey:testVal}` 첫 호출 → `status=200`·`tntId`(`.32_0` Adobe 발급)·`offers=[]` (신규 방문자, Profile 데이터 미정착 — 정상).
+- 라이브 2: 위 tntId 로 빈 profile_params Re-fetch → 동일 `tntId` 매핑 유지 확인. offers 매칭 여부는 Target UI Activity 활성 상태에 의존(코드 범위 외).
+- 디버그 로그 요약: `[Adobe Target DEBUG] profile_test request summary: mode=mboxes mboxes=['target-local-mbox']` 로 mode 가 mboxes 로 출력됨(이전 `mode=pageLoad` 에서 전환 확인).
+
+Changed files: backend/adobe_backend/target_backend/target_adobe_router.py, docs/log/log.md
+
+81. 2026-05-12 tntId 클라이언트 생성 제거 — thirdPartyId 중심·Adobe 서버 생성 tntId 재활용
+
+Purpose: Adobe 공식 문서 정합 — Delivery API 는 `tntId` 미전송 시 자동 생성·응답 포함. 백엔드 `build_delivery_id` 가 익명 호출에 `{uuid.hex}.28_0` 형 tntId 를 임의로 만들던 동작을 제거하고, Adobe 가 생성한 `.32_0` 형 tntId 를 그대로 받아 클라이언트에 반환 → sessionStorage 저장 → 다음 호출 재사용 흐름으로 단순화.
+
+Changes:
+
+- `target_delivery_utils.py`: `build_delivery_id` 반환 타입 `tuple[VisitorId, Optional[str]]` → `VisitorId`. `uuid` import 삭제. 둘 다 비었으면 `VisitorId()` 반환, 그 외 `VisitorId(tnt_id=t, third_party_id=tr)`. `t`/`tr` 모두 빈 문자열은 `None` 으로 정규화.
+- `target_adobe_router.py`: 
+  - `_id_and_cookies` 시그니처 `(response, third_fallback=None)` 로 축소 — `tnt_fallback` 파라미터 삭제. tntId 는 Adobe 응답에서만 추출, 없으면 응답 dict 에서 키 자체 생략.
+  - `_get_offers_sync` / `_profile_test_sync` 모두 `delivery_id, tnt_sent = build_delivery_id(...)` 언팩 → `delivery_id = build_delivery_id(...)` 로 변경. `_id_and_cookies` 호출에서 `tnt_sent` 인자 제거.
+- `targetSession.ts`: 모듈 docstring 보강(클라이언트 tntId 생성 금지 명시), `LEGACY_AT_TNT_STORAGE_KEY` 폴백 삭제, 반환 타입 `Record<string, string>` 로 단일화. `tntId` 는 sessionStorage 에 값이 있을 때만 payload 에 포함. `thirdPartyId` 자동 생성·`session_id` 자동 생성(`getOrCreateSessionId`) 로직은 사용자 명시 제약("session_id 관련 로직은 변경하지 않음") 따라 그대로 유지.
+- `targetOffersFetch.ts`·`targetProfileTest.ts`: 수정 없음 — 두 파일 모두 응답에서 받은 tntId 를 `sessionStorage` 에 저장하는 흐름과 조건부 tntId 전송이 이미 본 구조와 일치.
+
+검증:
+
+- `python -m py_compile target_delivery_utils.py target_adobe_router.py` 성공. uvicorn `--reload` `Application startup complete` 확인.
+- `npx tsc --noEmit` 본 변경 3개 파일(`targetSession.ts`·기존 2개 fetch 유틸) 오류 0건(전체 588줄은 사전 `CouponTable.tsx` 오류만).
+- grep `uuid4.*28_0`·`\.hex.*28_0`·`tnt_sent` → 코드 0건(log.md 700번대 과거 항목만 잔존).
+- 라이브 스모크 1: `/api/target/profile-test` 에 `third_party_id` 만 전송 → 응답 `tntId=9fa0a981-...-...32_0` (Adobe 생성 `.32_0` 형), `thirdPartyId` echo back 확인.
+- 라이브 스모크 2: 같은 third_party_id + 위 tntId 재전송 → 동일 tntId 반환(매핑 유지).
+- 라이브 스모크 3: `/api/target/offers` `third_party_id` 만으로 호출 → `mbox=target-local-mbox`·`tntId=b7ac2efe-...32_0`·`target_cookie` 정상 반환.
+
+Changed files: backend/adobe_backend/target_backend/target_delivery_utils.py, backend/adobe_backend/target_backend/target_adobe_router.py, frontend/adobe_frontend/target_frontend/utils/targetSession.ts, docs/log/log.md
+
+80. 2026-05-12 Adobe Target 백엔드 4파일 전면 리팩터(global mbox 분기·중복 헬퍼·배너 주석 제거, 581→334줄)
+
+Purpose: 과잉 주석·중복 분기·헬퍼 이중화를 제거하고 파일별 역할을 명확히 분리. 기능 변경 없이 코드량을 줄이고 가독성을 높인다. 운영 mbox 는 named(target-local-mbox)만 사용하므로 서버사이드 SDK 경로에서 global mbox pageLoad 분기를 삭제(profile-test 의 `RequestDetails(profile_parameters=...)` pageLoad 만 유지).
+
+Changes:
+
+- `target_config.py` (97→60줄): 배너 주석 삭제. `load_adobe_target_settings`→`_load`, `_assert_adobe_target_ascii`→`_assert_ascii`, `_get_str/_get_int`→`_str/_int` 축약. `AdobeTargetSettings` 정의를 `_load` 위로 이동.
+- `target_client.py` (30→19줄): docstring 축약, `client_options` 인라인.
+- `target_delivery_utils.py` (67→61줄): `TARGET_GLOBAL_MBOX` 상수 삭제. `offers_from_execute_response`→`offers_from_execute(resp, *, parse_json=False)` 로 통합(option 마다 `source`/`mbox_name`/`type`/`content`/`response_tokens?` 포함). `clear_settings_and_target_client_caches`→`clear_caches`, `api_exception_body_text`→`api_exception_body`, `DEFAULT_TARGET_PAGE_LOAD_URL`→`DEFAULT_PAGE_URL` 로 축약.
+- `target_adobe_router.py` (387→194줄): 모듈 docstring 1줄. global mbox if/else 분기 삭제. 중복된 try/except 4계층 → `_handle_error(exc, label) -> NoReturn` 단일 함수로 통합. SDK 옵션 빌더 `_sdk_opts(cookie, hint, session)`·응답에서 ID/쿠키 추출 `_id_and_cookies(response, tnt_fallback, third_fallback)` 공통 헬퍼 도입. `_collect_response_tokens` 함수 제거 → `_profile_test_sync` 안에 list comprehension 으로 인라인. `sent_profile_params`·`execute_page_load`·`page_load_dict` 응답 키 삭제. 함수 순서: 헬퍼 → OffersRequest/sync/endpoint → ProfileTestRequest/sync/endpoint.
+
+검증:
+
+- `python -m py_compile` 4파일 모두 성공
+- `import` grep: 삭제 대상(`TARGET_GLOBAL_MBOX`/`sent_profile_params`/`_collect_response_tokens`/`offers_from_execute_response`/`clear_settings_and_target_client_caches`/`api_exception_body_text`/`DEFAULT_TARGET_PAGE_LOAD_URL`/`load_adobe_target_settings`/`_assert_adobe_target_ascii`) 백엔드 전역 0건
+- 배너 문자(`═══`/`███`/`────`) `backend/adobe_backend` 0건
+- uvicorn `--reload` 최종 `Application startup complete`
+- OpenAPI 확인: `/api/target/offers`·`/api/target/profile-test` 두 라우트 + `OffersRequest`/`ProfileTestRequest` 스키마(`tntId`/`thirdPartyId` alias 포함) 정상 등록
+- 라이브 스모크: `/api/target/offers` `mbox=target-local-mbox`·`tntId`·`target_cookie` 반환. `/api/target/profile-test` `status=200`·`tntId`·`target_cookie` 반환, `sent_profile_params` 키 부재 확인
+- 프론트 `targetOfferParser.ts` 영향 검토: `offers[]` 각 항목에 `source`/`mbox_name` 키가 추가되지만 파서는 `content`·`type` 만 사용하므로 무영향(추가 키 무시)
+- 라인 수: 581 → 334 (약 42% 감소)
+
+Changed files: backend/adobe_backend/target_backend/target_config.py, backend/adobe_backend/target_backend/target_client.py, backend/adobe_backend/target_backend/target_delivery_utils.py, backend/adobe_backend/target_backend/target_adobe_router.py, docs/log/log.md
+
+79. 2026-05-12 profile-test 패널 응답 중심 리팩터·백엔드 sent_profile_params 제거
+
+Purpose: profile-test 화면을 "요청을 보내고 서버 응답을 그대로 보여주는" 단일 책임으로 축소한다. 프론트 가공 코드(요청값 미러링·매칭 결과 박스·offers 추출 안내 등)를 모두 제거하고, Re-fetch 응답의 `popup:true` 오퍼가 있으면 Alert 1회만 띄운다. 백엔드는 응답에 요청값을 굳이 echo back 하지 않도록 `sent_profile_params` 키를 삭제한다.
+
+Changes:
+
+- `ProfileTestPanel.tsx` (전체 교체, 167줄): TextInput·matchResult 상태·`_extractPopupOffer`·`_showPopup` 명명 변경(`findPopupContent`·`showAlert`)·`PROFILE_PARAMS_TEST_*` 상수 인라인화. 버튼 3개(`Send testVal`/`Send testNotVal`/`Re-fetch (매칭 확인)`)는 공통 `send(profileParams, label, checkPopup)` 콜백 1개로 통합. 응답은 `JSON.stringify(res.data, null, 2)` 로만 표시. 파일 상단 한국어 docstring(rule 6)·신규 함수에 `// profile script test` 표식 유지.
+- `target_adobe_router.py`: `_profile_test_sync` 반환 dict 에서 `"sent_profile_params"` 항목 1줄 삭제. 다른 키·예외 흐름·`raw_offers` 추출 로직은 무변경.
+- 검증: `python -m py_compile target_adobe_router.py` 성공(uvicorn `--reload` `Application startup complete` 확인). `npx tsc --noEmit` 출력 588줄(직전 베이스라인과 동일, 본 변경 파일 오류 0건; 사전 `CouponTable.tsx` 만 잔존).
+
+Changed files: backend/adobe_backend/target_backend/target_adobe_router.py, frontend/adobe_frontend/target_frontend/components/ProfileTestPanel.tsx, docs/log/log.md
+
+78. 2026-05-12 profile-test 응답 offers content 원본(dict|str) 유지·response_tokens 옵션별 부착
+
+Purpose: 프론트 `_extractPopupOffer` 가 `content.popup===true` 를 평가하려면 백엔드가 JSON offer 의 dict content 를 그대로 노출해야 한다. 기존 `offers_from_execute_response` 가 dict 인 content 를 그대로 패스하긴 하지만, source/mbox_name/response_tokens 같은 진단 메타가 빠져 있어 profile-test 전용으로는 부족했다. 운영 `/api/target/offers` 와 `targetProfileTest.ts`·UI 코드는 무변경.
+
+Changes:
+
+- `target_adobe_router.py`: `import json` 추가. `_profile_test_sync` 의 offers 추출을 인라인으로 교체 — `page_load.options` 와 `mboxes[].options` 를 순회해 `{source, type, content, response_tokens?, mbox_name?}` 엔트리를 만든다. `content` 가 문자열이면 `json.loads` 시도 후 실패하면 원본 문자열 유지(JSONDecodeError·ValueError 둘 다 흡수). 출력 dict 의 `"offers"` 가 `raw_offers` 로 교체.
+- `/api/target/offers` 및 `offers_from_execute_response` import 는 그대로 유지(라인 115 에서 여전히 사용).
+- 검증: `python -m py_compile` 성공. uvicorn `--reload` 가 변경 감지 후 `Application startup complete` 출력. 프론트 미수정으로 `tsc --noEmit` 재실행 불필요.
+
+Changed files: backend/adobe_backend/target_backend/target_adobe_router.py, docs/log/log.md
+
+77. 2026-05-12 profile-test 패널: testNotVal 버튼·popup 오퍼 감지·매칭 결과 표시
+
+Purpose: profile-test 화면에서 두 종류 profileParam 값(testVal/testNotVal)을 번갈아 저장한 뒤 Re-fetch 응답의 popup 오퍼를 Alert 으로 띄워 Audience 매칭 동작을 시각화한다. 운영 `/api/target/offers` 및 백엔드는 무변경.
+
+Changes:
+
+- `ProfileTestPanel.tsx`: 버튼 3개(Send testVal / Send testNotVal / Re-fetch)로 재구성. `PROFILE_PARAMS_TEST_VAL`·`PROFILE_PARAMS_TEST_NOT_VAL` 상수 분리. `_extractPopupOffer(offers)` 가 offers 의 `content.popup===true` 오퍼를 찾고(`content` 가 문자열이면 JSON.parse 후 평가), `_showPopup` 이 웹은 `window.alert`, 네이티브는 `Alert.alert` 호출. Re-fetch 시 `matched_audience`/`profile_script`/`matched_value`/`message` 를 추출해 별도 "프로필 매칭 결과" 박스에 출력. 신규 함수 상단에 `// profile script test` 표식 유지.
+- 검증: `npx tsc --noEmit` 본 변경 파일 오류 0건(`components/CouponTable.tsx` 사전 오류만 잔존).
+
+Changed files: frontend/adobe_frontend/target_frontend/components/ProfileTestPanel.tsx, docs/log/log.md
+
+76. 2026-05-12 profile script test 엔드포인트·프론트 패널·라우트 추가
+
+Purpose: profileParameters 가 Adobe Target 프로필에 저장되는지(=응답 options[].response_tokens 의 `profile.*` / 동일 tntId 재요청 시 오퍼 변동) 검증할 수 있는 독립 테스트 라인을 추가한다. 운영 `/api/target/offers` 와 클릭 쿠키 로직은 건드리지 않는다.
+
+Changes:
+
+- `target_adobe_router.py`: `ProfileTestRequest`, `_collect_response_tokens`, `_profile_test_sync`, `POST /api/target/profile-test` 엔드포인트 추가 (`RequestDetails(profile_parameters=...)`·`build_delivery_id` 재사용·SDK 옵션 전달·HTTPException 분기 동일 패턴). 각 함수 상단에 `# profile script test` 표식.
+- `targetProfileTest.ts` (신규): `testProfileParameters(params)` 가 `/api/target/profile-test` 호출 후 응답의 `tntId`·`target_cookie`·`target_location_hint_cookie` 를 sessionStorage 에 갱신.
+- `ProfileTestPanel.tsx` (신규): JSON 입력 + `Send profileParams`/`Re-fetch (확인)` 두 버튼 + 응답 JSON 표시 패널.
+- `app/profile-test.tsx` (신규): `/profile-test` 라우트로 패널 노출(홈 `/` 비노출).
+- 검증: `python -m py_compile backend/adobe_backend/target_backend/target_adobe_router.py` 성공. `npx tsc --noEmit` 실행 시 본 변경 4개 파일에는 오류 0건(기존 `components/CouponTable.tsx` 등 사전 오류만 잔존).
+
+Changed files: backend/adobe_backend/target_backend/target_adobe_router.py, frontend/adobe_frontend/target_frontend/utils/targetProfileTest.ts, frontend/adobe_frontend/target_frontend/components/ProfileTestPanel.tsx, frontend/app/profile-test.tsx, docs/log/log.md
 
 75. 2026-05-11 원격 동기화: Adobe 05-11 일괄 반영·`backend/env/config.dev.json` 제외
 
