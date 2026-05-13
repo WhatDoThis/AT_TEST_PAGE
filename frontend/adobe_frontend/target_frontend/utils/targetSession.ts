@@ -1,22 +1,50 @@
 /**
- * adobe_frontend.target_frontend.utils.targetSession (웹 sessionStorage + Adobe Target SDK 옵션)
+ * adobe_frontend.target_frontend.utils.targetSession (sessionStorage + Adobe Target SDK 옵션)
  * ================================================================================
- * Delivery `id`(tntId·thirdPartyId), `get_offers`용 target_cookie 문자열, location hint,
- * session_id 를 sessionStorage에 두고 다음 `POST /api/target/offers` 본문에 넣는다.
+ * Delivery `id`(tntId·thirdPartyId)·target_cookie·location hint·session_id 를 sessionStorage 에 두고
+ * 다음 `POST /api/target/offers` 본문에 넣는다. **tntId 는 클라이언트에서 생성하지 않는다.**
+ * 첫 요청은 thirdPartyId 만 전송 → Adobe 가 자동 생성한 tntId 가 응답으로 돌아오면 이를 저장해 재사용한다.
+ * Recommendation 테스트(`targetRecommendationTest`) 전용 키(`AT_RECS_*`)는 offers·profile 과 저장소를 분리한다.
+ *
+ * [Main Functions]
+ * ===========
+ * - getAdobeTargetVisitorPayload: offers 용 저장 식별자·옵션 payload
+ * - (상수) AT_RECS_* : recommendation-test 전용 키 정의만 — 읽기/쓰기는 `targetRecommendationTest`·`RecommendationTestPanel`
+ *
+ * [Endpoints/Classes/Functions]
+ * =======================
+ * - AT_TNTID_STORAGE_KEY · AT_THIRD_PARTY_ID_STORAGE_KEY · AT_TARGET_COOKIE_VALUE_KEY
+ * - AT_LOCATION_HINT_KEY · AT_SESSION_ID_KEY (상수, offers·profile-test 공통)
+ * - AT_RECS_* (상수, recommendation-test 전용 — 위 AT_* 와 저장소 분리)
+ * - getAdobeTargetVisitorPayload()
+ *
+ * [Dependencies]
+ * =========
+ * - 없음(브라우저 sessionStorage·crypto)
  */
 
-/** Delivery `id.tntId` */
+/** Delivery `id.tntId` (Adobe 응답에서 받은 값만 저장) */
 export const AT_TNTID_STORAGE_KEY = "at_tntId";
-/** Delivery `id.thirdPartyId` */
+/** Delivery `id.thirdPartyId` (클라이언트에서 1회 생성·세션 동안 고정) */
 export const AT_THIRD_PARTY_ID_STORAGE_KEY = "at_thirdPartyId";
-/** SDK `target_cookie` 옵션에 넣을 쿠키 값 문자열(응답 dict의 `value`). */
+/** SDK `target_cookie` 옵션에 넣을 쿠키 값 문자열(응답 dict 의 `value`). */
 export const AT_TARGET_COOKIE_VALUE_KEY = "at_target_cookie_value";
 /** SDK `target_location_hint` 옵션(응답 `target_location_hint_cookie.value`). */
 export const AT_LOCATION_HINT_KEY = "at_location_hint";
 /** SDK `session_id` — 동일 tnt/thirdParty 조합에 30분 내 재사용 권장. */
 export const AT_SESSION_ID_KEY = "at_session_id";
 
-const LEGACY_AT_TNT_STORAGE_KEY = "at_tnt_id";
+// ── Recommendation 테스트 전용 (`targetRecommendationTest` / RecommendationTestPanel) ──
+// offers·profile 용 `AT_*` 키 문자열과 겹치지 않게 별도 네임스페이스를 둔다.
+
+/** Recs 테스트: Delivery 응답 tntId 재사용 */
+export const AT_RECS_TNTID_STORAGE_KEY = "AT_RECS_TNTID";
+/** Recs 테스트: SDK `target_cookie` 값(응답 `target_cookie.value`) */
+export const AT_RECS_TARGET_COOKIE_VALUE_KEY = "AT_RECS_TARGET_COOKIE";
+/** Recs 테스트: SDK `target_location_hint` 값 */
+export const AT_RECS_LOCATION_HINT_KEY = "AT_RECS_LOCATION_HINT";
+/** Recs 테스트: UI 입력 recipient_id 기본값·유지 */
+export const AT_RECS_RECIPIENT_ID_KEY = "AT_RECS_RECIPIENT_ID";
 
 function createThirdPartyId(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -40,41 +68,37 @@ function getOrCreateSessionId(): string {
   return sid;
 }
 
-export function getAdobeTargetVisitorPayload(): {
-  tntId?: string;
-  thirdPartyId?: string;
-  target_cookie?: string;
-  target_location_hint?: string;
-  session_id?: string;
-} {
+export function getAdobeTargetVisitorPayload(): Record<string, string> {
   if (typeof sessionStorage === "undefined") {
     return {};
   }
-  let third = sessionStorage.getItem(AT_THIRD_PARTY_ID_STORAGE_KEY)?.trim();
-  if (!third) {
-    third = createThirdPartyId();
-    sessionStorage.setItem(AT_THIRD_PARTY_ID_STORAGE_KEY, third);
+  const payload: Record<string, string> = {};
+
+  const tntId = sessionStorage.getItem(AT_TNTID_STORAGE_KEY)?.trim();
+  if (tntId) {
+    payload.tntId = tntId;
   }
-  const tnt =
-    sessionStorage.getItem(AT_TNTID_STORAGE_KEY)?.trim() ||
-    sessionStorage.getItem(LEGACY_AT_TNT_STORAGE_KEY)?.trim();
-  const out: {
-    tntId?: string;
-    thirdPartyId?: string;
-    target_cookie?: string;
-    target_location_hint?: string;
-    session_id?: string;
-  } = { thirdPartyId: third, session_id: getOrCreateSessionId() };
-  if (tnt) {
-    out.tntId = tnt;
+
+  let thirdPartyId = sessionStorage.getItem(AT_THIRD_PARTY_ID_STORAGE_KEY)?.trim();
+  if (!thirdPartyId) {
+    thirdPartyId = createThirdPartyId();
+    sessionStorage.setItem(AT_THIRD_PARTY_ID_STORAGE_KEY, thirdPartyId);
   }
-  const tc = sessionStorage.getItem(AT_TARGET_COOKIE_VALUE_KEY)?.trim();
-  if (tc) {
-    out.target_cookie = tc;
+  payload.thirdPartyId = thirdPartyId;
+
+  const sessionId = getOrCreateSessionId();
+  if (sessionId) {
+    payload.session_id = sessionId;
   }
-  const lh = sessionStorage.getItem(AT_LOCATION_HINT_KEY)?.trim();
-  if (lh) {
-    out.target_location_hint = lh;
+
+  const cookie = sessionStorage.getItem(AT_TARGET_COOKIE_VALUE_KEY)?.trim();
+  if (cookie) {
+    payload.target_cookie = cookie;
   }
-  return out;
+  const hint = sessionStorage.getItem(AT_LOCATION_HINT_KEY)?.trim();
+  if (hint) {
+    payload.target_location_hint = hint;
+  }
+
+  return payload;
 }

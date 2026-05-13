@@ -9,7 +9,7 @@ CORS·라우터·수명 주기를 구성하고 uvicorn에서 app 객체로 노�
 
 [Main Functions]
 ===========
-- FastAPI 인스턴스 생성 및 미들웨어(CORS) 설정(쿠폰 GET + Target offers POST)
+- FastAPI 인스턴스 생성 및 미들웨어(CORS) 설정(쿠폰 GET + Adobe Target POST)
 - lifespan에서 DB 엔진 정리
 
 [Endpoints/Classes/Functions]
@@ -39,7 +39,7 @@ from app.routers import coupons
 # [BRIDGE · Adobe] 구분선 — 위: 앱 코어 라우터·DB / 아래: 어도비 패키지 진입만 임포트
 # ── 위치: backend/adobe_backend/target_backend/target_main.py
 # ── 심볼: target_main (별칭 _adobe_target_main) → register_target_routes
-# ── 효과: /api/target/offers 라우터가 app 에 붙음
+# ── 효과: `POST /api/target/offers`, `POST /api/target/profile-test`, `POST /api/target/recommendation-test` 가 prefix `/api` 로 마운트됨
 # ════════════════════════════════════════════════════════════════════════════════
 from adobe_backend.target_backend import target_main as _adobe_target_main
 # ════════════════════════════════════════════════════════════════════════════════
@@ -60,7 +60,7 @@ cors_origins = settings.raw.get("cors_origins", [])
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
-    # ── [BRIDGE · Adobe] CORS — Target 프록시 `POST /api/target/offers` 허용
+    # ── [BRIDGE · Adobe] CORS — Target 프록시 `POST /api/target/*` 허용
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )

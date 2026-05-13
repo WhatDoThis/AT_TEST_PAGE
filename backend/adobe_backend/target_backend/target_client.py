@@ -1,11 +1,11 @@
-"""Target Python SDK 싱글톤·property_token. 설정은 target_config.get_adobe_target_settings()."""
+"""Adobe Target SDK 싱글톤 클라이언트."""
 
 from __future__ import annotations
 
 import logging
 from functools import lru_cache
 
-from target_python_sdk import TargetClient as AdobeTargetClient
+from target_python_sdk import TargetClient
 
 from adobe_backend.target_backend.target_config import get_adobe_target_settings
 
@@ -13,15 +13,14 @@ logger = logging.getLogger(__name__)
 
 
 @lru_cache(maxsize=1)
-def get_target_client() -> AdobeTargetClient:
+def get_target_client() -> TargetClient:
     cfg = get_adobe_target_settings()
-    client_options = {
+    client = TargetClient.create({
         "client": cfg.client,
         "organization_id": cfg.organization_id,
         "timeout": cfg.timeout,
-    }
-    client = AdobeTargetClient.create(client_options)
-    logger.info("Adobe Target SDK initialized for client=%s", cfg.client)
+    })
+    logger.info("Adobe Target SDK initialized: client=%s", cfg.client)
     return client
 
 

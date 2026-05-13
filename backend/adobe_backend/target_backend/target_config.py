@@ -1,4 +1,21 @@
-"""backend/env/config.adobe.json 로드·검증 및 AdobeTargetSettings. 의존: json, pathlib, functools."""
+"""Adobe Target 설정 로드 (backend/env/config.adobe.json)
+================================================================================
+`administration`·`mboxes` 블록에서 자격·타임아웃·mbox 이름을 읽어 `AdobeTargetSettings` 로 반환한다.
+
+[Main Functions]
+===========
+- get_adobe_target_settings: 캐시된 설정 싱글톤
+- _load: JSON 파일 파싱 및 검증
+
+[Endpoints/Classes/Functions]
+=======================
+- AdobeTargetSettings: client, organization_id, property_token, timeout, offer_mbox_name, recs_mbox_name
+- AdobeTargetConfigError
+
+[Dependencies]
+=========
+- pathlib, json, functools.lru_cache
+"""
 
 from __future__ import annotations
 
@@ -10,47 +27,7 @@ from typing import Any
 
 
 class AdobeTargetConfigError(ValueError):
-    """client·organization_id·property_token 이 비어 있거나 비ASCII일 때."""
-
-
-def _adobe_config_path() -> Path:
-    """backend/env/config.adobe.json 경로(APP_ENV 무관)."""
-    backend_root = Path(__file__).resolve().parents[2]
-    return backend_root / "env" / "config.adobe.json"
-
-
-def _get_str(block: dict[str, Any], key: str, *sub_keys: str) -> str:
-    """block[sub][key] 또는 block[key]에서 strip된 문자열."""
-    for sk in sub_keys:
-        sub = block.get(sk)
-        if isinstance(sub, dict) and key in sub and sub[key] is not None:
-            return str(sub[key]).strip()
-    val = block.get(key)
-    return str(val).strip() if val is not None else ""
-
-
-def _get_int(block: dict[str, Any], key: str, default: int, *sub_keys: str) -> int:
-    val = _get_str(block, key, *sub_keys)
-    return int(val) if val else default
-
-
-def _assert_adobe_target_ascii(client: str, organization_id: str, property_token: str) -> None:
-    for label, value in (
-        ("client", client),
-        ("organization_id", organization_id),
-        ("property_token", property_token),
-    ):
-        if not value or not value.strip():
-            raise AdobeTargetConfigError(
-                f"adobe_target.{label} is empty; set config.adobe.json"
-            )
-        try:
-            value.encode("ascii")
-        except UnicodeEncodeError as exc:
-            raise AdobeTargetConfigError(
-                f"adobe_target.{label} must be ASCII only (Korean placeholder breaks urllib3 host parse). "
-                f"Replace with real Target {label} from Adobe admin (`backend/env/config.adobe.json`, template: config.adobe.example.json)."
-            ) from exc
+    """필수 설정값 누락 또는 비ASCII."""
 
 
 @dataclass(frozen=True)
@@ -60,37 +37,62 @@ class AdobeTargetSettings:
     property_token: str
     timeout: int
     offer_mbox_name: str
+    recs_mbox_name: str
 
 
-def load_adobe_target_settings() -> AdobeTargetSettings:
-    path = _adobe_config_path()
-    example = path.with_name("config.adobe.example.json")
+def _config_path() -> Path:
+    return Path(__file__).resolve().parents[2] / "env" / "config.adobe.json"
+
+
+def _str(block: dict[str, Any], key: str, *subs: str) -> str:
+    for s in subs:
+        sub = block.get(s)
+        if isinstance(sub, dict) and key in sub and sub[key] is not None:
+            return str(sub[key]).strip()
+    val = block.get(key)
+    return str(val).strip() if val is not None else ""
+
+
+def _int(block: dict[str, Any], key: str, default: int, *subs: str) -> int:
+    val = _str(block, key, *subs)
+    return int(val) if val else default
+
+
+def _assert_ascii(settings: AdobeTargetSettings) -> None:
+    for label in ("client", "organization_id", "property_token"):
+        value = getattr(settings, label)
+        if not value:
+            raise AdobeTargetConfigError(f"adobe_target.{label} is empty")
+        try:
+            value.encode("ascii")
+        except UnicodeEncodeError as exc:
+            raise AdobeTargetConfigError(
+                f"adobe_target.{label} must be ASCII only"
+            ) from exc
+
+
+def _load() -> AdobeTargetSettings:
+    path = _config_path()
     try:
         with path.open(encoding="utf-8") as f:
-            at_block: dict[str, Any] = json.load(f)
+            raw: dict[str, Any] = json.load(f)
     except OSError as exc:
-        raise RuntimeError(
-            "adobe_config_unreadable path="
-            f"{path} — create it from {example.name} (copy to config.adobe.json and fill values)"
-        ) from exc
+        raise RuntimeError(f"config unreadable: {path}") from exc
     except json.JSONDecodeError as exc:
-        raise RuntimeError(
-            "adobe_config_json_invalid path="
-            f"{path} — fix JSON or recreate from {example.name}"
-        ) from exc
+        raise RuntimeError(f"config invalid JSON: {path}") from exc
 
-    offer_m = _get_str(at_block, "offer_mbox_name", "mboxes")
-    settings = AdobeTargetSettings(
-        client=_get_str(at_block, "client", "administration"),
-        organization_id=_get_str(at_block, "organization_id", "administration"),
-        property_token=_get_str(at_block, "property_token", "administration"),
-        timeout=_get_int(at_block, "timeout", 3000, "administration"),
-        offer_mbox_name=offer_m or "target-global-mbox",
+    s = AdobeTargetSettings(
+        client=_str(raw, "client", "administration"),
+        organization_id=_str(raw, "organization_id", "administration"),
+        property_token=_str(raw, "property_token", "administration"),
+        timeout=_int(raw, "timeout", 3000, "administration"),
+        offer_mbox_name=_str(raw, "offer_mbox_name", "mboxes") or "target-global-mbox",
+        recs_mbox_name=_str(raw, "recs_mbox_name", "mboxes") or "target-recs-mbox",
     )
-    _assert_adobe_target_ascii(settings.client, settings.organization_id, settings.property_token)
-    return settings
+    _assert_ascii(s)
+    return s
 
 
 @lru_cache(maxsize=1)
 def get_adobe_target_settings() -> AdobeTargetSettings:
-    return load_adobe_target_settings()
+    return _load()

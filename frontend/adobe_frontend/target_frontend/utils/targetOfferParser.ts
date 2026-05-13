@@ -1,7 +1,8 @@
 /**
  * adobe_frontend.target_frontend.utils.targetOfferParser (Adobe Target 오퍼 파서)
  * ================================================================================
- * `/api/target/offers` 응답에서 캐러셀 오퍼와 이벤트 팝업 오퍼를 파싱한다.
+ * Target 프록시 응답의 `offers` 배열에서 캐러셀 오퍼와 이벤트 팝업 오퍼를 파싱한다.
+ * (`POST /api/target/offers`·`POST /api/target/profile-test` 등 동일 shape 의 `offers` 에 적용)
  * Context/Preload/UI 컴포넌트가 같은 파싱 규칙을 재사용한다.
  *
  * [Main Functions]
@@ -31,7 +32,7 @@ export interface AdobeTargetEventPopupOffer {
   buttonText?: string;
 }
 
-// 1. 백엔드 `/api/target/offers` 응답에서 캐러셀·이벤트 팝업 오퍼를 함께 추출한다.
+// 1. 백엔드 Target 프록시 응답의 `offers` 배열에서 캐러셀·이벤트 팝업 오퍼를 함께 추출한다.
 export function parseAdobeTargetOffersPayload(data: unknown): {
   carousel: AdobeTargetOffer | null;
   eventPopup: AdobeTargetEventPopupOffer | null;

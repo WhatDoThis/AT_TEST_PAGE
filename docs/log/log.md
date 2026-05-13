@@ -1,7 +1,8 @@
-# Log
+﻿# Log
 
 ## Log Index
 
+97. 2026-05-13 미푸시 작업 일괄 푸시(Adobe·문서·프로필·추천 테스트 UI)
 96. 2026-05-13 README를 docs/main 기준으로 정합(구조·실행·Adobe·디버그)
 95. 2026-05-13 docs/main 04 v2.2 recommendation-test·프론트 정합(문서만)
 94. 2026-05-13 recommendation-test: customerIds·Product·build_delivery_id 확장
@@ -100,6 +101,18 @@
 12. 2026-04-27 docs/main AT_TEST_PAGE PRD v1.0 작성
 
 ## Log Body
+
+97. 2026-05-13 미푸시 작업 일괄 푸시(Adobe·문서·프로필·추천 테스트 UI)
+
+Purpose: README 커밋(`ffc4c75`) 이후 로컬에만 남아 있던 백엔드 Target 라우터·설정 예시·`docs/main`·프론트 테스트 패널·푸터·세션/페치 유틸을 `origin/main`에 반영한다.
+
+Changes:
+
+- `target_adobe_router`·`target_config`·`target_delivery_utils`·`target_client`·`app/main`·`config.adobe.example.json`
+- `docs/main` 01~04, `targetSession`·`targetOffersFetch`·`targetOfferParser`·`_layout`
+- 신규: `ProfileTestPanel`·`RecommendationTestPanel`·`targetProfileTest`·`targetRecommendationTest`·`profile-test`·`recommendation-test`·`AppFooter`
+
+Changed files: (본 커밋에 포함된 경로 전체; 제외: `backend/env/config.dev.json`)
 
 96. 2026-05-13 README를 docs/main 기준으로 정합(구조·실행·Adobe·디버그)
 

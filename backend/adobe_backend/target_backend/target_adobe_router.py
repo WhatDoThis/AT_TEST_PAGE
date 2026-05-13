@@ -1,24 +1,54 @@
-"""Adobe Target offers 프록시. POST /api/target/offers → get_offers·오퍼 파싱. DeliveryRequest.id 타입은 SDK VisitorId(OpenAPI 생성명)."""
+"""
+adobe_backend.target_backend.target_adobe_router (Adobe Target Delivery 프록시)
+================================================================================
+FastAPI 라우터. offers·profile-test·recommendation-test 요청을 Python SDK 로 전달하고
+응답(오퍼·쿠키·tntId 등)을 클라이언트에 반환한다.
+recommendation-test 의 mbox 이름은 `config.adobe.json` 의 `mboxes.recs_mbox_name` 이다.
+recommendation-test 는 thirdPartyId·선택 customerIds(recipient_id)·MboxRequest.product·order 를 전달한다.
+
+[Main Functions]
+===========
+- _get_offers_sync / get_offers_endpoint
+- _profile_test_sync / profile_test_endpoint
+- _recommendation_test_sync / recommendation_test_endpoint
+- _sdk_opts / _id_and_cookies / _handle_error
+
+[Endpoints/Classes/Functions]
+=======================
+- POST /api/target/offers
+- POST /api/target/profile-test
+- POST /api/target/recommendation-test
+- OffersRequest, ProfileTestRequest, RecommendationTestRequest
+
+[Dependencies]
+=========
+- delivery_api_client (DeliveryRequest, ExecuteRequest, MboxRequest, Order, Product, CustomerId, AuthenticatedState, …)
+- target_client, target_config, target_debug_utils, target_delivery_utils
+- fastapi, pydantic, urllib3
+"""
 
 from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any, Dict, Optional
+import uuid
+from typing import Any, Dict, NoReturn, Optional
 
 from fastapi import APIRouter, HTTPException
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 from urllib3.exceptions import LocationParseError
 
 from delivery_api_client import (
-    Address,
+    AuthenticatedState,
     ChannelType,
     Context,
+    CustomerId,
     DeliveryRequest,
     ExecuteRequest,
     MboxRequest,
     ModelProperty,
-    RequestDetails,
+    Order,
+    Product,
 )
 from delivery_api_client.exceptions import ApiException
 
@@ -26,36 +56,104 @@ from adobe_backend.target_backend.target_client import get_property_token, get_t
 from adobe_backend.target_backend.target_config import AdobeTargetConfigError, get_adobe_target_settings
 from adobe_backend.target_backend.target_debug_utils import at_debug_log_request, at_debug_log_response
 from adobe_backend.target_backend.target_delivery_utils import (
-    DEFAULT_TARGET_PAGE_LOAD_URL,
-    TARGET_GLOBAL_MBOX,
-    api_exception_body_text,
+    api_exception_body,
     build_delivery_id,
-    clear_settings_and_target_client_caches,
+    clear_caches,
     extract_id_field,
-    offers_from_execute_response,
+    offers_from_execute,
 )
-
-# CAUTION: ApiClient()/Configuration()을 인자 없이 직접 생성하면 TypeWithDefault 메타클래스가
-# 빈 host를 잠궈 LocationParseError 발생. 직렬화 확인은 delivery_request.to_dict()만 사용.
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
+
+# ── 공통 헬퍼 ──
+
+def _sdk_opts(cookie: Optional[str], hint: Optional[str], session: Optional[str]) -> dict[str, str]:
+    """target_cookie·location_hint·session_id 중 값이 있는 것만 dict 로."""
+    opts: dict[str, str] = {}
+    if (cookie or "").strip():
+        opts["target_cookie"] = cookie.strip()
+    if (hint or "").strip():
+        opts["target_location_hint"] = hint.strip()
+    if (session or "").strip():
+        opts["session_id"] = session.strip()
+    return opts
+
+
+def _id_and_cookies(
+    response: Optional[dict],
+    third_fallback: Optional[str] = None,
+) -> dict[str, Any]:
+    """SDK 응답에서 tntId(Adobe 생성)·thirdPartyId·쿠키를 추출해 클라이언트용 dict 로."""
+    out: dict[str, Any] = {}
+    resp = response.get("response") if response else None
+
+    tnt = extract_id_field(resp, "tnt_id") if resp else None
+    third = extract_id_field(resp, "third_party_id") if resp else None
+    if tnt:
+        out["tntId"] = tnt
+    if third or third_fallback:
+        out["thirdPartyId"] = third or third_fallback
+
+    if response:
+        for key in ("target_cookie", "target_location_hint_cookie"):
+            val = response.get(key)
+            if isinstance(val, dict) and val:
+                out[key] = val
+    return out
+
+
+def _handle_error(exc: Exception, label: str) -> NoReturn:
+    """엔드포인트 공통 예외 처리."""
+    if isinstance(exc, AdobeTargetConfigError):
+        logger.warning("[AT] %s config: %s", label, exc)
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if isinstance(exc, LocationParseError):
+        clear_caches()
+        logger.warning("[AT] %s URL parse: %s", label, exc)
+        raise HTTPException(status_code=400, detail=f"URL parse error: {exc}") from exc
+    if isinstance(exc, ApiException):
+        body = api_exception_body(exc)[:4000]
+        status = 400 if exc.status == 400 else 502
+        logger.log(
+            logging.WARNING if status == 400 else logging.ERROR,
+            "[AT] %s API %s: %s",
+            label,
+            exc.status,
+            body[:800],
+        )
+        detail: Any = (
+            body
+            if status == 400
+            else {
+                "code": "adobe_target_unavailable",
+                "reason": type(exc).__name__,
+                "status": exc.status,
+                "message": body[:800],
+            }
+        )
+        raise HTTPException(status_code=status, detail=detail) from exc
+    logger.exception("[AT] %s error: %s", label, exc)
+    raise HTTPException(
+        status_code=502,
+        detail={
+            "code": "adobe_target_unavailable",
+            "reason": type(exc).__name__,
+            "message": str(exc)[:800],
+        },
+    ) from exc
+
+
+# ── offers 엔드포인트 ──
 
 class OffersRequest(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     mbox_name: str = Field(default_factory=lambda: get_adobe_target_settings().offer_mbox_name)
     page_url: Optional[str] = None
-    tnt_id: Optional[str] = Field(
-        default=None,
-        validation_alias=AliasChoices("tntId", "tnt_id"),
-    )
-    third_party_id: Optional[str] = Field(
-        default=None,
-        validation_alias=AliasChoices("thirdPartyId", "third_party_id"),
-    )
-    # SDK get_offers 옵션: 이전 응답 쿠키·힌트·sessionId (문서: 동일 tnt/thirdParty에 30분 내 sessionId 일관)
+    tnt_id: Optional[str] = Field(None, validation_alias=AliasChoices("tntId", "tnt_id"))
+    third_party_id: Optional[str] = Field(None, validation_alias=AliasChoices("thirdPartyId", "third_party_id"))
     target_cookie: Optional[str] = None
     target_location_hint: Optional[str] = None
     session_id: Optional[str] = None
@@ -64,106 +162,219 @@ class OffersRequest(BaseModel):
 
 def _get_offers_sync(body: OffersRequest) -> Dict[str, Any]:
     client = get_target_client()
-    property_token = get_property_token()
-    delivery_id, tnt_sent = build_delivery_id(body.tnt_id, body.third_party_id)
-    mbox_params: Dict[str, str] = dict(body.params or {})
-    mbox_kw: Dict[str, Any] = {"parameters": mbox_params or None}
+    delivery_id = build_delivery_id(body.tnt_id, body.third_party_id)
 
-    # 글로벌 mbox는 execute.mboxes에 넣으면 400이므로 pageLoad로 보낸다
-    if body.mbox_name.strip().lower() == TARGET_GLOBAL_MBOX:
-        page_url = (body.page_url or "").strip() or DEFAULT_TARGET_PAGE_LOAD_URL
-        page_load = RequestDetails(address=Address(url=page_url), **mbox_kw)
-        execute = ExecuteRequest(page_load=page_load)
-    else:
-        mbox = MboxRequest(name=body.mbox_name, index=0, **mbox_kw)
-        execute = ExecuteRequest(mboxes=[mbox])
-
-    delivery_request = DeliveryRequest(
+    mbox = MboxRequest(
+        name=body.mbox_name,
+        index=0,
+        parameters=body.params or None,
+    )
+    request = DeliveryRequest(
         id=delivery_id,
         context=Context(channel=ChannelType.WEB),
-        execute=execute,
-        _property=ModelProperty(token=property_token),  # OpenAPI 키 property → 생성기가 ModelProperty, 예약 피해 _property
+        execute=ExecuteRequest(mboxes=[mbox]),
+        _property=ModelProperty(token=get_property_token()),
     )
+    at_debug_log_request(logger, "offers", request)
 
-    at_debug_log_request(logger, "get_offers", delivery_request)
+    opts = {"request": request, **_sdk_opts(body.target_cookie, body.target_location_hint, body.session_id)}
+    response = client.get_offers(opts)
+    at_debug_log_response(logger, "offers", response)
 
-    target_opts: Dict[str, Any] = {"request": delivery_request}
-    if (body.target_cookie or "").strip():
-        target_opts["target_cookie"] = body.target_cookie.strip()
-    if (body.target_location_hint or "").strip():
-        target_opts["target_location_hint"] = body.target_location_hint.strip()
-    if (body.session_id or "").strip():
-        target_opts["session_id"] = body.session_id.strip()
-
-    response = client.get_offers(target_opts)
-
-    at_debug_log_response(logger, "get_offers", response)
-
-    offers: list[dict[str, Any]] = []
-    response_tnt: Optional[str] = None
-    response_third: Optional[str] = None
-    if response and response.get("response"):
-        resp = response["response"]
-        response_tnt = extract_id_field(resp, "tnt_id")
-        response_third = extract_id_field(resp, "third_party_id")
-        offers = offers_from_execute_response(resp)
-
-    tnt_for_client = response_tnt or tnt_sent
-    third_for_client = response_third or ((body.third_party_id or "").strip() or None)
-    out: Dict[str, Any] = {"offers": offers, "mbox": body.mbox_name}
-    if tnt_for_client:
-        out["tntId"] = tnt_for_client
-    if third_for_client:
-        out["thirdPartyId"] = third_for_client
-    if response:
-        tc = response.get("target_cookie")
-        if isinstance(tc, dict) and tc:
-            out["target_cookie"] = tc
-        lhc = response.get("target_location_hint_cookie")
-        if isinstance(lhc, dict) and lhc:
-            out["target_location_hint_cookie"] = lhc
-    return out
+    resp = response.get("response") if response else None
+    result: Dict[str, Any] = {
+        "mbox": body.mbox_name,
+        "offers": offers_from_execute(resp) if resp else [],
+        **_id_and_cookies(response, (body.third_party_id or "").strip() or None),
+    }
+    return result
 
 
 @router.post("/target/offers")
 async def get_offers_endpoint(body: OffersRequest) -> Dict[str, Any]:
     try:
         return await asyncio.to_thread(_get_offers_sync, body)
-    except AdobeTargetConfigError as exc:
-        logger.warning("[AT] offers config invalid: %s", exc)
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    except LocationParseError as exc:
-        clear_settings_and_target_client_caches()
-        logger.warning("[AT] offers URL parse fail: %s", exc)
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                "Adobe Target delivery URL could not be parsed (invalid or non-ASCII client/organization in "
-                f"config). urllib3: {exc}"
-            ),
-        ) from exc
-    except ApiException as exc:
-        body_text = api_exception_body_text(exc)[:4000]
-        if exc.status == 400:
-            logger.warning("[AT] offers API 400: %s", body_text[:800])
-            raise HTTPException(status_code=400, detail=body_text) from exc
-        logger.error("[AT] offers API error status=%s", exc.status)
-        raise HTTPException(
-            status_code=502,
-            detail={
-                "code": "adobe_target_unavailable",
-                "reason": type(exc).__name__,
-                "status": exc.status,
-                "message": body_text[:800],
-            },
-        ) from exc
     except Exception as exc:
-        logger.exception("[AT] offers unexpected error: %s", exc)
-        raise HTTPException(
-            status_code=502,
-            detail={
-                "code": "adobe_target_unavailable",
-                "reason": type(exc).__name__,
-                "message": str(exc)[:800],
-            },
-        ) from exc
+        _handle_error(exc, "offers")
+
+
+# ── profile-test 엔드포인트 ──
+
+class ProfileTestRequest(BaseModel):
+    """OffersRequest 와 동일 필드 + `params` → `profile_params` 만 다름. mbox 까지 같은 라우트를 공유."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    mbox_name: str = Field(default_factory=lambda: get_adobe_target_settings().offer_mbox_name)
+    page_url: Optional[str] = None
+    tnt_id: Optional[str] = Field(None, validation_alias=AliasChoices("tntId", "tnt_id"))
+    third_party_id: Optional[str] = Field(None, validation_alias=AliasChoices("thirdPartyId", "third_party_id"))
+    target_cookie: Optional[str] = None
+    target_location_hint: Optional[str] = None
+    session_id: Optional[str] = None
+    profile_params: Optional[Dict[str, str]] = None
+
+
+def _profile_test_sync(body: ProfileTestRequest) -> Dict[str, Any]:
+    client = get_target_client()
+    delivery_id = build_delivery_id(body.tnt_id, body.third_party_id)
+
+    # offers 와 동일 mbox 로 호출해야 Audience·Profile Script 조건이 같은 컨텍스트에서 평가된다.
+    # 차이는 `parameters` 대신 `profile_parameters` 슬롯 사용 — 값이 Adobe 프로필에 저장된다.
+    mbox = MboxRequest(
+        name=body.mbox_name,
+        index=0,
+        profile_parameters=body.profile_params or None,
+    )
+    request = DeliveryRequest(
+        id=delivery_id,
+        context=Context(channel=ChannelType.WEB),
+        execute=ExecuteRequest(mboxes=[mbox]),
+        _property=ModelProperty(token=get_property_token()),
+    )
+    at_debug_log_request(logger, "profile_test", request)
+
+    opts = {"request": request, **_sdk_opts(body.target_cookie, body.target_location_hint, body.session_id)}
+    response = client.get_offers(opts)
+    at_debug_log_response(logger, "profile_test", response)
+
+    resp = response.get("response") if response else None
+    offers = offers_from_execute(resp, parse_json=True) if resp else []
+    result: Dict[str, Any] = {
+        "mbox": body.mbox_name,
+        "status": getattr(resp, "status", None) if resp else None,
+        "request_id": getattr(resp, "request_id", None) if resp else None,
+        "offers": offers,
+        "response_tokens": [
+            {"source": o.get("source"), "mbox_name": o.get("mbox_name"), "tokens": o["response_tokens"]}
+            for o in offers
+            if o.get("response_tokens")
+        ],
+        **_id_and_cookies(response, (body.third_party_id or "").strip() or None),
+    }
+    return result
+
+
+@router.post("/target/profile-test")
+async def profile_test_endpoint(body: ProfileTestRequest) -> Dict[str, Any]:
+    try:
+        return await asyncio.to_thread(_profile_test_sync, body)
+    except Exception as exc:
+        _handle_error(exc, "profile_test")
+
+
+# ── recommendation-test 엔드포인트 (Recommendations mbox, 이름은 config.adobe.json `mboxes.recs_mbox_name`) ──
+
+CUSTOMER_ATTR_INTEGRATION_CODE = "recipient_id"
+
+
+class RecommendationTestRequest(BaseModel):
+    """Recommendation 테스트 요청(entity·가격·주문 컨텍스트)."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    entity_id: str
+    entity_category_id: Optional[str] = None
+    recipient_id: Optional[str] = None
+    price: Optional[float] = Field(1000, ge=0)
+    tnt_id: Optional[str] = Field(None, validation_alias=AliasChoices("tntId", "tnt_id"))
+    target_cookie: Optional[str] = None
+    target_location_hint: Optional[str] = None
+
+
+def _recommendation_test_sync(body: RecommendationTestRequest) -> Dict[str, Any]:
+    # 1. [Recommendations] Delivery execute: thirdPartyId + 선택 customerIds, product·order·parameters
+    client = get_target_client()
+    settings = get_adobe_target_settings()
+    recs_mbox_name = settings.recs_mbox_name
+    recipient_trim = (body.recipient_id or "").strip()
+    third_party_id = recipient_trim or str(uuid.uuid4())
+
+    customer_ids_list: Optional[list[CustomerId]] = None
+    if recipient_trim:
+        customer_ids_list = [
+            CustomerId(
+                id=recipient_trim,
+                integration_code=CUSTOMER_ATTR_INTEGRATION_CODE,
+                authenticated_state=AuthenticatedState.AUTHENTICATED,
+            )
+        ]
+
+    cat_raw = (body.entity_category_id or "").strip()
+    cat_for_entity = "" if (not cat_raw or cat_raw.lower() == "ss") else cat_raw
+    mbox_params: Dict[str, str] = {
+        "entity.id": body.entity_id,
+        "entity.categoryId": cat_for_entity,
+    }
+    order_id = f"ord_{uuid.uuid4().hex[:12]}"
+    total = float(body.price) if body.price is not None else 1000.0
+
+    mbox = MboxRequest(
+        name=recs_mbox_name,
+        index=0,
+        parameters=mbox_params,
+        product=Product(id=body.entity_id, category_id=cat_for_entity),
+        order=Order(
+            id=order_id,
+            total=total,
+            purchased_product_ids=[body.entity_id],
+        ),
+    )
+
+    def _fetch_with_visitor_ids(customer_ids_param: Optional[list[CustomerId]]) -> Any:
+        delivery_id = build_delivery_id(body.tnt_id, third_party_id, customer_ids_param)
+        request = DeliveryRequest(
+            id=delivery_id,
+            context=Context(channel=ChannelType.WEB),
+            execute=ExecuteRequest(mboxes=[mbox]),
+            _property=ModelProperty(token=get_property_token()),
+        )
+        at_debug_log_request(logger, "recommendation_test", request)
+        opts: dict[str, Any] = {
+            "request": request,
+            **_sdk_opts(body.target_cookie, body.target_location_hint, None),
+        }
+        response = client.get_offers(opts)
+        at_debug_log_response(logger, "recommendation_test", response)
+        return response
+
+    try:
+        response = _fetch_with_visitor_ids(customer_ids_list)
+    except Exception as exc:
+        if customer_ids_list is None:
+            raise
+        logger.warning(
+            "[AT] recommendation_test: customerIds 경로 실패, thirdPartyId 단독 재시도. error=%s",
+            exc,
+        )
+        response = _fetch_with_visitor_ids(None)
+
+    resp = response.get("response") if response else None
+    raw_offers = offers_from_execute(resp, parse_json=True) if resp else []
+    out: Dict[str, Any] = {
+        "mbox": recs_mbox_name,
+        "status": getattr(resp, "status", None) if resp else None,
+        "request_id": getattr(resp, "request_id", None) if resp else None,
+        "offers": raw_offers,
+        "response_tokens": [],
+        **_id_and_cookies(response, third_party_id),
+    }
+
+    recommendations: list[Any] = []
+    for offer in raw_offers:
+        content = offer.get("content")
+        if isinstance(content, list):
+            recommendations.extend(content)
+        elif isinstance(content, dict):
+            recommendations.append(content)
+    out["recommendations"] = recommendations
+
+    return out
+
+
+@router.post("/target/recommendation-test")
+async def recommendation_test_endpoint(body: RecommendationTestRequest) -> Dict[str, Any]:
+    try:
+        return await asyncio.to_thread(_recommendation_test_sync, body)
+    except Exception as exc:
+        _handle_error(exc, "recommendation_test")

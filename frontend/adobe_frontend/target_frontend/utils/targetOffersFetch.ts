@@ -2,6 +2,7 @@
  * adobe_frontend.target_frontend.utils.targetOffersFetch (Adobe Target offers POST 공통)
  * ================================================================================
  * `POST /api/target/offers` 요청·sessionStorage 갱신(tntId, thirdPartyId, SDK 쿠키·hint).
+ * 같은 `utils` 폴더: `targetProfileTest`(profile-test), `targetRecommendationTest`(recommendation-test) 는 별도 엔드포인트 전용.
  */
 
 import { config } from "@/utils/loadConfig";
