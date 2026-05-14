@@ -2,6 +2,12 @@
 
 ## Log Index
 
+103. 2026-05-14 docs/main 03·04: CORS(main)·recommendation categoryId·build_delivery_id 문서 정합
+102. 2026-05-14 쿠폰 목록·CSV 컬럼 순서(created→recipient→캠페인→워크플로)
+101. 2026-05-14 CORS dev localhost Origin 정규식·cors_origins 정규화
+100. 2026-05-14 CORS preflight OPTIONS 400(private-network) 완화
+99. 2026-05-14 쿠폰 목록·CSV recipient_id당 1행(중복 제거)
+98. 2026-05-14 쿠폰 목록 필터·CSV(현재/전체)·coupon_id 제거
 97. 2026-05-13 미푸시 작업 일괄 푸시(Adobe·문서·프로필·추천 테스트 UI)
 96. 2026-05-13 README를 docs/main 기준으로 정합(구조·실행·Adobe·디버그)
 95. 2026-05-13 docs/main 04 v2.2 recommendation-test·프론트 정합(문서만)
@@ -101,6 +107,66 @@
 12. 2026-04-27 docs/main AT_TEST_PAGE PRD v1.0 작성
 
 ## Log Body
+
+103. 2026-05-14 docs/main 03·04: CORS(main)·recommendation categoryId·build_delivery_id 문서 정합
+
+Purpose: `backend/app/main.py`의 CORS(OPTIONS·private network·dev localhost 정규식·`cors_origins` 정규화)와 recommendation-test의 `entity.categoryId`·`build_delivery_id` 시그니처를 문서에 반영하고, 03의 표·§6 요약을 코드와 일치시킨다.
+
+Changes:
+
+- `03_AT_TEST_PAGE_BACKEND_GUIDE.md`: §3.4 CORS 상세, §5.2 recommendation-test 행, §6 CORS 요약
+- `04_AT_TEST_PAGE_ADOBE_TARGET_INTEGRATION.md`: §5 설정 문단, §6.1 `build_delivery_id`, §8.4 프론트/서버 categoryId, §9 체크리스트, 문서 이력 v2.3
+
+Changed files: docs/main/03_AT_TEST_PAGE_BACKEND_GUIDE.md, docs/main/04_AT_TEST_PAGE_ADOBE_TARGET_INTEGRATION.md, docs/log/log.md
+
+102. 2026-05-14 쿠폰 목록·CSV 컬럼 순서(created→recipient→캠페인→워크플로)
+Purpose: 테이블·JSON·CSV에서 `recipient_id`를 `created` 직후에 두고 캠페인·워크플로 라벨을 뒤에 배치한다
+
+Changes:
+
+백엔드: `CouponRowOut` 필드 순서·`_rows_to_response_data`·`_to_csv_text`·dedup SELECT 컬럼 순서 정합
+프론트: `CouponTable` 헤더·행 셀 순서 정합
+문서: backend README 응답 필드 순서
+
+Changed files: backend/app/schemas.py backend/app/routers/coupons.py backend/app/database.py frontend/components/CouponTable.tsx backend/README.md docs/log/log.md
+
+101. 2026-05-14 CORS dev localhost Origin 정규식·cors_origins 정규화
+Purpose: `cors_origins`만 수정해도 브라우저에 `Access-Control-Allow-Origin`이 없다고 나오는 경우(설정 캐시·포트 누락·IPv6 등)를 줄이기 위해 dev에서 localhost 계열 Origin을 정규식으로 추가 허용하고 JSON 배열을 안전히 파싱한다
+
+Changes:
+
+`APP_ENV=dev`일 때 `allow_origin_regex`로 `localhost`·`127.0.0.1`·`[::1]` + 임의 포트 허용, `cors_origins` 문자열/배열 정규화, `allow_methods`에 `OPTIONS` 명시
+
+Changed files: backend/app/main.py docs/log/log.md
+
+100. 2026-05-14 CORS preflight OPTIONS 400(private-network) 완화
+Purpose: `cors_origins`를 맞춰도 `OPTIONS /api/target/offers` 가 400이 나는 경우 Starlette CORS가 Private Network Access preflight를 거절하는 경우가 있어 허용 플래그를 켠다
+
+Changes:
+
+`CORSMiddleware`에 `allow_private_network=True` 추가 및 주석으로 400 원인 설명
+
+Changed files: backend/app/main.py docs/log/log.md
+
+99. 2026-05-14 쿠폰 목록·CSV recipient_id당 1행(중복 제거)
+Purpose: 동일 수신자에 대한 여러 쿠폰 행 중 목록·페이징·CSV가 한 줄만 나가도록 하고 total_count를 고유 수신자 수와 맞춘다
+
+Changes:
+
+백엔드: `ROW_NUMBER() OVER (PARTITION BY recipient_id ORDER BY created DESC, id DESC)` 랭크 서브쿼 후 `rn=1`만 선택, keyset 필터를 dedup 컬럼에 정합, `total_count`는 `COUNT(DISTINCT recipient_id)`(동일 created 구간)
+
+Changed files: backend/app/database.py backend/app/routers/coupons.py backend/README.md docs/log/log.md
+
+98. 2026-05-14 쿠폰 목록 필터·CSV(현재/전체)·coupon_id 제거
+Purpose: 쿠폰 데이터 범위를 created 반개구간으로 제한하고 UI/API에서 coupon_id를 제외하며 CSV를 페이지 단위와 필터 전체로 분리한다
+
+Changes:
+
+백엔드: `coupon_visible_created_filter`(2026-05-01 ≤ created < 2026-05-10), 목록·페이지 CSV는 `_coupon_rows_filtered()` 기준, `GET /api/coupons/csv?scope=all`로 필터 전체보내기, `CouponRowOut`에서 coupon_id 제거, 필터 구간 COUNT TTL 캐시
+프론트: 테이블에서 coupon_id 컬럼 제거, `CSV(현재)`·`CSV(전체)` 버튼 및 scope 쿼리
+문서: backend README API 설명 정합
+
+Changed files: backend/app/database.py backend/app/routers/coupons.py backend/app/schemas.py frontend/components/CouponTable.tsx backend/README.md docs/log/log.md
 
 97. 2026-05-13 미푸시 작업 일괄 푸시(Adobe·문서·프로필·추천 테스트 UI)
 

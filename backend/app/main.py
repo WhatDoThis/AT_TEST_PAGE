@@ -9,7 +9,7 @@ CORS·라우터·수명 주기를 구성하고 uvicorn에서 app 객체로 노�
 
 [Main Functions]
 ===========
-- FastAPI 인스턴스 생성 및 미들웨어(CORS) 설정(쿠폰 GET + Adobe Target POST)
+- FastAPI 인스턴스 생성 및 미들웨어(CORS, dev 시 localhost Origin 정규식, Private Network Access preflight) 설정
 - lifespan에서 DB 엔진 정리
 
 [Endpoints/Classes/Functions]
@@ -26,6 +26,7 @@ CORS·라우터·수명 주기를 구성하고 uvicorn에서 app 객체로 노�
 
 from __future__ import annotations
 
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -55,15 +56,24 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="AT_TEST_PAGE API", lifespan=lifespan)
 settings = get_settings()
-cors_origins = settings.raw.get("cors_origins", [])
+_raw_cors = settings.raw.get("cors_origins") or []
+if isinstance(_raw_cors, str):
+    cors_origins = [_raw_cors.strip().rstrip("/")] if _raw_cors.strip() else []
+else:
+    cors_origins = [str(x).strip().rstrip("/") for x in _raw_cors if str(x).strip()]
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=cors_origins,
-    # ── [BRIDGE · Adobe] CORS — Target 프록시 `POST /api/target/*` 허용
-    allow_methods=["GET", "POST"],
-    allow_headers=["*"],
-)
+_cors_kw: dict = {
+    "allow_origins": cors_origins,
+    "allow_methods": ["GET", "POST", "OPTIONS"],
+    "allow_headers": ["*"],
+    "allow_private_network": True,
+}
+# APP_ENV=dev 일 때 Expo 웹 등 localhost·127.0.0.1·[::1] 임의 포트를 허용한다.
+# (config JSON만 수정했는데 uvicorn이 .json 변경으로 재기동하지 않으면 캐시된 빈 CORS가 남을 수 있음)
+if os.getenv("APP_ENV", "dev") == "dev":
+    _cors_kw["allow_origin_regex"] = r"^https?://(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$"
+
+app.add_middleware(CORSMiddleware, **_cors_kw)
 
 app.include_router(coupons.router, prefix="/api", tags=["coupons"])
 

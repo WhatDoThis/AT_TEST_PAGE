@@ -69,9 +69,12 @@ $env:APP_ENV = "dev"
 uvicorn app.main:app --host 0.0.0.0 --port 8010 --reload
 ```
 
-### 3.4 CORS
+### 3.4 CORS (`app/main.py`)
 
-`cors_origins`에 Expo 웹 출처(예: `http://localhost:8081`)를 넣는다. `allow_methods`에 **`POST`**가 포함되어야 Target 프록시가 동작한다.
+- **`cors_origins`**: `config.{dev|prd}.json` 배열(또는 단일 문자열)을 읽어 출처 목록을 만든다. 항목은 `strip`·끝의 `/` 제거로 정규화한다.
+- **`allow_methods`**: `GET`, **`POST`**, **`OPTIONS`** — Target·쿠폰 `POST`와 브라우저 preflight에 필요하다.
+- **`allow_private_network`**: `True` — 로컬에서 **Private Network Access** preflight가 400으로 막히는 경우를 줄인다.
+- **`APP_ENV=dev`**(기본값): 위 목록에 더해 **`allow_origin_regex`** 로 `http(s)://localhost`·`127.0.0.1`·`[::1]` + 임의 포트 출처를 추가 허용한다(Expo 등 포트가 자주 바뀔 때 보조). `uvicorn --reload`가 JSON 변경으로 재기동하지 않으면 이전 CORS 설정이 남을 수 있으니, 설정을 바꾼 뒤에는 프로세스를 한 번 재시작한다.
 
 ---
 
@@ -113,7 +116,7 @@ uvicorn app.main:app --host 0.0.0.0 --port 8010 --reload
 |-------------|------|
 | `POST /api/target/offers` | 기본 오퍼 조회. `mbox_name` 생략 시 `config.adobe.json`의 `offer_mbox_name`. `params` → mbox **`parameters`**. |
 | `POST /api/target/profile-test` | 동일 기본 mbox로 **`profile_parameters`** 만 실어 프로필·Audience 검증. 응답에 `offers`, `response_tokens` 등. |
-| `POST /api/target/recommendation-test` | **`mboxes.recs_mbox_name`**. `entity.id`·**`entity.categoryId`**(비어 있거나 `ss` 이면 mbox 파라미터에서 생략)·**`price`**·`Order`. `recipient_id`→`thirdPartyId`. 응답에 `recommendations` 등. |
+| `POST /api/target/recommendation-test` | **`mboxes.recs_mbox_name`**. `parameters`에 **`entity.id`** 및 **`entity.categoryId`**(없거나 **`ss`**이면 **빈 문자열**). **`Product`**·**`Order`**·**`price`**. `recipient_id`→`thirdPartyId`; 값이 있으면 Delivery `id`에 **`customerIds`**(`integration_code`: `recipient_id`)·실패 시 해당 없이 1회 재시도. 응답에 `recommendations` 등. |
 
 공통 응답 필드: `tntId`, `thirdPartyId`, `target_cookie`, `target_location_hint_cookie` 등은 `_id_and_cookies`로 정리해 프론트가 다음 호출에 재사용할 수 있다.
 
@@ -129,7 +132,7 @@ uvicorn app.main:app --host 0.0.0.0 --port 8010 --reload
 
 - DB 오류: `503` 등 앱 정책에 따름.
 - cursor 절반만 오면 `400`.
-- CORS는 설정 파일 기준.
+- CORS: 명시 `cors_origins`와, **`APP_ENV=dev`**일 때 localhost 계열 **정규식 보조**·`allow_private_network`(위 §3.4).
 
 ---
 

@@ -35,12 +35,14 @@ uvicorn app.main:app --host 0.0.0.0 --port 8010
 
 ## API
 
-- `GET /api/coupons?page=1&page_size=10` — OFFSET 호환 모드.
+- 목록·CSV는 DB 컬럼 `created`가 **2026-05-01 이상 2026-05-10 미만**인 행만 대상으로 하고, **`recipient_id`당 최신 1행**(같은 구간 내 `created`·`id` 내림차순)만 노출한다.
+- `GET /api/coupons?page=1&page_size=10` — OFFSET 호환 모드(필터 구간 내).
 - `GET /api/coupons?cursor_created=...&cursor_id=...&direction=next|prev&page_size=10` — keyset(커서) 모드.
-- `GET /api/coupons?direction=last&page_size=10` — 맨뒤(가장 오래된 구간) 조회.
-- `GET /api/coupons/csv` — 위와 동일 파라미터를 받아 현재 구간 CSV 다운로드.
-- 응답 필드: `created`, `campaign_label`, `workflow_label`, `coupon_id`, `pagination.next_cursor`, `pagination.prev_cursor`.
-- `total_count`는 `pg_class.reltuples` 기반 추정(미분석 시 TTL 캐시된 `COUNT(*)`).
+- `GET /api/coupons?direction=last&page_size=10` — 맨뒤(필터 구간에서 가장 오래된 구간) 조회.
+- `GET /api/coupons/csv?scope=page&...` — 목록과 동일 파라미터로 **현재 조회 구간** CSV.
+- `GET /api/coupons/csv?scope=all` — 필터 구간 **전체 행** CSV.
+- 응답 필드: `created`, `recipient_id`, `campaign_label`, `workflow_label`, `pagination.next_cursor`, `pagination.prev_cursor`.
+- `total_count`는 위 구간에서의 **`COUNT(DISTINCT recipient_id)`**(TTL 캐시).
 
 ## Index Note
 

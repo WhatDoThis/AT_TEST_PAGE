@@ -100,7 +100,7 @@ flowchart TB
 
 - **`backend/env/config.adobe.json`**: Git 제외. **`backend/env/config.adobe.example.json`** 을 복사해 채운다. `mboxes.offer_mbox_name`·**`mboxes.recs_mbox_name`**(Recommendations Location; 생략 시 기본 `target-recs-mbox`) 포함.
 - **`target_config.py`**: 위 파일만 읽어 `client`, `organization_id`, `property_token`, `timeout`, **`offer_mbox_name`**, **`recs_mbox_name`** 등을 로드. ASCII·빈 값 검증 실패 시 `AdobeTargetConfigError` → HTTP 400.
-- **`backend/env/config.{dev|prd}.json`**: `cors_origins`에 웹 앱 출처를 넣어 `POST /api/target/*`가 CORS 통과하도록 한다.
+- **`backend/env/config.{dev|prd}.json`**: `cors_origins`에 웹 앱 출처를 넣어 `POST /api/target/*`가 CORS 통과하도록 한다. 실제 적용은 **`app/main.py`**: `GET`/`POST`/`OPTIONS`, **`allow_private_network`**, dev일 때 localhost·127.0.0.1·`[::1]` 임의 포트 **정규식** 보조(상세는 `03` §3.4).
 
 ---
 
@@ -111,7 +111,7 @@ flowchart TB
 
 ### 6.1 공통
 
-- `build_delivery_id(tnt_id, third_party_id)` → SDK `VisitorId`.
+- `build_delivery_id(tnt_id, third_party_id, customer_ids=None)` → SDK `VisitorId`(추천 테스트에서만 `customer_ids` 전달).
 - `MboxRequest` + `DeliveryRequest` + `ExecuteRequest(mboxes=[...])` + `Context(channel=WEB)` + `ModelProperty(token=property_token)`.
 - `client.get_offers({"request": request, **sdk_opts})` — `sdk_opts`는 쿠키·hint·(offers/profile만) `session_id`.
 - 응답 가공: `offers_from_execute`, `_id_and_cookies`, 예외는 `_handle_error`.
@@ -189,7 +189,7 @@ flowchart TB
 
 ### 8.4 recommendation-test 전용
 
-- **`entity_id`**, **`entity_category_id`**(없거나 **`ss`**이면 서버·프론트 모두 카테고리 미전송/빈 값 처리), **`recipient_id`**, **`price`**(기본 1000). 서버는 매 요청마다 `Order.id`를 `ord_` + 12자 hex 로 생성한다.
+- **`entity_id`**, **`entity_category_id`**, **`recipient_id`**, **`price`**(기본 1000). 프론트는 `ss`이거나 비어 있으면 **`entity_category_id` 키를 생략**할 수 있다. 서버 mbox **`parameters`에는 항상 `entity.categoryId`가 포함**되며, 없거나 **`ss`**이면 **빈 문자열**이다. 서버는 매 요청마다 `Order.id`를 `ord_` + 12자 hex 로 생성한다.
 - 응답 쿠키 키 이름은 SDK 그대로 **`target_location_hint_cookie`** 이다(요청 옵션명 `target_location_hint`와 다름). 프론트는 이 객체의 **`value`**만 `sessionStorage`에 넣는다.
 - Adobe Activity·디자인·카탈로그가 갖춰지지 않으면 `recommendations`가 비어 있을 수 있다.
 
@@ -199,7 +199,7 @@ flowchart TB
 
 1. `backend/requirements.txt` 및 venv에 호환 `setuptools` 버전.  
 2. **`backend/env/config.adobe.example.json`** 을 복사해 **`config.adobe.json`** 을 만들고, `administration`·`mboxes` 블록을 채운다(ASCII).  
-3. `register_target_routes(app)` 및 CORS에 **`POST`** 허용.  
+3. `register_target_routes(app)` 및 CORS: **`POST`**·**`OPTIONS`**, 필요 시 **`allow_private_network`**, dev에서 localhost 출처 **정규식**(백엔드 `app/main.py` 참고).  
 4. 동기 SDK는 **`asyncio.to_thread`** 유지.  
 5. 프론트 `fetch` 베이스 URL은 **`api_url` 또는 `api_base_url`** (`frontend/env`).  
 6. 메인·프로필: **`tntId` + `thirdPartyId`** 및 쿠키·`session_id` 일관성.  
@@ -213,6 +213,7 @@ flowchart TB
 
 | 버전 | 일자 | 요약 |
 |------|------|------|
+| 2.3 | 2026-05-14 | §5·§6.1·§8.4·§9: `app/main.py` CORS(dev 정규식·OPTIONS·private network)·`build_delivery_id` 시그니처·`entity.categoryId` 항상 키 존재(빈 문자열) 정합 |
 | 2.2 | 2026-05-13 | recommendation-test: `customerIds`·`Product`·재시도·`build_delivery_id` 확장, 응답 `target_location_hint_cookie`, 프론트 페이로드·에러·세션 갱신 반영 |
 | 2.1 | 2026-05-13 | 연관 문서(01~03)·§2 저장소·브리지·`config.adobe.example`·라우트 3개·트랙 제거·프로필·추천 라우트·`targetImageCarousel` 반영 |
 | 2.0 | 2026-05-07 | 현행 Delivery 중심으로 전면 재작성(v2.0 누적본과 합류) |

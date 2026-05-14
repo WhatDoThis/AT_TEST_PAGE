@@ -1,7 +1,7 @@
 /**
  * components/CouponTable.tsx (쿠폰 목록 카드·웹 전용)
  * ================================================================================
- * config.api_url 기반으로 GET /api/coupons를 호출하고, ImageGallery와 유사한 카드에 테이블·페이징·CSV(현재 페이지만)를 제공한다.
+ * config.api_url 기반으로 GET /api/coupons를 호출하고, ImageGallery와 유사한 카드에 테이블·페이징·CSV(현재 구간/필터 전체)를 제공한다.
  *
  * [Main Functions]
  * ===========
@@ -9,9 +9,9 @@
  * - 이전/다음은 keyset(cursor), 맨앞/맨뒤는 점프 조회
  * - 페이지 직접 입력 점프는 Enter/blur 시 OFFSET(page) 요청
  * - ActivityIndicator·에러 재시도
- * - 현재 조회 범위를 서버 CSV 엔드포인트로 다운로드
+ * - 현재 조회 범위(scope=page)·필터 전체(scope=all)를 서버 CSV로 다운로드
  * - 카드 너비 기준 페이징 버튼 밀도·줄바꿈(반응형)
- * - 테이블 영역만 가로 스크롤·recipient_id 컬럼·행 단일 줄(줄바꿈 없음)
+ * - 테이블 영역만 가로 스크롤·행 단일 줄(줄바꿈 없음); API는 recipient_id당 1행(동일 수신자 최신 created)
  * - 웹: 카드 그림자는 boxShadow(RN Web shadow* 경고 회피), 그 외 플랫폼은 shadow* 유지
  *
  * [Endpoints/Classes/Functions]
@@ -43,10 +43,9 @@ const CARD_PADDING = 16;
 
 type CouponRow = {
   created: string | null;
+  recipient_id: string;
   campaign_label: string;
   workflow_label: string;
-  recipient_id: string;
-  coupon_id: string;
 };
 
 type CursorPoint = {
@@ -170,11 +169,21 @@ export default function CouponTable() {
   const canNext = nextCursor !== null && !loading;
   const canLast = totalPages > 0 && page < totalPages && !loading;
 
-  const onDownloadCsv = () => {
+  const onDownloadCsvCurrent = () => {
     if (rows.length === 0) {
       return;
     }
-    const url = `${baseUrl}/api/coupons/csv?${downloadQuery}`;
+    const url = `${baseUrl}/api/coupons/csv?scope=page&${downloadQuery}`;
+    if (typeof window !== "undefined") {
+      window.open(url, "_blank");
+    }
+  };
+
+  const onDownloadCsvAll = () => {
+    if ((pagination?.total_count ?? 0) < 1) {
+      return;
+    }
+    const url = `${baseUrl}/api/coupons/csv?scope=all`;
     if (typeof window !== "undefined") {
       window.open(url, "_blank");
     }
@@ -202,19 +211,35 @@ export default function CouponTable() {
     <View style={[styles.card, { width: cardOuterWidth }]}>
       <View style={styles.headerRow}>
         <Text style={styles.cardTitle}>쿠폰 데이터 조회</Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="현재 페이지 CSV 다운로드"
-          onPress={onDownloadCsv}
-          style={({ pressed }) => [
-            styles.csvBtn,
-            (rows.length === 0 || loading) && styles.csvBtnDisabled,
-            pressed && styles.csvBtnPressed,
-          ]}
-          disabled={rows.length === 0 || loading}
-        >
-          <Text style={styles.csvBtnText}>CSV</Text>
-        </Pressable>
+        <View style={styles.csvBtnRow}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="현재 조회 구간 CSV 다운로드"
+            onPress={onDownloadCsvCurrent}
+            style={({ pressed }) => [
+              styles.csvBtn,
+              (rows.length === 0 || loading) && styles.csvBtnDisabled,
+              pressed && styles.csvBtnPressed,
+            ]}
+            disabled={rows.length === 0 || loading}
+          >
+            <Text style={styles.csvBtnText}>CSV(현재)</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="필터 구간 전체 CSV 다운로드"
+            onPress={onDownloadCsvAll}
+            style={({ pressed }) => [
+              styles.csvBtn,
+              ((pagination?.total_count ?? 0) < 1 || loading) &&
+                styles.csvBtnDisabled,
+              pressed && styles.csvBtnPressed,
+            ]}
+            disabled={(pagination?.total_count ?? 0) < 1 || loading}
+          >
+            <Text style={styles.csvBtnText}>CSV(전체)</Text>
+          </Pressable>
+        </View>
       </View>
 
       {loading && (
@@ -251,10 +276,9 @@ export default function CouponTable() {
             <View style={styles.tableInner}>
               <View style={styles.tableHeader}>
                 <Text style={[styles.th, styles.colCreated]}>created</Text>
+                <Text style={[styles.th, styles.colRecipient]}>recipient_id</Text>
                 <Text style={[styles.th, styles.colCamp]}>campaign</Text>
                 <Text style={[styles.th, styles.colFlow]}>workflow</Text>
-                <Text style={[styles.th, styles.colRecipient]}>recipient_id</Text>
-                <Text style={[styles.th, styles.colCoupon]}>coupon_id</Text>
               </View>
               {rows.map((row, idx) => (
                 <View
@@ -268,6 +292,12 @@ export default function CouponTable() {
                     {row.created ?? ""}
                   </Text>
                   <Text
+                    style={[styles.td, styles.colRecipient, styles.tdNowrap]}
+                    numberOfLines={1}
+                  >
+                    {row.recipient_id ?? ""}
+                  </Text>
+                  <Text
                     style={[styles.td, styles.colCamp, styles.tdNowrap]}
                     numberOfLines={1}
                   >
@@ -278,18 +308,6 @@ export default function CouponTable() {
                     numberOfLines={1}
                   >
                     {row.workflow_label}
-                  </Text>
-                  <Text
-                    style={[styles.td, styles.colRecipient, styles.tdNowrap]}
-                    numberOfLines={1}
-                  >
-                    {row.recipient_id ?? ""}
-                  </Text>
-                  <Text
-                    style={[styles.td, styles.colCoupon, styles.tdNowrap]}
-                    numberOfLines={1}
-                  >
-                    {row.coupon_id}
                   </Text>
                 </View>
               ))}
@@ -463,8 +481,15 @@ const styles = StyleSheet.create({
     color: "#1A1A2E",
     flexShrink: 1,
   },
+  csvBtnRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    justifyContent: "flex-end",
+    maxWidth: "62%",
+  },
   csvBtn: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
     backgroundColor: "#4A90D9",
@@ -478,7 +503,7 @@ const styles = StyleSheet.create({
   csvBtnText: {
     color: "#fff",
     fontWeight: "700",
-    fontSize: 13,
+    fontSize: 12,
   },
   loadingBox: {
     paddingVertical: 16,
@@ -514,7 +539,7 @@ const styles = StyleSheet.create({
     flexGrow: 0,
   },
   tableInner: {
-    minWidth: 914,
+    minWidth: 686,
     flexShrink: 0,
   },
   tableHeader: {
@@ -567,10 +592,6 @@ const styles = StyleSheet.create({
     width: 92,
     flexShrink: 0,
     paddingRight: 6,
-  },
-  colCoupon: {
-    width: 228,
-    flexShrink: 0,
   },
   pager: {
     flexDirection: "row",

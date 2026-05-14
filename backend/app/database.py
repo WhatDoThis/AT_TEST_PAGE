@@ -1,18 +1,21 @@
 """
 backend.app.database (비동기 SQLAlchemy 엔진·세션·ORM 매핑)
 ================================================================================
-config의 DB 정보로 asyncpg 드라이버 엔진을 만들고 test_coupons_data 테이블을 매핑한다. 목록 API용 base SELECT는 id·시각·라벨·recipient_id·coupon_id를 포함한다.
+config의 DB 정보로 asyncpg 드라이버 엔진을 만들고 test_coupons_data 테이블을 매핑한다. 목록 API는 created 구간 필터 후 recipient_id당 최신 1행(ROW_NUMBER)만 노출한다.
 
 [Main Functions]
 ===========
 - get_engine: 비동기 엔진 생성·캐시
 - get_session_factory: AsyncSession 팩토리
 - get_db: FastAPI 의존성용 세션 제너레이터
-- select_coupon_rows: 모듈 레벨 base SELECT(컬럼 5+id, 정렬 created DESC, id DESC) 참조 반환
+- coupon_visible_created_filter: 목록·CSV 공통 created 구간 필터
+- coupon_list_from_dedup: 수신자당 1행 부분집합(rank·outer Select) 반환
+- select_coupon_rows: 수신자 중복 제거 후 created DESC, id DESC 정렬된 Select
 
 [Endpoints/Classes/Functions]
 =======================
 - TestCouponsData: 기존 테이블 매핑(조회 전용, 시각 컬럼은 NOT NULL 명시)
+- coupon_list_from_dedup: ROW_NUMBER 기반 수신자당 1행 outer Select
 - dispose_engine: 앱 종료 시 연결 정리
 
 [Dependencies]
@@ -27,7 +30,7 @@ from collections.abc import AsyncGenerator
 from datetime import datetime
 from urllib.parse import quote_plus
 
-from sqlalchemy import BigInteger, DateTime, String, select
+from sqlalchemy import BigInteger, DateTime, String, and_, func, select
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -37,6 +40,10 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from app.config import get_settings
+
+# 목록·CSV에서 사용하는 created 반개구간 [COUPON_VISIBLE_CREATED_GTE, COUPON_VISIBLE_CREATED_LT)
+COUPON_VISIBLE_CREATED_GTE = datetime(2026, 5, 1, 0, 0, 0)
+COUPON_VISIBLE_CREATED_LT = datetime(2026, 5, 10, 0, 0, 0)
 
 
 class Base(DeclarativeBase):
@@ -103,6 +110,15 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
         yield session
 
 
+# 3. [필터] SQL 예시와 동일: created >= '2026-05-01' AND created < '2026-05-10'
+def coupon_visible_created_filter():
+    return and_(
+        TestCouponsData.created >= COUPON_VISIBLE_CREATED_GTE,
+        TestCouponsData.created < COUPON_VISIBLE_CREATED_LT,
+    )
+
+
+# 4. [정리] 앱 종료 시 엔진·세션 팩토리를 해제한다.
 async def dispose_engine() -> None:
     global _engine, _session_factory
     if _engine is not None:
@@ -111,18 +127,45 @@ async def dispose_engine() -> None:
     _session_factory = None
 
 
-# 3. [쿼리] immutable base — offset/limit은 호출부에서 매번 새 Select로 이어 붙인다.
-_BASE_COUPON_SELECT = (
-    select(
-        TestCouponsData.id,
-        TestCouponsData.created,
-        TestCouponsData.campaign_label,
-        TestCouponsData.workflow_label,
-        TestCouponsData.recipient_id,
-        TestCouponsData.coupon_id,
-    ).order_by(TestCouponsData.created.desc(), TestCouponsData.id.desc())
-)
+# 5. [쿼리] 구간 내 행에 ROW_NUMBER를 매겨 recipient_id당 최신(created·id 내림차) 1행만 남긴다.
+def _dedup_ranked_subquery():
+    rn = (
+        func.row_number()
+        .over(
+            partition_by=TestCouponsData.recipient_id,
+            order_by=(TestCouponsData.created.desc(), TestCouponsData.id.desc()),
+        )
+        .label("rn")
+    )
+    return (
+        select(
+            TestCouponsData.id,
+            TestCouponsData.created,
+            TestCouponsData.recipient_id,
+            TestCouponsData.campaign_label,
+            TestCouponsData.workflow_label,
+            rn,
+        )
+        .where(coupon_visible_created_filter())
+    ).subquery("coupon_ranked")
+
+
+def coupon_list_from_dedup():
+    ranked = _dedup_ranked_subquery()
+    outer = (
+        select(
+            ranked.c.id,
+            ranked.c.created,
+            ranked.c.recipient_id,
+            ranked.c.campaign_label,
+            ranked.c.workflow_label,
+        )
+        .select_from(ranked)
+        .where(ranked.c.rn == 1)
+    )
+    return ranked, outer
 
 
 def select_coupon_rows():
-    return _BASE_COUPON_SELECT
+    ranked, outer = coupon_list_from_dedup()
+    return outer.order_by(ranked.c.created.desc(), ranked.c.id.desc())

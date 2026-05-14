@@ -1,7 +1,7 @@
 """
 backend.app.schemas (Pydantic 응답 모델)
 ================================================================================
-쿠폰 목록 API의 행(시각·캠페인·워크플로·수신자·쿠폰 id)·페이지네이션·최상위 응답 스키마를 정의한다.
+쿠폰 목록 API의 행(시각·수신자·캠페인·워크플로)·페이지네이션·최상위 응답 스키마를 정의한다.
 
 [Main Functions]
 ===========
@@ -24,15 +24,14 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, ConfigDict, Field
 
 
-# 1. [행] API 응답에 포함되는 5개 필드만 노출한다.
+# 1. [행] API 응답에 포함되는 4개 필드만 노출한다.
 class CouponRowOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     created: Optional[datetime] = None
+    recipient_id: str = ""
     campaign_label: str = ""
     workflow_label: str = ""
-    recipient_id: str = ""
-    coupon_id: str = ""
 
 
 # 2. [페이지네이션] total_count는 통계 기반 추정치일 수 있고, next/prev 커서를 포함한다.
