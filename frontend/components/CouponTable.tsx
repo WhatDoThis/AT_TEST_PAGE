@@ -12,6 +12,7 @@
  * - 현재 조회 범위(scope=page)·필터 전체(scope=all)를 서버 CSV로 다운로드
  * - 카드 너비 기준 페이징 버튼 밀도·줄바꿈(반응형)
  * - 테이블 영역만 가로 스크롤·행 단일 줄(줄바꿈 없음); API는 recipient_id당 1행(동일 수신자 최신 created)
+ * - recipient_id 왼쪽「사용」열: localStorage `AT_USED_RECIPIENT_IDS`(콤마 구분)에 포함된 ID 표시·복사 시 기록·추적 초기화
  * - 웹: 카드 그림자는 boxShadow(RN Web shadow* 경고 회피), 그 외 플랫폼은 shadow* 유지
  *
  * [Endpoints/Classes/Functions]
@@ -24,7 +25,7 @@
  * - @/utils/loadConfig
  */
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Platform,
@@ -35,11 +36,26 @@ import {
   TextInput,
   useWindowDimensions,
   View,
+  type TextStyle,
 } from "react-native";
 import { config } from "@/utils/loadConfig";
 
 const PAGE_SIZE = 10;
 const CARD_PADDING = 16;
+const AT_USED_RECIPIENT_IDS_KEY = "AT_USED_RECIPIENT_IDS";
+
+const TD_TEXT_NOWRAP =
+  Platform.OS === "web"
+    ? ({ whiteSpace: "nowrap" } as TextStyle)
+    : ({} as TextStyle);
+
+function readUsedRecipientIdsFromStorage(): Set<string> {
+  if (typeof window === "undefined" || !window.localStorage) {
+    return new Set();
+  }
+  const raw = window.localStorage.getItem(AT_USED_RECIPIENT_IDS_KEY) ?? "";
+  return new Set(raw.split(",").filter(Boolean));
+}
 
 type CouponRow = {
   created: string | null;
@@ -89,8 +105,20 @@ export default function CouponTable() {
   const [pageInput, setPageInput] = useState("1");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [usedIds, setUsedIds] = useState<Set<string>>(readUsedRecipientIdsFromStorage);
+  const [copyFlashRecipient, setCopyFlashRecipient] = useState<string | null>(null);
+  const copyFlashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const baseUrl = (config.api_url || "").replace(/\/$/, "");
+
+  useEffect(() => {
+    return () => {
+      if (copyFlashTimerRef.current !== null) {
+        clearTimeout(copyFlashTimerRef.current);
+        copyFlashTimerRef.current = null;
+      }
+    };
+  }, []);
 
   const fetchByQuery = useCallback(async (query: string) => {
     if (!baseUrl) {
@@ -189,6 +217,51 @@ export default function CouponTable() {
     }
   };
 
+  const onResetUsedRecipientTracking = () => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    if (
+      !window.confirm(
+        "사용된 recipient_id 추적 기록을 초기화하시겠습니까?"
+      )
+    ) {
+      return;
+    }
+    window.localStorage.removeItem(AT_USED_RECIPIENT_IDS_KEY);
+    setUsedIds(new Set());
+  };
+
+  const onCopyRecipientId = (recipientId: string) => {
+    if (!recipientId || typeof window === "undefined") {
+      return;
+    }
+    void (async () => {
+      try {
+        await navigator.clipboard.writeText(recipientId);
+      } catch {
+        return;
+      }
+      setUsedIds((prev) => {
+        const next = new Set(prev);
+        next.add(recipientId);
+        window.localStorage.setItem(
+          AT_USED_RECIPIENT_IDS_KEY,
+          [...next].join(",")
+        );
+        return next;
+      });
+      if (copyFlashTimerRef.current !== null) {
+        clearTimeout(copyFlashTimerRef.current);
+      }
+      setCopyFlashRecipient(recipientId);
+      copyFlashTimerRef.current = setTimeout(() => {
+        setCopyFlashRecipient(null);
+        copyFlashTimerRef.current = null;
+      }, 1000);
+    })();
+  };
+
   const commitPageInput = () => {
     const trimmed = pageInput.trim();
     const parsed = Number.parseInt(trimmed, 10);
@@ -212,6 +285,17 @@ export default function CouponTable() {
       <View style={styles.headerRow}>
         <Text style={styles.cardTitle}>쿠폰 데이터 조회</Text>
         <View style={styles.csvBtnRow}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="recommendation-test에 사용한 recipient_id 추적 기록 초기화"
+            onPress={onResetUsedRecipientTracking}
+            style={({ pressed }) => [
+              styles.resetTrackBtn,
+              pressed && styles.resetTrackBtnPressed,
+            ]}
+          >
+            <Text style={styles.resetTrackBtnText}>추적 초기화</Text>
+          </Pressable>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="현재 조회 구간 CSV 다운로드"
@@ -276,7 +360,14 @@ export default function CouponTable() {
             <View style={styles.tableInner}>
               <View style={styles.tableHeader}>
                 <Text style={[styles.th, styles.colCreated]}>created</Text>
-                <Text style={[styles.th, styles.colRecipient]}>recipient_id</Text>
+                <Text
+                  style={[styles.th, styles.colUsedWidth, { textAlign: "center" }]}
+                >
+                  사용
+                </Text>
+                <Text style={[styles.th, styles.colRecipientHead]}>
+                  recipient_id
+                </Text>
                 <Text style={[styles.th, styles.colCamp]}>campaign</Text>
                 <Text style={[styles.th, styles.colFlow]}>workflow</Text>
               </View>
@@ -286,25 +377,49 @@ export default function CouponTable() {
                   style={[styles.tr, idx % 2 === 1 && styles.trAlt]}
                 >
                   <Text
-                    style={[styles.td, styles.colCreated, styles.tdNowrap]}
+                    style={[styles.td, styles.colCreated, TD_TEXT_NOWRAP]}
                     numberOfLines={1}
                   >
                     {row.created ?? ""}
                   </Text>
+                  <View style={[styles.colUsedWidth, styles.colUsedCell]}>
+                    {usedIds.has(row.recipient_id ?? "") ? (
+                      <Text style={styles.usedBadge}>✔ 사용</Text>
+                    ) : (
+                      <Text style={styles.usedDash}>-</Text>
+                    )}
+                  </View>
+                  <View style={[styles.colRecipientCell, styles.recipientRow]}>
+                    <Text
+                      style={[styles.td, styles.recipientIdText, TD_TEXT_NOWRAP]}
+                      numberOfLines={1}
+                    >
+                      {row.recipient_id ?? ""}
+                    </Text>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`${row.recipient_id ?? ""} 복사 및 추적에 표시`}
+                      onPress={() => onCopyRecipientId(row.recipient_id ?? "")}
+                      style={({ pressed }) => [
+                        styles.copyBtn,
+                        pressed && styles.copyBtnPressed,
+                      ]}
+                    >
+                      <Text style={styles.copyBtnText}>
+                        {copyFlashRecipient === (row.recipient_id ?? "")
+                          ? "복사됨!"
+                          : "📋"}
+                      </Text>
+                    </Pressable>
+                  </View>
                   <Text
-                    style={[styles.td, styles.colRecipient, styles.tdNowrap]}
-                    numberOfLines={1}
-                  >
-                    {row.recipient_id ?? ""}
-                  </Text>
-                  <Text
-                    style={[styles.td, styles.colCamp, styles.tdNowrap]}
+                    style={[styles.td, styles.colCamp, TD_TEXT_NOWRAP]}
                     numberOfLines={1}
                   >
                     {row.campaign_label}
                   </Text>
                   <Text
-                    style={[styles.td, styles.colFlow, styles.tdNowrap]}
+                    style={[styles.td, styles.colFlow, TD_TEXT_NOWRAP]}
                     numberOfLines={1}
                   >
                     {row.workflow_label}
@@ -539,7 +654,7 @@ const styles = StyleSheet.create({
     flexGrow: 0,
   },
   tableInner: {
-    minWidth: 686,
+    minWidth: 844,
     flexShrink: 0,
   },
   tableHeader: {
@@ -569,10 +684,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: "#333",
   },
-  tdNowrap:
-    Platform.OS === "web"
-      ? ({ whiteSpace: "nowrap" } as const)
-      : ({} as const),
   colCreated: {
     width: 178,
     flexShrink: 0,
@@ -588,10 +699,75 @@ const styles = StyleSheet.create({
     flexShrink: 0,
     paddingRight: 6,
   },
-  colRecipient: {
-    width: 92,
+  colUsedWidth: {
+    width: 50,
+    flexShrink: 0,
+    paddingRight: 4,
+  },
+  colUsedCell: {
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 0,
+    alignSelf: "stretch",
+  },
+  usedBadge: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#1a7f37",
+  },
+  usedDash: {
+    fontSize: 11,
+    color: "#999",
+  },
+  colRecipientHead: {
+    width: 200,
     flexShrink: 0,
     paddingRight: 6,
+  },
+  colRecipientCell: {
+    width: 200,
+    flexShrink: 0,
+    paddingRight: 6,
+  },
+  recipientRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    alignSelf: "stretch",
+  },
+  recipientIdText: {
+    fontSize: 11,
+    color: "#333",
+    flex: 1,
+    minWidth: 0,
+  },
+  copyBtn: {
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  copyBtnPressed: {
+    opacity: 0.75,
+  },
+  copyBtnText: {
+    fontSize: 11,
+    lineHeight: 14,
+  },
+  resetTrackBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#d4a5a5",
+    backgroundColor: "#fff5f5",
+  },
+  resetTrackBtnPressed: {
+    opacity: 0.88,
+  },
+  resetTrackBtnText: {
+    color: "#a33",
+    fontWeight: "700",
+    fontSize: 12,
   },
   pager: {
     flexDirection: "row",

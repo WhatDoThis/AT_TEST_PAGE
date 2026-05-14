@@ -10,7 +10,7 @@ recommendation-test 는 thirdPartyId·선택 customerIds(recipient_id)·MboxRequ
 ===========
 - _get_offers_sync / get_offers_endpoint
 - _profile_test_sync / profile_test_endpoint
-- _recommendation_test_sync / recommendation_test_endpoint
+- _recommendation_test_sync / recommendation_test_endpoint (recommendations·recommendations_meta 파싱)
 - _sdk_opts / _id_and_cookies / _handle_error
 
 [Endpoints/Classes/Functions]
@@ -361,13 +361,23 @@ def _recommendation_test_sync(body: RecommendationTestRequest) -> Dict[str, Any]
     }
 
     recommendations: list[Any] = []
+    recommendations_meta: Dict[str, Any] = {}
     for offer in raw_offers:
         content = offer.get("content")
-        if isinstance(content, list):
+        if isinstance(content, dict):
+            meta = content.get("meta", {})
+            if isinstance(meta, dict):
+                recommendations_meta.update(meta)
+            rec_list = content.get("items", [])
+            if not isinstance(rec_list, list):
+                rec_list = []
+            recommendations.extend(rec_list)
+        elif isinstance(content, list):
             recommendations.extend(content)
-        elif isinstance(content, dict):
-            recommendations.append(content)
+        else:
+            pass
     out["recommendations"] = recommendations
+    out["recommendations_meta"] = recommendations_meta
 
     return out
 

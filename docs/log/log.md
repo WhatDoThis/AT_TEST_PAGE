@@ -2,6 +2,8 @@
 
 ## Log Index
 
+105. 2026-05-14 쿠폰 목록: recommendation-test용 recipient_id 추적·복사·초기화
+104. 2026-05-14 recommendation-test: content `{meta, items}` 파싱·`recommendations_meta`
 103. 2026-05-14 docs/main 03·04: CORS(main)·recommendation categoryId·build_delivery_id 문서 정합
 102. 2026-05-14 쿠폰 목록·CSV 컬럼 순서(created→recipient→캠페인→워크플로)
 101. 2026-05-14 CORS dev localhost Origin 정규식·cors_origins 정규화
@@ -107,6 +109,26 @@
 12. 2026-04-27 docs/main AT_TEST_PAGE PRD v1.0 작성
 
 ## Log Body
+
+105. 2026-05-14 쿠폰 목록: recommendation-test용 recipient_id 추적·복사·초기화
+
+Purpose: 쿠폰 테이블에서 복사한 recipient_id를 `localStorage`(`AT_USED_RECIPIENT_IDS`)에 누적해「사용」열로 표시하고, 추적 기록을 한 번에 비울 수 있게 한다.
+
+Changes:
+
+- `CouponTable.tsx`: recipient_id 왼쪽「사용」열(50px), 복사(📋/1초「복사됨!」)·클립보드 성공 시 Set+localStorage 갱신, CSV 버튼 왼쪽「추적 초기화」(confirm 후 removeItem), 테이블 minWidth 조정, `tdNowrap`를 StyleSheet 밖 `TD_TEXT_NOWRAP`로 분리해 TS 정합
+
+Changed files: frontend/components/CouponTable.tsx, docs/log/log.md
+
+104. 2026-05-14 recommendation-test: content `{meta, items}` 파싱·`recommendations_meta`
+
+Purpose: Recommendations 오퍼 content 가 배열 대신 `{ meta, items }` 객체로 오는 경우를 지원하고, 디버깅용 meta 를 별도 필드로 노출한다.
+
+Changes:
+
+- `_recommendation_test_sync`: dict content 는 `items` 를 `recommendations` 에 확장, `meta` 는 dict 일 때만 `recommendations_meta` 에 병합(여러 오퍼 시 키 충돌은 후행 값 우선). list·기타 타입은 기존·빈 리스트 규칙 유지. `offers` 배열은 변경 없음.
+
+Changed files: backend/adobe_backend/target_backend/target_adobe_router.py, docs/log/log.md
 
 103. 2026-05-14 docs/main 03·04: CORS(main)·recommendation categoryId·build_delivery_id 문서 정합
 
