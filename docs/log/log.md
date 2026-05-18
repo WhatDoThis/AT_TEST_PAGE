@@ -2,6 +2,9 @@
 
 ## Log Index
 
+108. 2026-05-18 웹 digitalData 라우트별 pageName 동기화
+107. 2026-05-15 Target bootstrap mbox 정리(target-ready-mbox·mbox별 dedupe·preload 제거)
+106. 2026-05-15 Target location 범용 구조(TargetPageBootstrap·useTargetLocation·dedupe offers)
 105. 2026-05-14 쿠폰 목록: recommendation-test용 recipient_id 추적·복사·초기화
 104. 2026-05-14 recommendation-test: content `{meta, items}` 파싱·`recommendations_meta`
 103. 2026-05-14 docs/main 03·04: CORS(main)·recommendation categoryId·build_delivery_id 문서 정합
@@ -109,6 +112,45 @@
 12. 2026-04-27 docs/main AT_TEST_PAGE PRD v1.0 작성
 
 ## Log Body
+
+108. 2026-05-18 웹 digitalData 라우트별 pageName 동기화
+
+Purpose: 웹에서 `window.digitalData.page.pageInfo.pageName` 을 `/at-test` 기준 라우트에 맞게 설정·유지한다.
+
+Changes:
+
+- `utils/digitalData.ts`: 경로 정규화·`PAGE_NAME_BY_ROUTE`·`setDigitalDataPageForPathname`
+- `components/DigitalDataSync.tsx`: `usePathname` 구독 후 웹에서만 갱신
+- `app/_layout.tsx`: `DigitalDataSync` 마운트
+
+Changed files: frontend/utils/digitalData.ts, frontend/components/DigitalDataSync.tsx, frontend/app/_layout.tsx, docs/log/log.md
+
+107. 2026-05-15 Target bootstrap mbox 정리(target-ready-mbox·mbox별 dedupe·preload 제거)
+
+Purpose: 서버 SDK 프록시 전제에 맞춰 location 래퍼·Normalizer·per-location 훅을 제거하고, 첫 웹 로드만 `bootstrap_mbox_name`으로 offers 를 받아 Context에 반영한다.
+
+Changes:
+
+- 삭제: `useTargetLocation.ts`, `TargetLocation.tsx`, `targetOfferNormalizer.ts`
+- `targetOffersFetch.ts`: `mbox_name`·params·mbox별 dedupe·`getAdobeBootstrapMboxNameForFetch`
+- `TargetOffersPreload` 제거, `TargetPageBootstrap` 단일화, `refreshOffers`는 bootstrap mbox+force
+- 백엔드: `AdobeTargetSettings.bootstrap_mbox_name`, `config.adobe*.json` mboxes, offers `page_url` 주석
+- 프론트 env: `adobe_mboxes`, `loadConfig` 타입, 문서 02·04 정합
+
+Changed files: (삭제 3) + frontend/adobe_frontend/target_frontend/utils/targetOffersFetch.ts, targetContext.tsx, app/targetApp.tsx, app/TargetPageBootstrap.tsx, utils/targetOfferParser.ts, frontend/utils/loadConfig.ts, frontend/env/config.dev.json, frontend/env/config.prd.json, frontend/app/_layout.tsx, frontend/app/index.tsx, backend/adobe_backend/target_backend/target_config.py, backend/env/config.adobe.json, backend/env/config.adobe.example.json, backend/adobe_backend/target_backend/target_adobe_router.py, docs/main/02_AT_TEST_PAGE_FRONTEND_GUIDE.md, docs/main/04_AT_TEST_PAGE_ADOBE_TARGET_INTEGRATION.md, docs/log/log.md
+
+106. 2026-05-15 Target location 범용 구조(TargetPageBootstrap·useTargetLocation·dedupe offers)
+
+Purpose: offers 응답을 location(mbox_name) 기준으로 재사용 가능하게 소비하고, DOM 준비 시점 부트스트랩·중복 fetch 최소화로 글로벌 mbox 에 가까운 흐름을 만든다.
+
+Changes:
+
+- `targetOffersFetch.ts`: `fetchAdobeTargetOffersResponseDeduped`(실패 시 캐시 해제·`force` 재요청)
+- `targetContext.tsx` / `targetApp.tsx`: 프리로드는 dedupe, `refreshOffers` 는 `force`
+- 신규: `TargetPageBootstrap.tsx`, `useTargetLocation.ts`, `TargetLocation.tsx`, `targetOfferNormalizer.ts`, `targetOfferParser.ts`(location 탐색·항목 content 파서)
+- `app/_layout.tsx`, `app/index.tsx`: 부트스트랩·`TargetLocation` 캐러셀 예시
+
+Changed files: frontend/adobe_frontend/target_frontend/utils/targetOffersFetch.ts, targetContext.tsx, app/targetApp.tsx, utils/targetOfferParser.ts, utils/targetOfferNormalizer.ts, hooks/useTargetLocation.ts, components/TargetLocation.tsx, app/TargetPageBootstrap.tsx, frontend/app/_layout.tsx, frontend/app/index.tsx, docs/log/log.md
 
 105. 2026-05-14 쿠폰 목록: recommendation-test용 recipient_id 추적·복사·초기화
 

@@ -163,6 +163,7 @@ class OffersRequest(BaseModel):
 def _get_offers_sync(body: OffersRequest) -> Dict[str, Any]:
     client = get_target_client()
     delivery_id = build_delivery_id(body.tnt_id, body.third_party_id)
+    # page_url 은 요청 바디로만 수신하며, 아래 DeliveryRequest·Context 구성에는 연결되지 않는다.
 
     mbox = MboxRequest(
         name=body.mbox_name,

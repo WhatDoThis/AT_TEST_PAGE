@@ -61,14 +61,14 @@
 
 1. 브라우저는 Adobe JS SDK 없이 **FastAPI**로만 Target을 호출한다.  
 2. FastAPI가 **Target Python SDK** `TargetClient.get_offers`로 Adobe `POST /rest/v1/delivery`를 호출한다.  
-3. 메인 웹: 앱 기동 시 `TargetOffersPreload`가 **`POST /api/target/offers`** 한 번, 이후 **`ImageGallery`** 등에서 `refreshOffers()`로 동일 엔드포인트를 다시 호출할 수 있다.  
+3. 메인 웹: `TargetPageBootstrap`이 DOM 준비 후 **bootstrap mbox**로 **`POST /api/target/offers`** 한 번(첫 로드), 이후 **`ImageGallery`** 등에서 `refreshOffers()`가 동일 엔드포인트에 **bootstrap mbox**를 강제(`force`)로 다시 호출한다.  
 4. **클릭 전용 `POST /api/target/track` 는 현재 라우터에 없다.** 캐러셀은 오퍼 기반 UI만 적용한다.  
 5. 프로필·추천 검증 화면은 각각 **`POST /api/target/profile-test`**, **`POST /api/target/recommendation-test`** 를 사용한다.
 
 ```mermaid
 flowchart TB
   subgraph fe [Expo Web 프론트]
-    TA[targetApp TargetOffersPreload]
+    TA[targetApp TargetPageBootstrap]
     IG[ImageGallery 등]
     PP[ProfileTestPanel]
     RP[RecommendationTestPanel]
@@ -90,7 +90,7 @@ flowchart TB
 
 | 영역 | 내용 |
 |------|------|
-| 프론트 | Expo, `fetch`, `frontend/utils/loadConfig.ts`는 **앱 env JSON만**(Adobe 자격 없음) |
+| 프론트 | Expo, `fetch`, `frontend/utils/loadConfig.ts`는 앱 env JSON(`adobe_mboxes`의 offer/bootstrap mbox 문자열 포함) |
 | 백엔드 | FastAPI, `target-python-sdk`, `delivery_api_client` |
 | 블로킹 방지 | 동기 SDK 호출은 **`asyncio.to_thread`** |
 
@@ -98,8 +98,8 @@ flowchart TB
 
 ## 5. 설정
 
-- **`backend/env/config.adobe.json`**: Git 제외. **`backend/env/config.adobe.example.json`** 을 복사해 채운다. `mboxes.offer_mbox_name`·**`mboxes.recs_mbox_name`**(Recommendations Location; 생략 시 기본 `target-recs-mbox`) 포함.
-- **`target_config.py`**: 위 파일만 읽어 `client`, `organization_id`, `property_token`, `timeout`, **`offer_mbox_name`**, **`recs_mbox_name`** 등을 로드. ASCII·빈 값 검증 실패 시 `AdobeTargetConfigError` → HTTP 400.
+- **`backend/env/config.adobe.json`**: Git 제외. **`backend/env/config.adobe.example.json`** 을 복사해 채운다. `mboxes.offer_mbox_name`·**`mboxes.recs_mbox_name`**(Recommendations Location; 생략 시 기본 `target-recs-mbox`)·**`mboxes.bootstrap_mbox_name`**(웹 첫 로드 전용; 생략 시 기본 `target-ready-mbox`) 포함.
+- **`target_config.py`**: 위 파일만 읽어 `client`, `organization_id`, `property_token`, `timeout`, **`offer_mbox_name`**, **`recs_mbox_name`**, **`bootstrap_mbox_name`** 등을 로드. ASCII·빈 값 검증 실패 시 `AdobeTargetConfigError` → HTTP 400.
 - **`backend/env/config.{dev|prd}.json`**: `cors_origins`에 웹 앱 출처를 넣어 `POST /api/target/*`가 CORS 통과하도록 한다. 실제 적용은 **`app/main.py`**: `GET`/`POST`/`OPTIONS`, **`allow_private_network`**, dev일 때 localhost·127.0.0.1·`[::1]` 임의 포트 **정규식** 보조(상세는 `03` §3.4).
 
 ---
@@ -118,7 +118,7 @@ flowchart TB
 
 ### 6.2 `POST /api/target/offers`
 
-- **본문(`OffersRequest`)**: `mbox_name`(기본 `offer_mbox_name`), `page_url`, `tntId`/`tnt_id`, `thirdPartyId`/`third_party_id`, `target_cookie`, `target_location_hint`, `session_id`, **`params`** → mbox **`parameters`**.
+- **본문(`OffersRequest`)**: `mbox_name`(클라이언트가 지정; 생략 시 서버 기본 `offer_mbox_name`), `page_url`(수신만 하고 아래 `DeliveryRequest`·`Context`에는 미연결), `tntId`/`tnt_id`, `thirdPartyId`/`third_party_id`, `target_cookie`, `target_location_hint`, `session_id`, **`params`** → mbox **`parameters`**.
 - **응답**: `mbox`, `offers`(문자열 content 그대로일 수 있음), `tntId`, 쿠키 필드 등.
 
 ### 6.3 `POST /api/target/profile-test`
@@ -151,15 +151,16 @@ flowchart TB
 
 | 경로 | 역할 |
 |------|------|
-| `app/_layout.tsx` | `TargetAppProvider`, `TargetOffersPreload`, `Stack`, **`AppFooter`** |
+| `app/_layout.tsx` | `TargetAppProvider`, `TargetPageBootstrap`, `Stack`, **`AppFooter`** |
 | `components/AppFooter.tsx` | `/`, `/profile-test`, `/recommendation-test` 하단 이동 |
 | `app/index.tsx` | Context 소비, `EventPopup`(브리지) |
 | `app/profile-test.tsx` | `@adobe/components/ProfileTestPanel` |
 | `app/recommendation-test.tsx` | `@adobe/components/RecommendationTestPanel` |
-| `adobe_frontend/.../app/targetApp.tsx` | Provider, 웹 프리로드 |
+| `adobe_frontend/.../app/targetApp.tsx` | `TargetAppProvider` |
+| `adobe_frontend/.../app/TargetPageBootstrap.tsx` | 웹 첫 로드: bootstrap mbox offers → Context |
 | `adobe_frontend/.../components/targetImageCarousel.tsx` | 메인 캐러셀 + 오퍼 UI(트랙 API 호출 없음) |
 | `adobe_frontend/.../context/targetContext.tsx` | 오퍼·event-popup, `refreshOffers` |
-| `adobe_frontend/.../utils/targetOffersFetch.ts` | `POST /api/target/offers` |
+| `adobe_frontend/.../utils/targetOffersFetch.ts` | `POST /api/target/offers` — `mbox_name`·params 본문, mbox별 dedupe |
 | `adobe_frontend/.../utils/targetProfileTest.ts` | `POST /api/target/profile-test` |
 | `adobe_frontend/.../utils/targetRecommendationTest.ts` | `POST /api/target/recommendation-test` — `entity_category_id`는 **`ss`가 아닐 때만** 본문에 실음, `price` 기본 1000, 실패 시 `detail` 문자열·객체에서 메시지 추출, 응답의 **`target_location_hint_cookie`** `value`를 `AT_RECS_*`에 저장 |
 | `adobe_frontend/.../utils/targetSession.ts` | `AT_*`(공통), **`AT_RECS_*`**(추천 테스트 전용 키) |

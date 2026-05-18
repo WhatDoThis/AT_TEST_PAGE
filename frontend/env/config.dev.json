@@ -2,6 +2,10 @@
   "port": 3010,
   "base_url": "http://localhost:3010",
   "api_url": "http://localhost:8010",
+  "adobe_mboxes": {
+    "offer_mbox_name": "target-local-mbox",
+    "bootstrap_mbox_name": "target-ready-mbox"
+  },
   "app_title": "AT_TEST_PAGE",
   "images": [
     { "id": 1, "filename": "default.png", "label": "LGU" },

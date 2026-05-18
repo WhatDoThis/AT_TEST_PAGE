@@ -9,7 +9,7 @@
 
 [Endpoints/Classes/Functions]
 =======================
-- AdobeTargetSettings: client, organization_id, property_token, timeout, offer_mbox_name, recs_mbox_name
+- AdobeTargetSettings: client, organization_id, property_token, timeout, offer_mbox_name, recs_mbox_name, bootstrap_mbox_name
 - AdobeTargetConfigError
 
 [Dependencies]
@@ -38,6 +38,7 @@ class AdobeTargetSettings:
     timeout: int
     offer_mbox_name: str
     recs_mbox_name: str
+    bootstrap_mbox_name: str
 
 
 def _config_path() -> Path:
@@ -88,6 +89,8 @@ def _load() -> AdobeTargetSettings:
         timeout=_int(raw, "timeout", 3000, "administration"),
         offer_mbox_name=_str(raw, "offer_mbox_name", "mboxes") or "target-global-mbox",
         recs_mbox_name=_str(raw, "recs_mbox_name", "mboxes") or "target-recs-mbox",
+        bootstrap_mbox_name=_str(raw, "bootstrap_mbox_name", "mboxes")
+        or "target-ready-mbox",
     )
     _assert_ascii(s)
     return s

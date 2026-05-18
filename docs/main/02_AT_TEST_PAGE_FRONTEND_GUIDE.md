@@ -34,7 +34,7 @@
 ```text
 frontend/
 ├─ app/
-│  ├─ _layout.tsx          # Stack, TargetAppProvider, TargetOffersPreload, AppFooter
+│  ├─ _layout.tsx          # Stack, TargetAppProvider, TargetPageBootstrap, AppFooter
 │  ├─ index.tsx            # 메인
 │  ├─ profile-test.tsx
 │  └─ recommendation-test.tsx
@@ -49,10 +49,11 @@ frontend/
 ├─ context/
 │  └─ AdobeTargetContext.tsx  # → adobe targetContext 브리지
 ├─ utils/
-│  ├─ loadConfig.ts        # dev/prd JSON, api_url·api_base_url·app_title 등
+│  ├─ loadConfig.ts        # dev/prd JSON, api_url·adobe_mboxes(offer/bootstrap mbox) 등
 │  └─ imageMap.ts
 ├─ adobe_frontend/target_frontend/
-│  ├─ app/targetApp.tsx           # TargetAppProvider, TargetOffersPreload
+│  ├─ app/targetApp.tsx           # TargetAppProvider
+│  ├─ app/TargetPageBootstrap.tsx # 웹 첫 로드: bootstrap mbox → POST /api/target/offers
 │  ├─ context/targetContext.tsx   # 오퍼·event-popup 상태, refreshOffers
 │  ├─ components/
 │  │  ├─ EventPopup.tsx
@@ -79,7 +80,7 @@ frontend/
 ### 3.1 `app/_layout.tsx`
 
 - 최상위 `TargetAppProvider`로 앱 트리를 감싼다.
-- 웹에서 `TargetOffersPreload`가 기동 시 `POST /api/target/offers`를 한 번 호출해 Context를 채운다.
+- 웹에서 `TargetPageBootstrap`이 DOM 준비 후 **bootstrap mbox**(`frontend/env`의 `adobe_mboxes.bootstrap_mbox_name`, 기본 `target-ready-mbox`)로 `POST /api/target/offers`를 한 번 호출해 Context를 채운다.
 - `GestureHandlerRootView` 안에 `flex:1` 영역에 `Stack`, 그 아래 **`AppFooter`** 를 고정한다.
 - Stack `headerTitle`은 `config.app_title`.
 

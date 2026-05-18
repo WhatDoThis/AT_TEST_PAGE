@@ -2,7 +2,7 @@
  * utils/loadConfig.ts (앱 설정 로드)
  * ================================================================================
  * `frontend/env/config.dev.json` / `config.prd.json` 을 __DEV__ 로 선택해 로드한다.
- * // ── Adobe Target ── offers-only 구조에서는 프론트 mbox 설정 파일을 사용하지 않는다.
+ * Adobe Target offers 요청의 기본 mbox 문자열은 `adobe_mboxes` 블록과 동기화한다.
  *
  * [Main Functions]
  * ===========
@@ -10,7 +10,7 @@
  *
  * [Endpoints/Classes/Functions]
  * =======================
- * - ImageItem, AppConfig: 설정 스키마 타입
+ * - ImageItem, AppConfig, AdobeMboxesConfig: 설정 스키마 타입
  * - config: AppConfig (env JSON)
  *
  * [Dependencies]
@@ -27,6 +27,12 @@ export interface ImageItem {
   label: string;
 }
 
+/** `backend/env/config.adobe.json` 의 `mboxes` 와 동일 키를 맞춘다. */
+export interface AdobeMboxesConfig {
+  offer_mbox_name: string;
+  bootstrap_mbox_name: string;
+}
+
 export interface AppConfig {
   port: number;
   base_url: string;
@@ -36,6 +42,7 @@ export interface AppConfig {
   images: ImageItem[];
   api_port?: number;
   image_dir?: string;
+  adobe_mboxes?: AdobeMboxesConfig;
 }
 
 // 2. __DEV__: expo start 등 개발 시 true, export·release 빌드 시 false → env JSON 고정
