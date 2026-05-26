@@ -2,6 +2,7 @@
 
 ## Log Index
 
+109. 2026-05-18 메인 라우트 `/main` 분리·루트 `/at-test/` 리다이렉트
 108. 2026-05-18 웹 digitalData 라우트별 pageName 동기화
 107. 2026-05-15 Target bootstrap mbox 정리(target-ready-mbox·mbox별 dedupe·preload 제거)
 106. 2026-05-15 Target location 범용 구조(TargetPageBootstrap·useTargetLocation·dedupe offers)
@@ -112,6 +113,18 @@
 12. 2026-04-27 docs/main AT_TEST_PAGE PRD v1.0 작성
 
 ## Log Body
+
+109. 2026-05-18 메인 라우트 `/main` 분리·루트 `/at-test/` 리다이렉트
+
+Purpose: 메인 URL을 `https://…/at-test/main` 으로 맞추고 `/at-test/` 접근은 `/main` 으로 보낸다.
+
+Changes:
+
+- `app/main.tsx`: 기존 메인 UI 이동
+- `app/index.tsx`: `<Redirect href="/main" />`
+- `AppFooter`, `digitalData.ts`: `/main` 경로·pageName 매핑
+
+Changed files: frontend/app/main.tsx, frontend/app/index.tsx, frontend/components/AppFooter.tsx, frontend/utils/digitalData.ts, docs/log/log.md
 
 108. 2026-05-18 웹 digitalData 라우트별 pageName 동기화
 

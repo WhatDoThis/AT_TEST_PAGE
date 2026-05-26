@@ -153,7 +153,8 @@ flowchart TB
 |------|------|
 | `app/_layout.tsx` | `TargetAppProvider`, `TargetPageBootstrap`, `Stack`, **`AppFooter`** |
 | `components/AppFooter.tsx` | `/`, `/profile-test`, `/recommendation-test` 하단 이동 |
-| `app/index.tsx` | Context 소비, `EventPopup`(브리지) |
+| `app/main.tsx` | Context 소비, `EventPopup`(브리지) |
+| `app/index.tsx` | `/main` 리다이렉트 |
 | `app/profile-test.tsx` | `@adobe/components/ProfileTestPanel` |
 | `app/recommendation-test.tsx` | `@adobe/components/RecommendationTestPanel` |
 | `adobe_frontend/.../app/targetApp.tsx` | `TargetAppProvider` |

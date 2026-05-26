@@ -21,7 +21,8 @@
 
 | 경로 | 파일 | 내용 |
 |------|------|------|
-| `/` | `app/index.tsx` | 캐러셀·토글·갤러리·쿠폰(웹)·Target Context·`EventPopup` |
+| `/` | `app/index.tsx` | `/main` 으로 리다이렉트 |
+| `/main` | `app/main.tsx` | 캐러셀·토글·갤러리·쿠폰(웹)·Target Context·`EventPopup` |
 | `/profile-test` | `app/profile-test.tsx` | `ProfileTestPanel` — profile 검증 |
 | `/recommendation-test` | `app/recommendation-test.tsx` | `RecommendationTestPanel` — Recs 검증 |
 
@@ -91,7 +92,7 @@ frontend/
 
 ---
 
-## 4. 메인 화면 `app/index.tsx`
+## 4. 메인 화면 `app/main.tsx`
 
 - 상태: `carouselIndex`, `galleryOpen`.
 - `ImageCarousel`에 `useAdobeTargetOffer()` 결과를 `adobeOffer`로 전달.

@@ -5,7 +5,7 @@
  *
  * [Main Functions]
  * ===========
- * - AppFooter: 현재 경로 강조 + `router.replace` 로 화면 전환
+ * - AppFooter: 현재 경로 강조 + `router.replace` 로 화면 전환(메인 `/main`)
  *
  * [Endpoints/Classes/Functions]
  * =======================
@@ -20,11 +20,12 @@
 import React, { useCallback, useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { usePathname, useRouter, type Href } from "expo-router";
+import { normalizeAppPathname } from "@/utils/digitalData";
 
 type FooterKey = "main" | "profile" | "recommendation";
 
 const ROUTES: Record<FooterKey, string> = {
-  main: "/",
+  main: "/main",
   profile: "/profile-test",
   recommendation: "/recommendation-test",
 };
@@ -36,7 +37,7 @@ const LABELS: Record<FooterKey, string> = {
 };
 
 function activeKeyForPath(pathname: string): FooterKey {
-  const p = pathname.replace(/\/$/, "") || "/";
+  const p = normalizeAppPathname(pathname);
   if (p === "/profile-test") {
     return "profile";
   }

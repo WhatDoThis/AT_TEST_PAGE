@@ -30,6 +30,7 @@ export type DigitalDataLayer = {
 
 /** Expo 라우트(정규화 후) → digitalData pageName */
 export const PAGE_NAME_BY_ROUTE: Record<string, string> = {
+  "/main": "at-test",
   "/": "at-test",
   "/profile-test": "at-test-profile-test",
   "/recommendation-test": "at-test-recommendation-test",
@@ -53,18 +54,21 @@ export function normalizeAppPathname(pathname: string): string {
     p = p.slice(0, -1);
   }
   if (p === APP_BASE_PATH) {
-    return "/";
+    return "/main";
   }
   if (p.startsWith(`${APP_BASE_PATH}/`)) {
     p = p.slice(APP_BASE_PATH.length);
   }
-  return p || "/";
+  if (p === "" || p === "/") {
+    return "/main";
+  }
+  return p;
 }
 
 // 2. 정규화된 경로에 대응하는 pageName 을 반환한다.
 export function getDigitalDataPageNameForPathname(pathname: string): string {
   const route = normalizeAppPathname(pathname);
-  return PAGE_NAME_BY_ROUTE[route] ?? PAGE_NAME_BY_ROUTE["/"];
+  return PAGE_NAME_BY_ROUTE[route] ?? PAGE_NAME_BY_ROUTE["/main"];
 }
 
 function _ensureDigitalDataShell(): DigitalDataLayer {

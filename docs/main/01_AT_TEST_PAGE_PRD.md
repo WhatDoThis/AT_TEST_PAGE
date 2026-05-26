@@ -44,7 +44,7 @@
             |
             v
 [Frontend: Expo Router]
-  - 라우트: / (메인), /profile-test, /recommendation-test
+  - 라우트: /main (메인), /profile-test, /recommendation-test (`/` 는 /main 리다이렉트)
   - 하단 푸터로 위 세 화면 전환
             |
             v
