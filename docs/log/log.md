@@ -2,6 +2,7 @@
 
 ## Log Index
 
+110. 2026-05-18 메인 ScrollView `nativeID=mainScreenScrollArea`
 109. 2026-05-18 메인 라우트 `/main` 분리·루트 `/at-test/` 리다이렉트
 108. 2026-05-18 웹 digitalData 라우트별 pageName 동기화
 107. 2026-05-15 Target bootstrap mbox 정리(target-ready-mbox·mbox별 dedupe·preload 제거)
@@ -113,6 +114,16 @@
 12. 2026-04-27 docs/main AT_TEST_PAGE PRD v1.0 작성
 
 ## Log Body
+
+110. 2026-05-18 메인 ScrollView `nativeID=mainScreenScrollArea`
+
+Purpose: 메인 화면 스크롤 영역에 고정 `nativeID`를 부여해 웹·네이티브에서 셀렉터·자동화·디버깅 시 영역을 식별할 수 있게 한다.
+
+Changes:
+
+- `app/main.tsx`: `ScrollView`에 `nativeID="mainScreenScrollArea"` 추가
+
+Changed files: frontend/app/main.tsx, docs/log/log.md
 
 109. 2026-05-18 메인 라우트 `/main` 분리·루트 `/at-test/` 리다이렉트
 

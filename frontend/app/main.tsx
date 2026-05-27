@@ -40,6 +40,7 @@ export default function MainScreen() {
 
   return (
     <ScrollView
+      nativeID="mainScreenScrollArea"
       style={styles.container}
       contentContainerStyle={styles.content}
     >
