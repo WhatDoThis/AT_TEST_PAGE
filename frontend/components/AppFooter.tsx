@@ -1,7 +1,7 @@
 /**
  * components/AppFooter.tsx (전역 하단 페이지 이동 푸터)
  * ================================================================================
- * 메인·프로필 테스트·추천 테스트 라우트로 이동하는 고정 푸터. 루트 `_layout` 에서 모든 화면 하단에 공통으로 붙인다.
+ * 메인·프로필 테스트·추천 테스트·스크롤 테스트 라우트로 이동하는 고정 푸터. 루트 `_layout` 에서 모든 화면 하단에 공통으로 붙인다.
  *
  * [Main Functions]
  * ===========
@@ -22,18 +22,20 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { usePathname, useRouter, type Href } from "expo-router";
 import { normalizeAppPathname } from "@/utils/digitalData";
 
-type FooterKey = "main" | "profile" | "recommendation";
+type FooterKey = "main" | "profile" | "recommendation" | "scroll";
 
 const ROUTES: Record<FooterKey, string> = {
   main: "/main",
   profile: "/profile-test",
   recommendation: "/recommendation-test",
+  scroll: "/scroll-test",
 };
 
 const LABELS: Record<FooterKey, string> = {
   main: "메인",
   profile: "프로필 테스트",
   recommendation: "추천 테스트",
+  scroll: "스크롤 테스트",
 };
 
 function activeKeyForPath(pathname: string): FooterKey {
@@ -43,6 +45,9 @@ function activeKeyForPath(pathname: string): FooterKey {
   }
   if (p === "/recommendation-test") {
     return "recommendation";
+  }
+  if (p === "/scroll-test") {
+    return "scroll";
   }
   return "main";
 }
@@ -63,7 +68,7 @@ export default function AppFooter(): React.ReactElement {
     [pathname, router],
   );
 
-  const keys: FooterKey[] = ["main", "profile", "recommendation"];
+  const keys: FooterKey[] = ["main", "profile", "recommendation", "scroll"];
 
   return (
     <View style={s.bar} accessibilityRole="toolbar">

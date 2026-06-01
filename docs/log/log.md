@@ -2,6 +2,10 @@
 
 ## Log Index
 
+114. 2026-06-01 스크롤 테스트 페이지 500개·행별 스크롤 퍼센트·중앙 정렬
+113. 2026-06-01 하단 푸터에 스크롤 테스트 탭 추가
+112. 2026-06-01 스크롤 이벤트 테스트 페이지(/at-test/scroll-test) 추가
+111. 2026-06-01 세션 저장소 웹/네이티브 범용화(sessionStore + AsyncStorage)
 110. 2026-05-18 메인 ScrollView `nativeID=mainScreenScrollArea`
 109. 2026-05-18 메인 라우트 `/main` 분리·루트 `/at-test/` 리다이렉트
 108. 2026-05-18 웹 digitalData 라우트별 pageName 동기화
@@ -114,6 +118,52 @@
 12. 2026-04-27 docs/main AT_TEST_PAGE PRD v1.0 작성
 
 ## Log Body
+
+114. 2026-06-01 스크롤 테스트 페이지 500개·행별 스크롤 퍼센트·중앙 정렬
+
+Purpose: 스크롤 테스트 페이지를 1~500으로 줄이고, 각 숫자가 화면 상단에 올 때의 스크롤 이동 퍼센트를 우측에 표시하며, 목록을 중앙 정렬한다.
+
+Changes:
+
+- `app/scroll-test.tsx`: 개수 1000→500, 행 높이 고정(ROW_HEIGHT)으로 행 위치 산출. 뷰포트 높이(`onLayout`)와 전체 콘텐츠 높이로 `maxScroll` 계산 후 행별 `rowTop/maxScroll` 퍼센트(0~100 클램프)를 숫자 오른쪽에 표시
+- 레이아웃: contentContainer `alignItems: center`·행 고정 너비(220)로 목록을 화면 중앙 정렬(숫자 좌·퍼센트 우)
+
+Changed files: frontend/app/scroll-test.tsx, docs/log/log.md
+
+113. 2026-06-01 하단 푸터에 스크롤 테스트 탭 추가
+
+Purpose: 새로 만든 `/at-test/scroll-test` 페이지를 앱 UI에서 바로 이동할 수 있도록 전역 하단 푸터에 탭을 추가한다.
+
+Changes:
+
+- `components/AppFooter.tsx`: `FooterKey`에 `scroll` 추가, `ROUTES`(`/scroll-test`)·`LABELS`("스크롤 테스트")·`activeKeyForPath`·탭 배열(keys)에 반영(메인/프로필/추천/스크롤 4탭)
+
+Changed files: frontend/components/AppFooter.tsx, docs/log/log.md
+
+112. 2026-06-01 스크롤 이벤트 테스트 페이지(/at-test/scroll-test) 추가
+
+Purpose: Adobe Target 스크롤 이벤트 테스트용으로, 화면보다 내용이 길어 상하 스크롤이 발생하는 단순 페이지를 추가한다.
+
+Changes:
+
+- 신규 `app/scroll-test.tsx`: 1~1000 숫자를 fontSize 20으로 세로 나열한 `ScrollView`(`nativeID="scrollTestScrollArea"`). 별도 로직 없이 스크롤만 발생
+- 라우트: baseUrl(`/at-test`) 기준 `/at-test/scroll-test`로 접근(Expo Router 파일 기반)
+
+Changed files: frontend/app/scroll-test.tsx, docs/log/log.md
+
+111. 2026-06-01 세션 저장소 웹/네이티브 범용화(sessionStore + AsyncStorage)
+
+Purpose: 기존 `sessionStorage`(웹 전용)에 묶여 있던 Adobe Target 세션 값(tntId·thirdPartyId·쿠키·location hint·session_id·recipient_id)을 웹/네이티브 공통 래퍼로 분리해, 네이티브 빌드에서도 Target SDK 테스트(offers·profile-test·recommendation-test)가 동작하도록 한다.
+
+Changes:
+
+- 신규 `sessionStore.ts`: 동기 API(`sessionGetItem`/`sessionSetItem`/`sessionRemoveItem`). 웹은 `sessionStorage` 위임, 네이티브는 메모리 캐시 + `@react-native-async-storage/async-storage` write-through, 시작 시 `hydrateSessionStore()`로 1회 적재
+- `targetSession.ts`·`targetOffersFetch.ts`·`targetProfileTest.ts`·`targetRecommendationTest.ts`·`RecommendationTestPanel.tsx`: 직접 `sessionStorage` 호출을 래퍼로 교체, 플랫폼 가드(`typeof sessionStorage === "undefined"`) 제거
+- `targetApp.tsx`: 마운트 시 `hydrateSessionStore()` 호출(웹 no-op)
+- 의존성: `@react-native-async-storage/async-storage`(Expo SDK 54 호환 버전) 추가
+- 웹 전용 모듈(`clickCookie`·`digitalData`·`CouponTable`)은 기존 `Platform.OS` 가드 유지로 변경 없음
+
+Changed files: frontend/adobe_frontend/target_frontend/utils/sessionStore.ts, frontend/adobe_frontend/target_frontend/utils/targetSession.ts, frontend/adobe_frontend/target_frontend/utils/targetOffersFetch.ts, frontend/adobe_frontend/target_frontend/utils/targetProfileTest.ts, frontend/adobe_frontend/target_frontend/utils/targetRecommendationTest.ts, frontend/adobe_frontend/target_frontend/components/RecommendationTestPanel.tsx, frontend/adobe_frontend/target_frontend/app/targetApp.tsx, frontend/package.json, frontend/package-lock.json, docs/log/log.md
 
 110. 2026-05-18 메인 ScrollView `nativeID=mainScreenScrollArea`
 

@@ -18,6 +18,7 @@
  * - react, react-native
  * - ../utils/targetRecommendationTest (sendRecommendationTest)
  * - ../utils/targetSession (AT_RECS_RECIPIENT_ID_KEY)
+ * - ../utils/sessionStore (웹/네이티브 범용 세션 저장소)
  */
 
 import React, { useCallback, useMemo, useState } from "react";
@@ -33,6 +34,7 @@ import {
 
 import { sendRecommendationTest } from "../utils/targetRecommendationTest";
 import { AT_RECS_RECIPIENT_ID_KEY } from "../utils/targetSession";
+import { sessionGetItem, sessionSetItem } from "../utils/sessionStore";
 
 interface MenuEntity {
   id: string;
@@ -105,10 +107,7 @@ function pickRecLabel(item: unknown): string {
 }
 
 function readInitialRecipient(): string {
-  if (typeof sessionStorage === "undefined") {
-    return "";
-  }
-  return sessionStorage.getItem(AT_RECS_RECIPIENT_ID_KEY)?.trim() ?? "";
+  return sessionGetItem(AT_RECS_RECIPIENT_ID_KEY)?.trim() ?? "";
 }
 
 export default function RecommendationTestPanel(): React.ReactElement {
@@ -130,9 +129,7 @@ export default function RecommendationTestPanel(): React.ReactElement {
 
   const onRecipientChange = useCallback((t: string) => {
     setRecipientId(t);
-    if (typeof sessionStorage !== "undefined") {
-      sessionStorage.setItem(AT_RECS_RECIPIENT_ID_KEY, t);
-    }
+    sessionSetItem(AT_RECS_RECIPIENT_ID_KEY, t);
   }, []);
 
   const handleEntityClick = useCallback(

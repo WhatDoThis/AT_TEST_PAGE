@@ -1,8 +1,8 @@
 /**
- * adobe_frontend.target_frontend.utils.targetSession (sessionStorage + Adobe Target SDK 옵션)
+ * adobe_frontend.target_frontend.utils.targetSession (범용 세션 저장소 + Adobe Target SDK 옵션)
  * ================================================================================
- * Delivery `id`(tntId·thirdPartyId)·target_cookie·location hint·session_id 를 sessionStorage 에 두고
- * 다음 `POST /api/target/offers` 본문에 넣는다. **tntId 는 클라이언트에서 생성하지 않는다.**
+ * Delivery `id`(tntId·thirdPartyId)·target_cookie·location hint·session_id 를 `sessionStore`(웹 sessionStorage /
+ * 네이티브 메모리+AsyncStorage)에 두고 다음 `POST /api/target/offers` 본문에 넣는다. **tntId 는 클라이언트에서 생성하지 않는다.**
  * 첫 요청은 thirdPartyId 만 전송 → Adobe 가 자동 생성한 tntId 가 응답으로 돌아오면 이를 저장해 재사용한다.
  * Recommendation 테스트(`targetRecommendationTest`) 전용 키(`AT_RECS_*`)는 offers·profile 과 저장소를 분리한다.
  *
@@ -20,8 +20,11 @@
  *
  * [Dependencies]
  * =========
- * - 없음(브라우저 sessionStorage·crypto)
+ * - ./sessionStore (웹/네이티브 범용 세션 저장소)
+ * - crypto(있을 때) — thirdPartyId·session_id 생성, 없으면 폴백
  */
+
+import { sessionGetItem, sessionSetItem } from "./sessionStore";
 
 /** Delivery `id.tntId` (Adobe 응답에서 받은 값만 저장) */
 export const AT_TNTID_STORAGE_KEY = "at_tntId";
@@ -54,35 +57,29 @@ function createThirdPartyId(): string {
 }
 
 function getOrCreateSessionId(): string {
-  if (typeof sessionStorage === "undefined") {
-    return "";
-  }
-  let sid = sessionStorage.getItem(AT_SESSION_ID_KEY)?.trim();
+  let sid = sessionGetItem(AT_SESSION_ID_KEY)?.trim();
   if (!sid) {
     sid =
       typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
         ? crypto.randomUUID()
         : `sid_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
-    sessionStorage.setItem(AT_SESSION_ID_KEY, sid);
+    sessionSetItem(AT_SESSION_ID_KEY, sid);
   }
   return sid;
 }
 
 export function getAdobeTargetVisitorPayload(): Record<string, string> {
-  if (typeof sessionStorage === "undefined") {
-    return {};
-  }
   const payload: Record<string, string> = {};
 
-  const tntId = sessionStorage.getItem(AT_TNTID_STORAGE_KEY)?.trim();
+  const tntId = sessionGetItem(AT_TNTID_STORAGE_KEY)?.trim();
   if (tntId) {
     payload.tntId = tntId;
   }
 
-  let thirdPartyId = sessionStorage.getItem(AT_THIRD_PARTY_ID_STORAGE_KEY)?.trim();
+  let thirdPartyId = sessionGetItem(AT_THIRD_PARTY_ID_STORAGE_KEY)?.trim();
   if (!thirdPartyId) {
     thirdPartyId = createThirdPartyId();
-    sessionStorage.setItem(AT_THIRD_PARTY_ID_STORAGE_KEY, thirdPartyId);
+    sessionSetItem(AT_THIRD_PARTY_ID_STORAGE_KEY, thirdPartyId);
   }
   payload.thirdPartyId = thirdPartyId;
 
@@ -91,11 +88,11 @@ export function getAdobeTargetVisitorPayload(): Record<string, string> {
     payload.session_id = sessionId;
   }
 
-  const cookie = sessionStorage.getItem(AT_TARGET_COOKIE_VALUE_KEY)?.trim();
+  const cookie = sessionGetItem(AT_TARGET_COOKIE_VALUE_KEY)?.trim();
   if (cookie) {
     payload.target_cookie = cookie;
   }
-  const hint = sessionStorage.getItem(AT_LOCATION_HINT_KEY)?.trim();
+  const hint = sessionGetItem(AT_LOCATION_HINT_KEY)?.trim();
   if (hint) {
     payload.target_location_hint = hint;
   }

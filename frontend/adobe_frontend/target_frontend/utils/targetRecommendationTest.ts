@@ -18,9 +18,11 @@
  * =========
  * - @/utils/loadConfig (api_base_url / api_url)
  * - ./targetSession (AT_RECS_*_KEY 상수)
+ * - ./sessionStore (웹/네이티브 범용 세션 저장소)
  */
 
 import { config } from "@/utils/loadConfig";
+import { sessionGetItem, sessionSetItem } from "./sessionStore";
 import {
   AT_RECS_LOCATION_HINT_KEY,
   AT_RECS_TARGET_COOKIE_VALUE_KEY,
@@ -38,10 +40,7 @@ export interface RecommendationTestParams {
 }
 
 function _readSession(key: string): string {
-  if (typeof sessionStorage === "undefined") {
-    return "";
-  }
-  return sessionStorage.getItem(key)?.trim() ?? "";
+  return sessionGetItem(key)?.trim() ?? "";
 }
 
 function _cookieValue(v: unknown): string {
@@ -89,22 +88,20 @@ export async function sendRecommendationTest(
     throw new Error(msg);
   }
 
-  if (typeof sessionStorage !== "undefined") {
-    const tntVal =
-      (typeof data.tntId === "string" && data.tntId) ||
-      (typeof data.tnt_id === "string" && data.tnt_id) ||
-      "";
-    if (tntVal) {
-      sessionStorage.setItem(AT_RECS_TNTID_STORAGE_KEY, tntVal);
-    }
-    const tcVal = _cookieValue(data.target_cookie);
-    if (tcVal) {
-      sessionStorage.setItem(AT_RECS_TARGET_COOKIE_VALUE_KEY, tcVal);
-    }
-    const lhVal = _cookieValue(data.target_location_hint_cookie);
-    if (lhVal) {
-      sessionStorage.setItem(AT_RECS_LOCATION_HINT_KEY, lhVal);
-    }
+  const tntVal =
+    (typeof data.tntId === "string" && data.tntId) ||
+    (typeof data.tnt_id === "string" && data.tnt_id) ||
+    "";
+  if (tntVal) {
+    sessionSetItem(AT_RECS_TNTID_STORAGE_KEY, tntVal);
+  }
+  const tcVal = _cookieValue(data.target_cookie);
+  if (tcVal) {
+    sessionSetItem(AT_RECS_TARGET_COOKIE_VALUE_KEY, tcVal);
+  }
+  const lhVal = _cookieValue(data.target_location_hint_cookie);
+  if (lhVal) {
+    sessionSetItem(AT_RECS_LOCATION_HINT_KEY, lhVal);
   }
 
   return data;

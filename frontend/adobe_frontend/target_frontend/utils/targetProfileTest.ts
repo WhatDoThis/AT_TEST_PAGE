@@ -18,9 +18,11 @@
  * =========
  * - @/utils/loadConfig (api_base_url / api_url)
  * - ./targetSession (AT_*_KEY 상수)
+ * - ./sessionStore (웹/네이티브 범용 세션 저장소)
  */
 
 import { config } from "@/utils/loadConfig";
+import { sessionGetItem, sessionSetItem } from "./sessionStore";
 import {
   AT_LOCATION_HINT_KEY,
   AT_SESSION_ID_KEY,
@@ -48,10 +50,7 @@ export interface ProfileTestResponse {
 }
 
 function _readSession(key: string): string {
-  if (typeof sessionStorage === "undefined") {
-    return "";
-  }
-  return sessionStorage.getItem(key)?.trim() ?? "";
+  return sessionGetItem(key)?.trim() ?? "";
 }
 
 function _cookieValue(v: unknown): string {
@@ -103,28 +102,28 @@ export async function testProfileParameters(
   });
   const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
 
-  if (res.ok && typeof sessionStorage !== "undefined") {
+  if (res.ok) {
     const tntVal =
       (typeof data.tntId === "string" && data.tntId) ||
       (typeof data.tnt_id === "string" && (data.tnt_id as string)) ||
       "";
     if (tntVal) {
-      sessionStorage.setItem(AT_TNTID_STORAGE_KEY, tntVal);
+      sessionSetItem(AT_TNTID_STORAGE_KEY, tntVal);
     }
     const thirdVal =
       (typeof data.thirdPartyId === "string" && data.thirdPartyId) ||
       (typeof data.third_party_id === "string" && (data.third_party_id as string)) ||
       "";
     if (thirdVal) {
-      sessionStorage.setItem(AT_THIRD_PARTY_ID_STORAGE_KEY, thirdVal);
+      sessionSetItem(AT_THIRD_PARTY_ID_STORAGE_KEY, thirdVal);
     }
     const tcVal = _cookieValue(data.target_cookie);
     if (tcVal) {
-      sessionStorage.setItem(AT_TARGET_COOKIE_VALUE_KEY, tcVal);
+      sessionSetItem(AT_TARGET_COOKIE_VALUE_KEY, tcVal);
     }
     const lhVal = _cookieValue(data.target_location_hint_cookie);
     if (lhVal) {
-      sessionStorage.setItem(AT_LOCATION_HINT_KEY, lhVal);
+      sessionSetItem(AT_LOCATION_HINT_KEY, lhVal);
     }
   }
 

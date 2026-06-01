@@ -1,7 +1,7 @@
 /**
  * adobe_frontend.target_frontend.utils.targetOffersFetch (Adobe Target offers POST 공통)
  * ================================================================================
- * 백엔드 `POST /api/target/offers`(Python SDK `get_offers`) 호출·sessionStorage 갱신.
+ * 백엔드 `POST /api/target/offers`(Python SDK `get_offers`) 호출·세션 저장소 갱신(웹/네이티브 범용).
  * 같은 `utils` 폴더: `targetProfileTest`, `targetRecommendationTest` 는 별도 엔드포인트 전용.
  *
  * [Main Functions]
@@ -19,11 +19,12 @@
  * [Dependencies]
  * =========
  * - @/utils/loadConfig
- * - ./clickCookie, ./targetSession
+ * - ./clickCookie, ./targetSession, ./sessionStore
  */
 
 import { config } from "@/utils/loadConfig";
 import { getClickEventCookieParams } from "./clickCookie";
+import { sessionSetItem } from "./sessionStore";
 import {
   AT_LOCATION_HINT_KEY,
   AT_TARGET_COOKIE_VALUE_KEY,
@@ -97,7 +98,7 @@ export async function fetchAdobeTargetOffersResponse(
     body: JSON.stringify(body),
   });
   const data: unknown = await res.json().catch(() => ({}));
-  if (res.ok && typeof sessionStorage !== "undefined") {
+  if (res.ok) {
     const d = data as {
       tntId?: unknown;
       tnt_id?: unknown;
@@ -111,22 +112,22 @@ export async function fetchAdobeTargetOffersResponse(
       (typeof d?.tnt_id === "string" && d.tnt_id) ||
       "";
     if (tntVal) {
-      sessionStorage.setItem(AT_TNTID_STORAGE_KEY, tntVal);
+      sessionSetItem(AT_TNTID_STORAGE_KEY, tntVal);
     }
     const thirdVal =
       (typeof d?.thirdPartyId === "string" && d.thirdPartyId) ||
       (typeof d?.third_party_id === "string" && d.third_party_id) ||
       "";
     if (thirdVal) {
-      sessionStorage.setItem(AT_THIRD_PARTY_ID_STORAGE_KEY, thirdVal);
+      sessionSetItem(AT_THIRD_PARTY_ID_STORAGE_KEY, thirdVal);
     }
     const tcVal = cookieValueFromResponse(d.target_cookie);
     if (tcVal) {
-      sessionStorage.setItem(AT_TARGET_COOKIE_VALUE_KEY, tcVal);
+      sessionSetItem(AT_TARGET_COOKIE_VALUE_KEY, tcVal);
     }
     const lhVal = cookieValueFromResponse(d.target_location_hint_cookie);
     if (lhVal) {
-      sessionStorage.setItem(AT_LOCATION_HINT_KEY, lhVal);
+      sessionSetItem(AT_LOCATION_HINT_KEY, lhVal);
     }
   }
   return { ok: res.ok, status: res.status, data };
