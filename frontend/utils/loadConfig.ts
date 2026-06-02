@@ -2,7 +2,8 @@
  * utils/loadConfig.ts (앱 설정 로드)
  * ================================================================================
  * `frontend/env/config.dev.json` / `config.prd.json` 을 __DEV__ 로 선택해 로드한다.
- * Adobe Target offers 요청의 기본 mbox 문자열은 `adobe_mboxes` 블록과 동기화한다.
+ * `adobe_sdk_mboxes` 는 네이티브(모바일 SDK) 전용 mbox 이름 블록이다(웹 백엔드는 backend/env/config.adobe.json 사용).
+ * `adobe_mobile_app_id` 는 네이티브 앱의 Adobe Mobile SDK 초기화용 Environment File ID 다.
  *
  * [Main Functions]
  * ===========
@@ -10,7 +11,7 @@
  *
  * [Endpoints/Classes/Functions]
  * =======================
- * - ImageItem, AppConfig, AdobeMboxesConfig: 설정 스키마 타입
+ * - ImageItem, AppConfig, AdobeSdkMboxesConfig: 설정 스키마 타입
  * - config: AppConfig (env JSON)
  *
  * [Dependencies]
@@ -27,10 +28,9 @@ export interface ImageItem {
   label: string;
 }
 
-/** `backend/env/config.adobe.json` 의 `mboxes` 와 동일 키를 맞춘다. */
-export interface AdobeMboxesConfig {
-  offer_mbox_name: string;
-  bootstrap_mbox_name: string;
+/** 네이티브(모바일 SDK) 전용 mbox 이름. 백엔드 웹 SDK 의 `config.adobe.json mboxes` 와 구분한다. */
+export interface AdobeSdkMboxesConfig {
+  offer_sdk_mbox_name: string;
 }
 
 export interface AppConfig {
@@ -42,7 +42,10 @@ export interface AppConfig {
   images: ImageItem[];
   api_port?: number;
   image_dir?: string;
-  adobe_mboxes?: AdobeMboxesConfig;
+  /** 네이티브(모바일 SDK) 전용 mbox 이름 블록. 웹 백엔드 mbox 와 무관. */
+  adobe_sdk_mboxes?: AdobeSdkMboxesConfig;
+  /** Data Collection(Tags) 모바일 속성의 Environment File ID. 네이티브 전용 SDK 초기화에 사용(웹은 미사용). */
+  adobe_mobile_app_id?: string;
 }
 
 // 2. __DEV__: expo start 등 개발 시 true, export·release 빌드 시 false → env JSON 고정

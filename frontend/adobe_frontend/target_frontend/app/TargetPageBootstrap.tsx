@@ -28,10 +28,7 @@ import {
   useAdobeTargetSetOffer,
 } from "../context/targetContext";
 import { parseAdobeTargetOffersPayload } from "../utils/targetOfferParser";
-import {
-  fetchAdobeTargetOffersResponseDeduped,
-  getAdobeBootstrapMboxNameForFetch,
-} from "../utils/targetOffersFetch";
+import { fetchAdobeTargetOffersResponseDeduped } from "../utils/targetOffersFetch";
 
 function _whenDomReady(run: () => void): void {
   if (typeof document === "undefined") {
@@ -58,12 +55,11 @@ export function TargetPageBootstrap() {
       return;
     }
     let cancelled = false;
-    const bootstrapMbox = getAdobeBootstrapMboxNameForFetch();
     _whenDomReady(() => {
       if (cancelled) {
         return;
       }
-      fetchAdobeTargetOffersResponseDeduped({ mboxName: bootstrapMbox })
+      fetchAdobeTargetOffersResponseDeduped({ bootstrap: true })
         .then(({ ok, status, data }) => {
           if (cancelled) {
             return;

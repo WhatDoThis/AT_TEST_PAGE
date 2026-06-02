@@ -18,7 +18,7 @@
  * [Dependencies]
  * =========
  * - react
- * - ../utils/targetOffersFetch (`fetchAdobeTargetOffersResponseDeduped`, `getAdobeBootstrapMboxNameForFetch`)
+ * - ../utils/targetOffersFetch (`fetchAdobeTargetOffersResponseDeduped`)
  * - ../utils/targetOfferParser (`parseAdobeTargetOffersPayload`)
  */
 
@@ -34,10 +34,7 @@ import React, {
   useState,
   type ReactNode,
 } from "react";
-import {
-  fetchAdobeTargetOffersResponseDeduped,
-  getAdobeBootstrapMboxNameForFetch,
-} from "../utils/targetOffersFetch";
+import { fetchAdobeTargetOffersResponseDeduped } from "../utils/targetOffersFetch";
 import {
   parseAdobeTargetOffersPayload,
   type AdobeTargetEventPopupOffer,
@@ -63,10 +60,9 @@ export function AdobeTargetProvider({ children }: { children: ReactNode }) {
     useState<AdobeTargetEventPopupOffer | null>(null);
 
   const refreshOffers = useCallback(async () => {
-    const bootstrapMbox = getAdobeBootstrapMboxNameForFetch();
     try {
       const { ok, status, data } = await fetchAdobeTargetOffersResponseDeduped({
-        mboxName: bootstrapMbox,
+        bootstrap: true,
         force: true,
       });
       if (!ok) {

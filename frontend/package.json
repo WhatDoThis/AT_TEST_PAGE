@@ -11,6 +11,9 @@
     "export:web": "expo export --platform web"
   },
   "dependencies": {
+    "@adobe/react-native-aepassurance": "^7.0.0",
+    "@adobe/react-native-aepcore": "^7.0.0",
+    "@adobe/react-native-aeptarget": "^7.0.0",
     "@react-native-async-storage/async-storage": "2.2.0",
     "babel-preset-expo": "~54.0.10",
     "expo": "~54.0.33",

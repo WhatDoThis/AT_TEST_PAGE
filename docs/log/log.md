@@ -2,6 +2,13 @@
 
 ## Log Index
 
+121. 2026-06-01 모바일 확장 설치 검증 + 가이드 문서(04) v3.1 갱신(검증 매트릭스·event-popup 공용·리팩토링 반영)
+120. 2026-06-01 모바일 SDK 경로에서도 event-popup 오퍼 시 웹과 동일한 EventPopup 표시
+119. 2026-06-01 백엔드 요청 모델 공통 베이스(_TargetVisitorRequest)로 Offers/ProfileTest 중복 필드 통합
+118. 2026-06-01 웹 mbox 백엔드 단일 소스(bootstrap 역할)·프론트 fetch 공통화(targetHttp)·백엔드 _run_delivery 중복 제거
+117. 2026-06-01 프론트 mbox 설정을 네이티브 전용 adobe_sdk_mboxes로 분리(웹 경로는 상수화)
+116. 2026-06-01 docs/main 04 Adobe Target 가이드 전면 재작성(v3.0·웹/네이티브 분리·모바일 SDK 기술)
+115. 2026-06-01 네이티브 Adobe Target SDK 연동(AEPCore/AEPTarget/AEPAssurance·플랫폼 분리)
 114. 2026-06-01 스크롤 테스트 페이지 500개·행별 스크롤 퍼센트·중앙 정렬
 113. 2026-06-01 하단 푸터에 스크롤 테스트 탭 추가
 112. 2026-06-01 스크롤 이벤트 테스트 페이지(/at-test/scroll-test) 추가
@@ -118,6 +125,103 @@
 12. 2026-04-27 docs/main AT_TEST_PAGE PRD v1.0 작성
 
 ## Log Body
+
+121. 2026-06-01 모바일 확장 설치 검증 + 가이드 문서(04) v3.1 갱신(검증 매트릭스·event-popup 공용·리팩토링 반영)
+
+Purpose: Tags 모바일 속성에 설치된 확장이 프로젝트에 올바로 적용됐는지 검증하고, 그 결과·시스템 적용 내용·그간의 리팩토링 정리를 가이드 문서에 가독성 있게 반영한다.
+
+Changes:
+
+- 검증(코드 변경 없음): `package.json`·`node_modules/@adobe`·`aepcore/src/index.ts` 확인. Core·Identity·Lifecycle·Signal(aepcore)·Target(aeptarget)·Assurance(aepassurance) 적용 확인. **Profile(UserProfile)** 만 대응 npm(`react-native-aepuserprofile`) 미설치 → 미등록(Target mbox/event-popup 테스트엔 불필요, 선택)
+- `docs/main/04`: §9 설치 확장 목록을 현재 속성 기준으로 명확화. §10.1 "설치 확장 ↔ 프로젝트 검증" 매트릭스 신설(상태 ✅/⚠️). §11 노출/클릭 알림 미연결 범위 명시. §8 네이티브 시퀀스에 event-popup 표시 단계 추가. §14.3 항목 보강 + §14.4 "event-popup 웹/네이티브 공용" 신설(흐름도·파서 공용화·컴포넌트 재사용). §18 FAQ 2건(Profile·event-popup) 추가. §19 문서 이력 v3.1 추가
+- 문서 이력 v3.1 에 리팩토링 정리(웹 mbox 백엔드 단일 소스·_run_delivery·targetHttp·_TargetVisitorRequest) 요약 반영
+
+Changed files: docs/main/04_AT_TEST_PAGE_ADOBE_TARGET_INTEGRATION.md, docs/log/log.md
+
+120. 2026-06-01 모바일 SDK 경로에서도 event-popup 오퍼 시 웹과 동일한 EventPopup 표시
+
+Purpose: 웹에서 `{ "type":"event-popup", title, body, buttonText }` JSON 오퍼로 띄우던 팝업을, 네이티브 Mobile SDK(retrieveLocationContent) 반환값으로도 동일하게 띄운다(웹 코드 불변·컴포넌트 재사용).
+
+Changes:
+
+- `targetOfferParser.ts`: 단일 오퍼 콘텐츠(문자열/객체)→event-popup 변환 공용 함수 `parseAdobeTargetEventPopupContent` 신설. 기존 `_coerceOfferContent` 의 파싱 코어를 `_coerceContentValue` 로 분리해 웹(offers 항목)·네이티브(단일 콘텐츠)가 공유. 헤더 docstring 갱신
+- `app/native-target-test.tsx`: SDK 반환 콘텐츠를 `parseAdobeTargetEventPopupContent` 로 파싱해 웹 `main.tsx` 와 동일한 `@/components/EventPopup` 모달 렌더. eventPopupOffer 상태 추가, onReset 시 함께 초기화. (AT) 주석으로 연동 지점 표시. import 는 `@adobe/utils/targetOfferParser` 별칭 사용
+- 검증: tsc·lint·웹 expo export(1140 modules) 통과
+
+Changed files: frontend/adobe_frontend/target_frontend/utils/targetOfferParser.ts, frontend/app/native-target-test.tsx, docs/log/log.md
+
+119. 2026-06-01 백엔드 요청 모델 공통 베이스(_TargetVisitorRequest)로 Offers/ProfileTest 중복 필드 통합
+
+Purpose: `OffersRequest`·`ProfileTestRequest` 가 거의 동일하게 갖던 방문자 식별자·쿠키·세션·페이지 필드를 공통 베이스로 묶어 중복을 제거한다(동작 불변).
+
+Changes:
+
+- `target_adobe_router.py`: 공통 베이스 `_TargetVisitorRequest`(model_config·page_url·tnt_id·third_party_id·target_cookie·target_location_hint·session_id) 신설. `OffersRequest`(+mbox_name·bootstrap·params)·`ProfileTestRequest`(+mbox_name 기본 offer_mbox_name·profile_params)가 이를 상속하도록 정리. 헤더 docstring 모델 목록 갱신
+- 검증: py_compile 통과, Pydantic 상속·별칭(camelCase/snake)·default_factory 격리 테스트 통과, 린트 무오류. (참고: 이 셸의 Python 에는 target_python_sdk 의 pkg_resources 의존이 없어 라우터 전체 import 는 불가 — 운영 venv 와 무관한 환경 이슈)
+- `docs/main/04`: profile-test 요청 본문 설명에 공통 베이스 상속 명시
+
+Changed files: backend/adobe_backend/target_backend/target_adobe_router.py, docs/main/04_AT_TEST_PAGE_ADOBE_TARGET_INTEGRATION.md, docs/log/log.md
+
+118. 2026-06-01 웹 mbox 백엔드 단일 소스(bootstrap 역할)·프론트 fetch 공통화(targetHttp)·백엔드 _run_delivery 중복 제거
+
+Purpose: 웹 offers mbox 이름을 프론트 상수화 대신 백엔드 config.adobe.json 을 단일 소스로 바라보게 하고, 중복·무질서한 코드를 기능 변경 없이 정리한다.
+
+Changes:
+
+- [1단계] 웹 mbox 단일 소스: 백엔드 `OffersRequest` 에 `bootstrap: bool` 추가·`mbox_name` Optional 화, `_resolve_offer_mbox_name()`(본문값>bootstrap_mbox_name>offer_mbox_name) 신설. 프론트 `targetOffersFetch.ts` 의 하드코딩 상수(`WEB_*`)·`getAdobeBootstrapMboxNameForFetch` 제거 → 호출부(`TargetPageBootstrap`·`targetContext.refreshOffers`)는 `{ bootstrap: true }` 만 전달. dedupe 키를 mbox명→역할(offer/bootstrap)로 전환(동작 동일)
+- [2단계] 프론트 fetch 공통화: `targetHttp.ts` 신설(targetApiBaseUrl·cookieValue·readSessionTrimmed·stringFromData·persistVisitorSession). `targetOffersFetch`·`targetProfileTest`·`targetRecommendationTest` 의 중복(API URL·쿠키 추출·세션 읽기·응답→세션 저장)을 단일 구현으로 통합
+- [3단계] 백엔드 중복 제거: `DeliveryRequest` 조립+디버그 로깅+`get_offers` 삼중 중복을 `_run_delivery()` 공통 헬퍼로 통합(offers·profile·recs 모두 사용, 동작 동일)
+- [4단계] 검증: tsc·py_compile·웹 expo export(1140 modules) 통과, 린트 무오류. docs/main/04 흐름도·요청 예시·파일 목록 갱신
+
+Changed files: backend/adobe_backend/target_backend/target_adobe_router.py, frontend/adobe_frontend/target_frontend/utils/targetHttp.ts(신규), frontend/adobe_frontend/target_frontend/utils/targetOffersFetch.ts, frontend/adobe_frontend/target_frontend/utils/targetProfileTest.ts, frontend/adobe_frontend/target_frontend/utils/targetRecommendationTest.ts, frontend/adobe_frontend/target_frontend/context/targetContext.tsx, frontend/adobe_frontend/target_frontend/app/TargetPageBootstrap.tsx, docs/main/04_AT_TEST_PAGE_ADOBE_TARGET_INTEGRATION.md, docs/log/log.md
+
+117. 2026-06-01 프론트 mbox 설정을 네이티브 전용 adobe_sdk_mboxes로 분리(웹 경로는 상수화)
+
+Purpose: 프론트 env 의 mbox 선언이 백엔드 웹 SDK(config.adobe.json)와 혼동되지 않도록, 이번 모바일 SDK 용 mbox 를 별도 키로 분리한다.
+
+Changes:
+
+- `config.dev.json`·`config.prd.json`: `adobe_mboxes`(offer_mbox_name·bootstrap_mbox_name) 제거 → `adobe_sdk_mboxes.offer_sdk_mbox_name: "target-msdk-mbox"`(네이티브 전용)로 교체
+- `loadConfig.ts`: `AdobeMboxesConfig`→`AdobeSdkMboxesConfig`(offer_sdk_mbox_name), `adobe_mboxes`→`adobe_sdk_mboxes`, 주석 정합
+- `app/native-target-test.tsx`: 기본 mbox 를 `config.adobe_sdk_mboxes.offer_sdk_mbox_name`(폴백 `target-msdk-mbox`)로 변경
+- `targetOffersFetch.ts`(웹 경로): 프론트 config 의존 제거. 웹 전용 상수 `WEB_OFFER_MBOX_NAME="target-local-mbox"`·`WEB_BOOTSTRAP_MBOX_NAME="target-ready-mbox"` 도입(기존 값과 동일 → 웹 동작 불변). bootstrap_mbox_name 은 웹이 직접 사용했으나 값이 폴백과 같아 프론트 env 에서 제거 가능
+- `docs/main/04`: 설정 표·네이티브 시퀀스 예시 mbox 를 새 키로 갱신
+- 검증: 린트·tsc 통과
+
+Changed files: frontend/env/config.dev.json, frontend/env/config.prd.json, frontend/utils/loadConfig.ts, frontend/app/native-target-test.tsx, frontend/adobe_frontend/target_frontend/utils/targetOffersFetch.ts, docs/main/04_AT_TEST_PAGE_ADOBE_TARGET_INTEGRATION.md, docs/log/log.md
+
+116. 2026-06-01 docs/main 04 Adobe Target 가이드 전면 재작성(v3.0·웹/네이티브 분리·모바일 SDK 기술)
+
+Purpose: 기존 04 문서가 빽빽해 따라 읽기 어렵다는 요청에 따라, 초보자도 위→아래로 자연스럽게 이해되도록 전면 재작성하고 이번에 추가한 네이티브 모바일 SDK 연동을 자세히 기술한다.
+
+Changes:
+
+- 구성을 4부로 재편: 1부 개념(용어 5개·두 길 비교) → 2부 웹(서버 프록시) → 3부 네이티브(모바일 SDK) → 4부 운영
+- 웹 길: 시퀀스 다이어그램, 방문자 식별 순환 흐름도, 백엔드 알고리즘(설정 로드·클라이언트 싱글톤·요청 조립·3 엔드포인트 단계별·offers_from_execute·예외/디버그) 정리, recommendation-test 재시도 흐름도, HTTP 예시 JSON
+- 네이티브 길: 전체 시퀀스, Tags 속성/appId 준비, 설치 패키지·사용 함수표, 코드 구조 트리, 플랫폼 분리(.native.ts/.ts) Metro 선택 흐름도·실측 검증, 초기화/설정/테스트 화면, EAS 빌드 방법
+- 운영: 설정 파일 총정리표, 웹/네이티브 체크리스트, 문제 해결 FAQ
+- 문서 이력에 v3.0 추가
+
+Changed files: docs/main/04_AT_TEST_PAGE_ADOBE_TARGET_INTEGRATION.md, docs/log/log.md
+
+115. 2026-06-01 네이티브 Adobe Target SDK 연동(AEPCore/AEPTarget/AEPAssurance·플랫폼 분리)
+
+Purpose: 기존 웹(프록시) 구현은 그대로 두고, 네이티브 앱에서만 Adobe Experience Platform Mobile SDK로 Target을 직접 호출하도록 연동한다. Data Collection 모바일 속성의 Environment File ID(appId)로 SDK를 초기화한다.
+
+Changes:
+
+- 패키지 추가: `@adobe/react-native-aepcore`·`@adobe/react-native-aeptarget`·`@adobe/react-native-aepassurance`(v7.0.0). EAS prebuild가 네이티브 의존성을 자동 링크
+- 플랫폼 분리 모듈 신규: 웹 번들에 네이티브 패키지가 포함되지 않도록 base `.ts`(no-op·웹/타입 소스)와 `.native.ts`(실구현)로 분리. Metro가 네이티브=`.native.ts`, 웹=base `.ts`를 선택
+  - `adobe_frontend/target_frontend/native/adobeMobileTarget.types.ts`: 공용 타입(TargetIds)
+  - `adobe_frontend/target_frontend/native/adobeMobileTarget.ts`: 웹 no-op(init/retrieve/getIds/reset/assurance)
+  - `adobe_frontend/target_frontend/native/adobeMobileTarget.native.ts`: MobileCore.initializeWithAppId(v7 확장 자동 등록)·Target.retrieveLocationContent(콜백→Promise)·getTntId/ThirdPartyId/SessionId·resetExperience·Assurance.startSession
+- 초기화 연결: `targetApp.tsx`의 마운트 useEffect에서 `initAdobeMobileTarget(config.adobe_mobile_app_id)` 호출(웹 no-op)
+- 설정: `loadConfig.ts`의 `AppConfig`에 `adobe_mobile_app_id?` 추가, `config.dev.json`·`config.prd.json`에 Environment File ID 기입(development 값. 운영용은 추후 production env File ID로 교체)
+- 테스트 화면: `app/native-target-test.tsx`(/native-target-test) — mbox 조회·방문자 ID 조회·Assurance 세션·경험 초기화. 웹은 안내 배너만 노출
+- 푸터: `AppFooter.tsx`에 `sdk` 탭("SDK 테스트") 추가(5탭)
+- 검증: tsc 통과, Android/Web export 모두 성공. 웹 번들 Target SDK 참조 0개(완전 제외)·Android 번들에는 포함 확인
+
+Changed files: frontend/package.json, frontend/package-lock.json, frontend/utils/loadConfig.ts, frontend/env/config.dev.json, frontend/env/config.prd.json, frontend/adobe_frontend/target_frontend/native/adobeMobileTarget.types.ts, frontend/adobe_frontend/target_frontend/native/adobeMobileTarget.ts, frontend/adobe_frontend/target_frontend/native/adobeMobileTarget.native.ts, frontend/adobe_frontend/target_frontend/app/targetApp.tsx, frontend/app/native-target-test.tsx, frontend/components/AppFooter.tsx, docs/log/log.md
 
 114. 2026-06-01 스크롤 테스트 페이지 500개·행별 스크롤 퍼센트·중앙 정렬
 

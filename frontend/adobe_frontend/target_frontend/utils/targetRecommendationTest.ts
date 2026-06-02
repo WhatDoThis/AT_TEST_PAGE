@@ -16,20 +16,20 @@
  *
  * [Dependencies]
  * =========
- * - @/utils/loadConfig (api_base_url / api_url)
  * - ./targetSession (AT_RECS_*_KEY 상수)
- * - ./sessionStore (웹/네이티브 범용 세션 저장소)
+ * - ./targetHttp (공통 fetch 헬퍼)
  */
 
-import { config } from "@/utils/loadConfig";
-import { sessionGetItem, sessionSetItem } from "./sessionStore";
+import {
+  persistVisitorSession,
+  readSessionTrimmed,
+  targetApiBaseUrl,
+} from "./targetHttp";
 import {
   AT_RECS_LOCATION_HINT_KEY,
   AT_RECS_TARGET_COOKIE_VALUE_KEY,
   AT_RECS_TNTID_STORAGE_KEY,
 } from "./targetSession";
-
-const API_BASE_URL = config.api_base_url ?? config.api_url ?? "http://localhost:8010";
 
 export interface RecommendationTestParams {
   entityId: string;
@@ -39,18 +39,6 @@ export interface RecommendationTestParams {
   price?: number;
 }
 
-function _readSession(key: string): string {
-  return sessionGetItem(key)?.trim() ?? "";
-}
-
-function _cookieValue(v: unknown): string {
-  if (v && typeof v === "object" && "value" in v) {
-    const val = (v as { value?: unknown }).value;
-    return typeof val === "string" ? val : "";
-  }
-  return "";
-}
-
 export async function sendRecommendationTest(
   params: RecommendationTestParams,
 ): Promise<Record<string, unknown>> {
@@ -58,9 +46,9 @@ export async function sendRecommendationTest(
     entity_id: params.entityId,
     recipient_id: params.recipientId ?? null,
     price: params.price ?? 1000,
-    tnt_id: _readSession(AT_RECS_TNTID_STORAGE_KEY) || null,
-    target_cookie: _readSession(AT_RECS_TARGET_COOKIE_VALUE_KEY) || null,
-    target_location_hint: _readSession(AT_RECS_LOCATION_HINT_KEY) || null,
+    tnt_id: readSessionTrimmed(AT_RECS_TNTID_STORAGE_KEY) || null,
+    target_cookie: readSessionTrimmed(AT_RECS_TARGET_COOKIE_VALUE_KEY) || null,
+    target_location_hint: readSessionTrimmed(AT_RECS_LOCATION_HINT_KEY) || null,
   };
   const cat = (params.entityCategoryId ?? "").trim();
   if (cat && cat.toLowerCase() !== "ss") {
@@ -69,7 +57,7 @@ export async function sendRecommendationTest(
     payload.entity_category_id = null;
   }
 
-  const res = await fetch(`${API_BASE_URL}/api/target/recommendation-test`, {
+  const res = await fetch(`${targetApiBaseUrl()}/api/target/recommendation-test`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -88,21 +76,11 @@ export async function sendRecommendationTest(
     throw new Error(msg);
   }
 
-  const tntVal =
-    (typeof data.tntId === "string" && data.tntId) ||
-    (typeof data.tnt_id === "string" && data.tnt_id) ||
-    "";
-  if (tntVal) {
-    sessionSetItem(AT_RECS_TNTID_STORAGE_KEY, tntVal);
-  }
-  const tcVal = _cookieValue(data.target_cookie);
-  if (tcVal) {
-    sessionSetItem(AT_RECS_TARGET_COOKIE_VALUE_KEY, tcVal);
-  }
-  const lhVal = _cookieValue(data.target_location_hint_cookie);
-  if (lhVal) {
-    sessionSetItem(AT_RECS_LOCATION_HINT_KEY, lhVal);
-  }
+  persistVisitorSession(data, {
+    tntKey: AT_RECS_TNTID_STORAGE_KEY,
+    cookieKey: AT_RECS_TARGET_COOKIE_VALUE_KEY,
+    locationHintKey: AT_RECS_LOCATION_HINT_KEY,
+  });
 
   return data;
 }

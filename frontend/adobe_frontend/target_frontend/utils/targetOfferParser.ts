@@ -8,6 +8,7 @@
  * ===========
  * - parseAdobeTargetOffersPayload: bootstrap/일반 응답에서 carousel·eventPopup 추출
  * - parseAdobeTargetOfferItemContent: 단일 항목 content 객체화
+ * - parseAdobeTargetEventPopupContent: 단일 오퍼 콘텐츠(문자열/객체)에서 event-popup 오퍼 추출(네이티브 SDK 공용)
  * - getAdobeTargetOfferRawEntryForLocation: mbox_name 또는 루트 `mbox` 와 일치하는 항목 탐색
  *
  * [Endpoints/Classes/Functions]
@@ -15,6 +16,7 @@
  * - AdobeTargetOffer, AdobeTargetEventPopupOffer
  * - parseAdobeTargetOffersPayload(data)
  * - parseAdobeTargetOfferItemContent(item)
+ * - parseAdobeTargetEventPopupContent(content)
  * - getAdobeTargetOfferRawEntryForLocation(data, location)
  *
  * [Dependencies]
@@ -87,6 +89,24 @@ export function parseAdobeTargetOfferItemContent(
   return _coerceOfferContent(item);
 }
 
+// 2-1. 단일 오퍼 "콘텐츠"(문자열 또는 객체)에서 event-popup 오퍼를 추출한다.
+//      웹은 `{ offers: [{ content }] }` 형태라 parseAdobeTargetOffersPayload 를 쓰지만,
+//      네이티브 SDK(retrieveLocationContent)는 오퍼 콘텐츠 "값" 자체(JSON 문자열)를 그대로 돌려주므로
+//      그 값을 바로 받아 동일한 EventPopup 오퍼로 변환할 때 사용한다. type 이 event-popup 이 아니면 null.
+export function parseAdobeTargetEventPopupContent(
+  content: unknown,
+): AdobeTargetEventPopupOffer | null {
+  const candidate = _coerceContentValue(content);
+  if (!candidate || candidate.type !== "event-popup") {
+    return null;
+  }
+  return {
+    title: _toOptionalTrimmedString(candidate.title),
+    body: _toOptionalTrimmedString(candidate.body),
+    buttonText: _toOptionalTrimmedString(candidate.buttonText),
+  };
+}
+
 // 3. `mbox_name` 이 `location` 과 같거나, 루트 `mbox` 가 `location` 과 같을 때 해당 항목을 고른다.
 export function getAdobeTargetOfferRawEntryForLocation(
   data: unknown,
@@ -132,11 +152,17 @@ export function getAdobeTargetOfferRawEntryForLocation(
   return null;
 }
 
+// offers[] 항목(`{ content }`)에서 content 값을 꺼내 객체화.
 function _coerceOfferContent(item: unknown): Record<string, unknown> | null {
   if (!item || typeof item !== "object") {
     return null;
   }
-  const content = (item as { content?: unknown }).content;
+  return _coerceContentValue((item as { content?: unknown }).content);
+}
+
+// 콘텐츠 "값"을 객체화한다(객체면 그대로, 문자열이면 JSON 파싱·이중 문자열까지 1단계 더 파싱).
+// _coerceOfferContent(웹 offers 항목) 와 parseAdobeTargetEventPopupContent(네이티브 단일 콘텐츠) 의 공통 코어.
+function _coerceContentValue(content: unknown): Record<string, unknown> | null {
   if (content && typeof content === "object") {
     return content as Record<string, unknown>;
   }

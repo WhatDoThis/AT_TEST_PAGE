@@ -16,13 +16,15 @@
  *
  * [Dependencies]
  * =========
- * - @/utils/loadConfig (api_base_url / api_url)
  * - ./targetSession (AT_*_KEY 상수)
- * - ./sessionStore (웹/네이티브 범용 세션 저장소)
+ * - ./targetHttp (공통 fetch 헬퍼)
  */
 
-import { config } from "@/utils/loadConfig";
-import { sessionGetItem, sessionSetItem } from "./sessionStore";
+import {
+  persistVisitorSession,
+  readSessionTrimmed,
+  targetApiBaseUrl,
+} from "./targetHttp";
 import {
   AT_LOCATION_HINT_KEY,
   AT_SESSION_ID_KEY,
@@ -30,8 +32,6 @@ import {
   AT_THIRD_PARTY_ID_STORAGE_KEY,
   AT_TNTID_STORAGE_KEY,
 } from "./targetSession";
-
-const API_BASE_URL = config.api_base_url ?? config.api_url ?? "http://localhost:8010";
 
 export interface ProfileTestParams {
   profileParams: Record<string, string>;
@@ -49,18 +49,6 @@ export interface ProfileTestResponse {
   data: Record<string, unknown>;
 }
 
-function _readSession(key: string): string {
-  return sessionGetItem(key)?.trim() ?? "";
-}
-
-function _cookieValue(v: unknown): string {
-  if (v && typeof v === "object" && "value" in v) {
-    const val = (v as { value?: unknown }).value;
-    return typeof val === "string" ? val : "";
-  }
-  return "";
-}
-
 // profile script test
 export async function testProfileParameters(
   params: ProfileTestParams,
@@ -74,28 +62,28 @@ export async function testProfileParameters(
   if (pageUrl) {
     payload.page_url = pageUrl;
   }
-  const tntId = params.tntId ?? _readSession(AT_TNTID_STORAGE_KEY);
+  const tntId = params.tntId ?? readSessionTrimmed(AT_TNTID_STORAGE_KEY);
   if (tntId) {
     payload.tnt_id = tntId;
   }
-  const thirdPartyId = params.thirdPartyId ?? _readSession(AT_THIRD_PARTY_ID_STORAGE_KEY);
+  const thirdPartyId = params.thirdPartyId ?? readSessionTrimmed(AT_THIRD_PARTY_ID_STORAGE_KEY);
   if (thirdPartyId) {
     payload.third_party_id = thirdPartyId;
   }
-  const targetCookie = params.targetCookie ?? _readSession(AT_TARGET_COOKIE_VALUE_KEY);
+  const targetCookie = params.targetCookie ?? readSessionTrimmed(AT_TARGET_COOKIE_VALUE_KEY);
   if (targetCookie) {
     payload.target_cookie = targetCookie;
   }
-  const locationHint = params.locationHint ?? _readSession(AT_LOCATION_HINT_KEY);
+  const locationHint = params.locationHint ?? readSessionTrimmed(AT_LOCATION_HINT_KEY);
   if (locationHint) {
     payload.target_location_hint = locationHint;
   }
-  const sessionId = params.sessionId ?? _readSession(AT_SESSION_ID_KEY);
+  const sessionId = params.sessionId ?? readSessionTrimmed(AT_SESSION_ID_KEY);
   if (sessionId) {
     payload.session_id = sessionId;
   }
 
-  const res = await fetch(`${API_BASE_URL}/api/target/profile-test`, {
+  const res = await fetch(`${targetApiBaseUrl()}/api/target/profile-test`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -103,28 +91,12 @@ export async function testProfileParameters(
   const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
 
   if (res.ok) {
-    const tntVal =
-      (typeof data.tntId === "string" && data.tntId) ||
-      (typeof data.tnt_id === "string" && (data.tnt_id as string)) ||
-      "";
-    if (tntVal) {
-      sessionSetItem(AT_TNTID_STORAGE_KEY, tntVal);
-    }
-    const thirdVal =
-      (typeof data.thirdPartyId === "string" && data.thirdPartyId) ||
-      (typeof data.third_party_id === "string" && (data.third_party_id as string)) ||
-      "";
-    if (thirdVal) {
-      sessionSetItem(AT_THIRD_PARTY_ID_STORAGE_KEY, thirdVal);
-    }
-    const tcVal = _cookieValue(data.target_cookie);
-    if (tcVal) {
-      sessionSetItem(AT_TARGET_COOKIE_VALUE_KEY, tcVal);
-    }
-    const lhVal = _cookieValue(data.target_location_hint_cookie);
-    if (lhVal) {
-      sessionSetItem(AT_LOCATION_HINT_KEY, lhVal);
-    }
+    persistVisitorSession(data, {
+      tntKey: AT_TNTID_STORAGE_KEY,
+      thirdPartyKey: AT_THIRD_PARTY_ID_STORAGE_KEY,
+      cookieKey: AT_TARGET_COOKIE_VALUE_KEY,
+      locationHintKey: AT_LOCATION_HINT_KEY,
+    });
   }
 
   return { ok: res.ok, status: res.status, data };

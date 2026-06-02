@@ -2,10 +2,10 @@
   "port": 3010,
   "base_url": "https://ajo.sdev-ibank.co.kr/at-test",
   "api_url": "https://ajo.sdev-ibank.co.kr/at-test-api",
-  "adobe_mboxes": {
-    "offer_mbox_name": "target-local-mbox",
-    "bootstrap_mbox_name": "target-ready-mbox"
+  "adobe_sdk_mboxes": {
+    "offer_sdk_mbox_name": "target-msdk-mbox"
   },
+  "adobe_mobile_app_id": "ce8d64c4e8e1/9c6ed559c876/launch-a47665d87020-development",
   "app_title": "AT_TEST_PAGE",
   "images": [
     { "id": 1, "filename": "default.png", "label": "LGU" },

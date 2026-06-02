@@ -11,14 +11,14 @@ recommendation-test 는 thirdPartyId·선택 customerIds(recipient_id)·MboxRequ
 - _get_offers_sync / get_offers_endpoint
 - _profile_test_sync / profile_test_endpoint
 - _recommendation_test_sync / recommendation_test_endpoint (recommendations·recommendations_meta 파싱)
-- _sdk_opts / _id_and_cookies / _handle_error
+- _sdk_opts / _run_delivery / _id_and_cookies / _handle_error / _resolve_offer_mbox_name
 
 [Endpoints/Classes/Functions]
 =======================
 - POST /api/target/offers
 - POST /api/target/profile-test
 - POST /api/target/recommendation-test
-- OffersRequest, ProfileTestRequest, RecommendationTestRequest
+- _TargetVisitorRequest(공통 베이스), OffersRequest, ProfileTestRequest, RecommendationTestRequest
 
 [Dependencies]
 =========
@@ -79,6 +79,29 @@ def _sdk_opts(cookie: Optional[str], hint: Optional[str], session: Optional[str]
     if (session or "").strip():
         opts["session_id"] = session.strip()
     return opts
+
+
+def _run_delivery(
+    label: str,
+    delivery_id: Any,
+    mbox: MboxRequest,
+    *,
+    cookie: Optional[str] = None,
+    hint: Optional[str] = None,
+    session: Optional[str] = None,
+) -> Optional[dict]:
+    """DeliveryRequest 조립 → 요청 로깅 → SDK get_offers → 응답 로깅. (offers·profile·recs 공통 경로)"""
+    request = DeliveryRequest(
+        id=delivery_id,
+        context=Context(channel=ChannelType.WEB),
+        execute=ExecuteRequest(mboxes=[mbox]),
+        _property=ModelProperty(token=get_property_token()),
+    )
+    at_debug_log_request(logger, label, request)
+    opts: dict[str, Any] = {"request": request, **_sdk_opts(cookie, hint, session)}
+    response = get_target_client().get_offers(opts)
+    at_debug_log_response(logger, label, response)
+    return response
 
 
 def _id_and_cookies(
@@ -145,46 +168,62 @@ def _handle_error(exc: Exception, label: str) -> NoReturn:
     ) from exc
 
 
-# ── offers 엔드포인트 ──
+# ── 공통 요청 모델 ──
 
-class OffersRequest(BaseModel):
+class _TargetVisitorRequest(BaseModel):
+    """offers·profile-test 공통 필드: 방문자 식별자(tntId·thirdPartyId)·쿠키·세션·페이지 컨텍스트."""
+
     model_config = ConfigDict(populate_by_name=True)
 
-    mbox_name: str = Field(default_factory=lambda: get_adobe_target_settings().offer_mbox_name)
     page_url: Optional[str] = None
     tnt_id: Optional[str] = Field(None, validation_alias=AliasChoices("tntId", "tnt_id"))
     third_party_id: Optional[str] = Field(None, validation_alias=AliasChoices("thirdPartyId", "third_party_id"))
     target_cookie: Optional[str] = None
     target_location_hint: Optional[str] = None
     session_id: Optional[str] = None
+
+
+# ── offers 엔드포인트 ──
+
+class OffersRequest(_TargetVisitorRequest):
+    # mbox 이름은 클라이언트가 직접 보내지 않아도 된다. 비우면 서버가 config.adobe.json 의
+    # mbox 이름을 단일 소스로 결정한다(bootstrap=True → bootstrap_mbox_name, 그 외 → offer_mbox_name).
+    mbox_name: Optional[str] = None
+    bootstrap: bool = False
     params: Optional[Dict[str, str]] = None
 
 
+def _resolve_offer_mbox_name(body: OffersRequest) -> str:
+    """offers mbox 이름 단일 소스 결정: 본문 지정값 > bootstrap_mbox_name > offer_mbox_name."""
+    explicit = (body.mbox_name or "").strip()
+    if explicit:
+        return explicit
+    settings = get_adobe_target_settings()
+    return settings.bootstrap_mbox_name if body.bootstrap else settings.offer_mbox_name
+
+
 def _get_offers_sync(body: OffersRequest) -> Dict[str, Any]:
-    client = get_target_client()
     delivery_id = build_delivery_id(body.tnt_id, body.third_party_id)
-    # page_url 은 요청 바디로만 수신하며, 아래 DeliveryRequest·Context 구성에는 연결되지 않는다.
+    mbox_name = _resolve_offer_mbox_name(body)
+    # page_url 은 요청 바디로만 수신하며, DeliveryRequest·Context 구성에는 연결되지 않는다.
 
     mbox = MboxRequest(
-        name=body.mbox_name,
+        name=mbox_name,
         index=0,
         parameters=body.params or None,
     )
-    request = DeliveryRequest(
-        id=delivery_id,
-        context=Context(channel=ChannelType.WEB),
-        execute=ExecuteRequest(mboxes=[mbox]),
-        _property=ModelProperty(token=get_property_token()),
+    response = _run_delivery(
+        "offers",
+        delivery_id,
+        mbox,
+        cookie=body.target_cookie,
+        hint=body.target_location_hint,
+        session=body.session_id,
     )
-    at_debug_log_request(logger, "offers", request)
-
-    opts = {"request": request, **_sdk_opts(body.target_cookie, body.target_location_hint, body.session_id)}
-    response = client.get_offers(opts)
-    at_debug_log_response(logger, "offers", response)
 
     resp = response.get("response") if response else None
     result: Dict[str, Any] = {
-        "mbox": body.mbox_name,
+        "mbox": mbox_name,
         "offers": offers_from_execute(resp) if resp else [],
         **_id_and_cookies(response, (body.third_party_id or "").strip() or None),
     }
@@ -201,23 +240,14 @@ async def get_offers_endpoint(body: OffersRequest) -> Dict[str, Any]:
 
 # ── profile-test 엔드포인트 ──
 
-class ProfileTestRequest(BaseModel):
-    """OffersRequest 와 동일 필드 + `params` → `profile_params` 만 다름. mbox 까지 같은 라우트를 공유."""
-
-    model_config = ConfigDict(populate_by_name=True)
+class ProfileTestRequest(_TargetVisitorRequest):
+    """offers 와 동일한 방문자 필드 + `params` 대신 `profile_params`. mbox 기본은 offer_mbox_name(설정 단일 소스)."""
 
     mbox_name: str = Field(default_factory=lambda: get_adobe_target_settings().offer_mbox_name)
-    page_url: Optional[str] = None
-    tnt_id: Optional[str] = Field(None, validation_alias=AliasChoices("tntId", "tnt_id"))
-    third_party_id: Optional[str] = Field(None, validation_alias=AliasChoices("thirdPartyId", "third_party_id"))
-    target_cookie: Optional[str] = None
-    target_location_hint: Optional[str] = None
-    session_id: Optional[str] = None
     profile_params: Optional[Dict[str, str]] = None
 
 
 def _profile_test_sync(body: ProfileTestRequest) -> Dict[str, Any]:
-    client = get_target_client()
     delivery_id = build_delivery_id(body.tnt_id, body.third_party_id)
 
     # offers 와 동일 mbox 로 호출해야 Audience·Profile Script 조건이 같은 컨텍스트에서 평가된다.
@@ -227,17 +257,14 @@ def _profile_test_sync(body: ProfileTestRequest) -> Dict[str, Any]:
         index=0,
         profile_parameters=body.profile_params or None,
     )
-    request = DeliveryRequest(
-        id=delivery_id,
-        context=Context(channel=ChannelType.WEB),
-        execute=ExecuteRequest(mboxes=[mbox]),
-        _property=ModelProperty(token=get_property_token()),
+    response = _run_delivery(
+        "profile_test",
+        delivery_id,
+        mbox,
+        cookie=body.target_cookie,
+        hint=body.target_location_hint,
+        session=body.session_id,
     )
-    at_debug_log_request(logger, "profile_test", request)
-
-    opts = {"request": request, **_sdk_opts(body.target_cookie, body.target_location_hint, body.session_id)}
-    response = client.get_offers(opts)
-    at_debug_log_response(logger, "profile_test", response)
 
     resp = response.get("response") if response else None
     offers = offers_from_execute(resp, parse_json=True) if resp else []
@@ -285,7 +312,6 @@ class RecommendationTestRequest(BaseModel):
 
 def _recommendation_test_sync(body: RecommendationTestRequest) -> Dict[str, Any]:
     # 1. [Recommendations] Delivery execute: thirdPartyId + 선택 customerIds, product·order·parameters
-    client = get_target_client()
     settings = get_adobe_target_settings()
     recs_mbox_name = settings.recs_mbox_name
     recipient_trim = (body.recipient_id or "").strip()
@@ -324,20 +350,13 @@ def _recommendation_test_sync(body: RecommendationTestRequest) -> Dict[str, Any]
 
     def _fetch_with_visitor_ids(customer_ids_param: Optional[list[CustomerId]]) -> Any:
         delivery_id = build_delivery_id(body.tnt_id, third_party_id, customer_ids_param)
-        request = DeliveryRequest(
-            id=delivery_id,
-            context=Context(channel=ChannelType.WEB),
-            execute=ExecuteRequest(mboxes=[mbox]),
-            _property=ModelProperty(token=get_property_token()),
+        return _run_delivery(
+            "recommendation_test",
+            delivery_id,
+            mbox,
+            cookie=body.target_cookie,
+            hint=body.target_location_hint,
         )
-        at_debug_log_request(logger, "recommendation_test", request)
-        opts: dict[str, Any] = {
-            "request": request,
-            **_sdk_opts(body.target_cookie, body.target_location_hint, None),
-        }
-        response = client.get_offers(opts)
-        at_debug_log_response(logger, "recommendation_test", response)
-        return response
 
     try:
         response = _fetch_with_visitor_ids(customer_ids_list)
