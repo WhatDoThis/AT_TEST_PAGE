@@ -2,6 +2,7 @@
 
 ## Log Index
 
+141. 2026-06-04 추천 전용 mbox(target-rec-msdk-mbox) 분리 — XT 활동과 location 충돌 제거(config·loadConfig·common·RecommendationScreen·문서)
 140. 2026-06-04 추천 네이티브 코드 점검·경량 리팩토링(recommendationData toRecord DRY·렌더 중복계산 제거·docstring 동기화)
 139. 2026-06-04 docs/adobe/02_AB.md 신규 — A/B 테스트 가이드(개념·활동 3종·트래픽/통계·네이티브 Form/mbox·abtest 매핑)
 138. 2026-06-04 docs/adobe/01_XT.md 신규 — XT(Experience Targeting) 가이드(개념·3단계·오디언스/우선순위·네이티브 Form/mbox·xttest 매핑) + 03 §2.4 실제 구독 반영
@@ -144,6 +145,18 @@
 12. 2026-04-27 docs/main AT_TEST_PAGE PRD v1.0 작성
 
 ## Log Body
+
+141. 2026-06-04 추천 전용 mbox(target-rec-msdk-mbox) 분리 — XT 활동과 location 충돌 제거(config·loadConfig·common·RecommendationScreen·문서)
+Purpose: 추천 화면이 XT 와 동일 mbox(target-msdk-mbox)를 써서 추천 조회 시 XT event-popup 오퍼가 반환되던 충돌 해결. 추천 전용 mbox 를 신설해 XT/A·B/추천이 각자 mbox 로 독립 동작하게 함.
+Changes:
+- config.dev.json·config.prd.json: `adobe_sdk_mboxes` 에 `rec_sdk_mbox_name: "target-rec-msdk-mbox"` 추가.
+- loadConfig.ts: AdobeSdkMboxesConfig 에 `rec_sdk_mbox_name?` 추가(주석 보강).
+- common.tsx: `REC_MBOX` export 추가(docstring 갱신).
+- RecommendationScreen.tsx: 적재·조회·SupportBanner 의 mbox 를 OFFER_MBOX→REC_MBOX 로 교체, ready 판정도 REC_MBOX 기준. docstring 갱신.
+- 문서: 03_RECOMMANDATION(§6·§7·§9 증상·§10·이력 v1.3), 04(§14.2·14.3·15.1·15.2·15.3·15.4·설정표) 추천 mbox 표기를 target-rec-msdk-mbox 로 갱신(XT 의 target-msdk-mbox 는 유지).
+- Target UI 작업 필요: 추천 활동 Location 을 target-rec-msdk-mbox 로 지정 후 게시(코드 외 수동 단계).
+- 검증: tsc --noEmit 통과, 린트 클린.
+Changed files: frontend/env/config.dev.json, frontend/env/config.prd.json, frontend/utils/loadConfig.ts, frontend/adobe_frontend/target-native-frontend/common.tsx, frontend/adobe_frontend/target-native-frontend/RecommendationScreen.tsx, docs/adobe/03_RECOMMANDATION.md, docs/main/04_AT_TEST_PAGE_ADOBE_TARGET_INTEGRATION.md
 
 140. 2026-06-04 추천 네이티브 코드 점검·경량 리팩토링(recommendationData toRecord DRY·렌더 중복계산 제거·docstring 동기화)
 Purpose: 구현된 추천 기능·유틸 코드를 전체 점검하고, 검증된 SDK 래퍼는 보존하면서 가독성·중복만 안전하게 개선.

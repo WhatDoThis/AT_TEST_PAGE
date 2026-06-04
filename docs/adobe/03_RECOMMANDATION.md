@@ -362,7 +362,7 @@ Audience 빌더 / Profile Attribute Matching 에서 crs.<속성> 사용
 
 1. `Activities > Create Activity > Recommendations`.
 2. Experience Composer **Form** 선택 → Next.(Workspace 선택 가능)
-3. **Location** = mbox 이름. **우리: `target-msdk-mbox`.**
+3. **Location** = mbox 이름. **우리: `target-rec-msdk-mbox`**(추천 전용 — XT 활동의 `target-msdk-mbox` 와 분리).
 4. **Default Content** → **Add Recommendation**.
 5. **Page Type** 선택 → 이후 Criteria 필터 기준.
 6. **Criteria 선택**(1+). 여러 개면 트래픽 균등 분할(자동 experience).
@@ -374,7 +374,7 @@ Audience 빌더 / Profile Attribute Matching 에서 crs.<속성> 사용
 
 ```text
   Create Activity (Recommendations · Form)
-    → Location = target-msdk-mbox → Page Type → Criteria → Design
+    → Location = target-rec-msdk-mbox → Page Type → Criteria → Design
     → (선택) Collection / Promotion → Audience → Goals & Settings → Activate
 ```
 
@@ -392,7 +392,7 @@ Audience 빌더 / Profile Attribute Matching 에서 crs.<속성> 사용
 ### 7.1 본 프로젝트(네이티브 SDK) 흐름
 
 1. `setThirdPartyId(수신자)` — 누구 기준으로 받을지.
-2. `retrieveLocationContent("target-msdk-mbox")` — 조회.
+2. `retrieveLocationContent("target-rec-msdk-mbox")` — 조회.
 3. 응답 = §5.3 Design JSON → 앱이 `parseRecommendations`로 Top5 추출.
 
 | 기능 | 파일 |
@@ -440,6 +440,7 @@ Audience 빌더 / Profile Attribute Matching 에서 crs.<속성> 사용
 | 빈 결과/인기만 | 학습 부족 → 더 쌓기. 백업=Yes면 인기로 채움 |
 | `$entity5.id` 토큰 그대로 | 추천 < 슬롯 → 앱 필터링 또는 백업 |
 | 아무것도 안 옴 | 미게시 / mbox 불일치 / Collection 0건 |
+| 추천인데 XT 팝업/다른 오퍼가 옴 | 추천 활동 Location 이 XT 와 **같은 mbox**. → 추천은 **전용 mbox(`target-rec-msdk-mbox`)** 로 분리(`common.REC_MBOX`) |
 | `crs.*`(고객속성) 빈값 | §2.4 3조건 점검(구독·Activate / CSV키 / setThirdPartyId 일치) |
 | 디자인 수정 미반영 | 새 디자인 만들어 교체 |
 
@@ -449,7 +450,7 @@ Audience 빌더 / Profile Attribute Matching 에서 crs.<속성> 사용
 
 | 구성 | 값 |
 |------|----|
-| mbox(Location) | `target-msdk-mbox`(= offer mbox, `config.mobile_env.adobe_sdk_mboxes`) |
+| mbox(Location) | `target-rec-msdk-mbox`(= 추천 전용 `rec_sdk_mbox_name`, `common.REC_MBOX`). XT 활동(`target-msdk-mbox`)과 분리 |
 | 상품 주입 | **Feed**(상품마스터 sb·sf) + **앱 mbox 파라미터**(`entity.*` + order, 메뉴 60개 `entity.id`=21~60) |
 | 고객 주입 | **Customer Attributes**(CSV 드래그업로드→Target 구독: `campaign_label`·`workflow_label`·`recipient_id`), 조인키 `recipient_id`=`setThirdPartyId`(§2.4) |
 | Collection | Test Woo Star Product 02 (sb, sf) |
@@ -488,3 +489,4 @@ Audience 빌더 / Profile Attribute Matching 에서 crs.<속성> 사용
 | 1.0 | 2026-06-04 | 최초 작성 — Zero→Live 흐름, 카탈로그·Collection·Criteria(백업/포함/가중치)·Design(Velocity)·Activity·조회·부가옵션·가드레일·본 프로젝트 매핑 |
 | 1.1 | 2026-06-04 | 필기노트 스타일 전면 재정리(내용 보존). §2.4 고객 데이터 평면(Customer Attributes · recipient_id 조인) 추가, Entity/Profile 매칭 보강, 가드레일·증상·요약·링크 갱신 |
 | 1.2 | 2026-06-04 | §2.4·§10에 본 프로젝트 실제 Customer Attributes 구성 반영(드래그업로드·.fin 불필요, 구독 속성 campaign_label/workflow_label/recipient_id) |
+| 1.3 | 2026-06-04 | 추천 전용 mbox 분리 — Location 을 `target-rec-msdk-mbox`(rec_sdk_mbox_name) 로 변경(XT 의 `target-msdk-mbox` 와 충돌 방지), §6·§7·§9·§10 갱신 |

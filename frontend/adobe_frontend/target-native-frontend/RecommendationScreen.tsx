@@ -1,7 +1,8 @@
 /**
  * adobe_frontend.target-native-frontend.RecommendationScreen (네이티브 Target 추천 테스트 화면)
  * ================================================================================
- * 네이티브 SDK 로 Adobe Target Recommendations 를 검증한다. mbox 는 config 의 offer mbox(target-msdk-mbox).
+ * 네이티브 SDK 로 Adobe Target Recommendations 를 검증한다. mbox 는 추천 전용 REC_MBOX(target-rec-msdk-mbox)
+ * 를 사용한다 — XT 활동(offer mbox)과 location 이 겹치면 XT 오퍼가 반환되므로 추천만 별도 mbox 로 분리한다.
  *
  * 상단 [데이터 적재]: "추천 데이터 보내기"를 누르면 1초 간격으로 RECIPIENT_IDS 를 순차 순회하며
  *   매 틱 무작위 메뉴 2~5개를 한 주문(entity+product+order)으로 묶어 전송한다. 멈출 때까지 반복해
@@ -23,7 +24,7 @@
  * - react, react-native
  * - ./native/adobeMobileTarget (sendTargetRecommendationData / setTargetVisitor / retrieveTargetContent / isAdobeMobileTargetSupported)
  * - ./recommendationData (RECIPIENT_IDS, pickRandomEntities, parseRecommendations, pickRecLabel, pickRecId)
- * - ./common (OFFER_MBOX, SupportBanner, commonStyles)
+ * - ./common (REC_MBOX, SupportBanner, commonStyles)
  */
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
@@ -49,7 +50,7 @@ import {
   pickRecId,
   pickRecLabel,
 } from "./recommendationData";
-import { OFFER_MBOX, SupportBanner, commonStyles as c } from "./common";
+import { REC_MBOX, SupportBanner, commonStyles as c } from "./common";
 
 const SEND_INTERVAL_MS = 1000;
 const MAX_LOG = 8;
@@ -57,7 +58,7 @@ const REC_SLOTS = 5;
 
 export default function RecommendationScreen(): React.ReactElement {
   const supported = isAdobeMobileTargetSupported();
-  const ready = supported && !!OFFER_MBOX;
+  const ready = supported && !!REC_MBOX;
 
   const [sending, setSending] = useState(false);
   const [sentCount, setSentCount] = useState(0);
@@ -79,7 +80,7 @@ export default function RecommendationScreen(): React.ReactElement {
     const ids = items.map((e) => e.id);
     const total = items.reduce((sum, e) => sum + e.price, 0);
     const rep = items[0];
-    sendTargetRecommendationData(OFFER_MBOX, {
+    sendTargetRecommendationData(REC_MBOX, {
       thirdPartyId: rid,
       entityId: rep.id,
       categoryId: rep.categoryId,
@@ -127,7 +128,7 @@ export default function RecommendationScreen(): React.ReactElement {
     setLoadingRec(true);
     try {
       setTargetVisitor(recipient);
-      const raw = await retrieveTargetContent(OFFER_MBOX, "");
+      const raw = await retrieveTargetContent(REC_MBOX, "");
       setRawRec(raw);
       setRecs(parseRecommendations(raw).slice(0, REC_SLOTS));
     } finally {
@@ -143,8 +144,8 @@ export default function RecommendationScreen(): React.ReactElement {
 
       <SupportBanner
         supported={supported}
-        mbox={OFFER_MBOX}
-        readyText={`네이티브 SDK 사용 가능 — mbox "${OFFER_MBOX}" 로 추천 데이터/조회를 수행합니다.`}
+        mbox={REC_MBOX}
+        readyText={`네이티브 SDK 사용 가능 — mbox "${REC_MBOX}" 로 추천 데이터/조회를 수행합니다.`}
       />
 
       {/* ── [데이터 적재] 1초 간격으로 수신자 순회 + 무작위 구매 전송 ── */}

@@ -32,10 +32,12 @@ export interface ImageItem {
 
 /** 네이티브(모바일 SDK) 전용 mbox 이름. 백엔드 웹 SDK 의 `config.adobe.json mboxes` 와 구분한다. */
 export interface AdobeSdkMboxesConfig {
-  /** 버튼('오퍼 가져오기')으로 호출하는 개별 오퍼 mbox. */
+  /** 버튼('오퍼 가져오기'/XT 테스트)으로 호출하는 개별 오퍼 mbox(XT 화면 전용). */
   offer_sdk_mbox_name: string;
   /** 첫 로드 시 자동 호출하는 global mbox(웹 bootstrap 역할). AB 활동을 이 mbox 에 할당해 페이지 진입 시 적용. */
   global_sdk_mbox_name?: string;
+  /** 추천(Recommendations) 전용 mbox. XT 활동과 location 이 겹치지 않도록 추천 화면만 사용. */
+  rec_sdk_mbox_name?: string;
 }
 
 /** 모바일(네이티브 SDK) 전용 환경값 묶음. web/공용 값과 명확히 구분하기 위해 별도 블록으로 분리한다. */

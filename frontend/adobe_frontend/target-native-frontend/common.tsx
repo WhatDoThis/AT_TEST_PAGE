@@ -7,7 +7,7 @@
  *
  * [Main Functions]
  * ===========
- * - OFFER_MBOX / GLOBAL_MBOX: config.mobile_env.adobe_sdk_mboxes 값(없으면 "")
+ * - OFFER_MBOX / GLOBAL_MBOX / REC_MBOX: config.mobile_env.adobe_sdk_mboxes 값(없으면 "")
  * - EMPTY_IDS: 비어 있는 방문자 식별자 기본값
  * - SupportBanner: 웹 미지원·mbox 미설정·정상 상태를 한 배너로 표시
  * - VisitorPanel: 방문자 식별자 표시 + ID 새로고침 + 경험 초기화(두 화면 공용)
@@ -17,6 +17,7 @@
  * =======================
  * - OFFER_MBOX: string
  * - GLOBAL_MBOX: string
+ * - REC_MBOX: string
  * - EMPTY_IDS: TargetIds
  * - SupportBanner({ supported, mbox, readyText }): React.ReactElement
  * - VisitorPanel({ ids, onRefresh, onReset }): React.ReactElement
@@ -37,10 +38,12 @@ import type { TargetIds } from "./native/adobeMobileTarget.types";
 
 const SDK_MBOXES = config.mobile_env?.adobe_sdk_mboxes;
 
-/** 버튼으로 호출하는 개별 오퍼 mbox. 미설정이면 ""(하드코딩 폴백 없음 → 디버그 시 누락이 드러남). */
+/** 버튼으로 호출하는 개별 오퍼 mbox(XT 화면). 미설정이면 ""(하드코딩 폴백 없음 → 디버그 시 누락이 드러남). */
 export const OFFER_MBOX = SDK_MBOXES?.offer_sdk_mbox_name ?? "";
-/** 진입 시 자동 호출하는 global mbox. 미설정이면 "". */
+/** 진입 시 자동 호출하는 global mbox(A/B 화면). 미설정이면 "". */
 export const GLOBAL_MBOX = SDK_MBOXES?.global_sdk_mbox_name ?? "";
+/** 추천(Recommendations) 전용 mbox. XT 활동과 location 충돌을 피하려고 추천 화면만 사용. 미설정이면 "". */
+export const REC_MBOX = SDK_MBOXES?.rec_sdk_mbox_name ?? "";
 
 // 1. 지원/설정 상태 배너 — 웹 미지원, mbox 미설정, 정상 3가지를 명확히 구분해 표시.
 export function SupportBanner({

@@ -467,7 +467,7 @@ useEffect(() => {
 ### 14.2 설정 키 — `mobile_env`
 
 - 모바일 전용 값은 `frontend/env/config.{dev,prd}.json`의 **`mobile_env`** 블록에 모은다(웹 값과 명확히 구분).
-  - `adobe_mobile_app_id`(Environment File ID), `adobe_target_property_token`, `assurance_session_url`/`assurance_session_pin`, `adobe_sdk_mboxes`(offer/global).
+  - `adobe_mobile_app_id`(Environment File ID), `adobe_target_property_token`, `assurance_session_url`/`assurance_session_pin`, `adobe_sdk_mboxes`(**offer**=XT / **global**=A·B / **rec**=추천, 각 화면이 자기 mbox만 사용해 활동 충돌 방지).
 - `frontend/utils/loadConfig.ts`의 `AppConfig.mobile_env`(타입 `MobileEnvConfig`)로 로드.
 - dev·prd 둘 다 development File ID를 기입(릴리스 빌드는 `config.prd.json`을 읽기 때문). 운영 배포 시 prd 값을 production File ID로 교체.
 
@@ -479,9 +479,9 @@ useEffect(() => {
 
 | 화면 | 라우트 | 푸터 라벨 | 핵심 |
 |------|--------|-----------|------|
-| **XT 테스트** | `/xttest` | XT 테스트 | offer mbox로 **오퍼 가져오기**(retrieveTargetContent) → 반환 콘텐츠 표시. event-popup 오퍼면 팝업(§14.4). |
-| **A/B 테스트** | `/abtest` | A/B 테스트 | 진입 시 자동 오퍼 → 중앙 이미지를 **디폴트 vs 오퍼(JSON `imageUrl`)** 로 나란히 비교(자동 리사이즈). |
-| **추천 SDK** | `/recommendation` | 추천 SDK | **추천 데이터 적재 루프 + 추천 가져오기**(§15). |
+| **XT 테스트** | `/xttest` | XT 테스트 | **offer mbox**(`target-msdk-mbox`)로 **오퍼 가져오기**(retrieveTargetContent) → 반환 콘텐츠 표시. event-popup 오퍼면 팝업(§14.4). |
+| **A/B 테스트** | `/abtest` | A/B 테스트 | **global mbox**(`target-global-msdk-mbox`) 진입 시 자동 오퍼 → 중앙 이미지를 **디폴트 vs 오퍼(JSON `imageUrl`)** 로 나란히 비교(자동 리사이즈). |
+| **추천 SDK** | `/recommendation` | 추천 SDK | **rec mbox**(`target-rec-msdk-mbox`)로 **추천 데이터 적재 루프 + 추천 가져오기**(§15). XT 와 분리. |
 
 - **공통:** 방문자 ID(tntId/thirdPartyId/sessionId) 조회·새로고침, **경험 초기화**(resetExperience + `MobileCore.resetIdentities()` → tntId·ECID 모두 재발급). 공용 `VisitorPanel`/`SupportBanner`/`commonStyles`(`common.tsx`)를 공유.
 - **SDK init·Assurance는 전역 1회**(`targetApp.tsx`, §14.1) — 화면별 입력폼 없음. **mbox는 환경변수(`config.mobile_env.adobe_sdk_mboxes`)만** 사용(하드코딩 폴백 없음 → 누락 시 배너 경고).
@@ -515,8 +515,8 @@ flowchart LR
 | **Collection(컬렉션)** | 추천 후보를 한정하는 상품 묶음(카테고리 등) | Test Woo Star Product 02 (sb, sf) |
 | **Criteria(기준)** | 어떤 알고리즘으로 추천할지 | Item-Based · `BOUGHT_CF based on Most Viewed Item` |
 | **Design(디자인)** | 추천 결과를 어떤 JSON/HTML로 내보낼지(템플릿) | Test Woo Start Product - Json (`meta` + `items` 5) |
-| **Activity(액티비티)** | mbox + Criteria + Design + Audience 를 묶어 게시 | `target-msdk-mbox` 에 연결 |
-| **mbox(위치)** | 앱이 추천을 요청하는 위치 이름 | `target-msdk-mbox`(= offer mbox) |
+| **Activity(액티비티)** | mbox + Criteria + Design + Audience 를 묶어 게시 | `target-rec-msdk-mbox` 에 연결 |
+| **mbox(위치)** | 앱이 추천을 요청하는 위치 이름 | `target-rec-msdk-mbox`(추천 전용 — XT 의 `target-msdk-mbox` 와 분리) |
 
 > 디자인 출력 계약(우리 활동):
 > ```json
@@ -538,7 +538,7 @@ flowchart TB
     D --> E["Criteria(BOUGHT_CF) 계산<br/>함께 구매된 상품 쌍 분석"]
   end
   subgraph S3["③ 추천 조회 (앱 → Adobe → 앱)"]
-    F["추천 가져오기<br/>setThirdPartyId(수신자)"] --> G["retrieveLocationContent<br/>(target-msdk-mbox)"]
+    F["추천 가져오기<br/>setThirdPartyId(수신자)"] --> G["retrieveLocationContent<br/>(target-rec-msdk-mbox)"]
     G --> H["Design JSON {meta, items[]}"]
     H --> I["parseRecommendations<br/>→ Top5 표시"]
   end
@@ -551,7 +551,7 @@ flowchart TB
 2. **Collection 생성**: 추천 후보 범위 지정(예: 카테고리 sb/sf).
 3. **Criteria 생성**: Algorithm Type=Item-Based, Algorithm=People Who Bought This/Bought That, Key=Most Viewed Item, **Backup Content** 설정(§15.5).
 4. **Design 생성**: 결과 JSON 템플릿(`$entity1.id` … 5개 슬롯).
-5. **Activity 생성**: Recommendations 활동 → **mbox=`target-msdk-mbox`** 지정 → Criteria·Design·Collection·Audience 연결 → **게시(Activate)**.
+5. **Activity 생성**: Recommendations 활동 → **mbox=`target-rec-msdk-mbox`**(추천 전용) 지정 → Criteria·Design·Collection·Audience 연결 → **게시(Activate)**. ※ XT 활동의 `target-msdk-mbox` 와 분리해야 XT 오퍼가 섞이지 않는다.
 
 > 게시되지 않았거나 mbox 이름이 다르면 조회 시 default/빈 응답만 온다(§18 FAQ).
 
@@ -563,7 +563,7 @@ flowchart TB
 2. `resetExperience()` → `setThirdPartyId(수신자)` — 한 기기에서 **수신자별 프로필을 분리**(reset이 thirdPartyId까지 지우므로 reset→set 순서).
 3. 메뉴에서 **중복 없이 2~5개** 무작위 선택.
 4. `TargetParameters(entity.*(대표 1개), TargetProduct, TargetOrder(orderId, 합계, [선택 id들]))` 구성.
-5. `retrieveLocationContent(target-msdk-mbox, params)` 로 전송 → Adobe에 **구매 이벤트 누적**.
+5. `retrieveLocationContent(target-rec-msdk-mbox, params)` 로 전송 → Adobe에 **구매 이벤트 누적**.
 
 > 왜 묶음인가: `BOUGHT_CF`(함께 구매)는 **한 주문/한 사용자가 함께 산 상품 쌍**으로 학습된다. 1개만 보내면 쌍이 안 생기므로, 2~5개를 묶어 보내 co-purchase 쌍을 빠르게 만든다. (60개 전부 묶으면 모든 상품이 서로 연관돼 신호가 희석 → 비권장)
 
@@ -634,7 +634,7 @@ eas build -p android --profile preview     # APK 빌드
 |------|----|------|-----|
 | `backend/env/config.adobe.json` | 웹 | `administration`(client·org·property_token·timeout) + `mboxes`(offer/recs/bootstrap) | **제외**(자격). `config.adobe.example.json` 복사해 작성 |
 | `backend/env/config.{dev,prd}.json` | 웹 | `cors_origins` 등(쿠폰 API와 공유) | 포함 |
-| `frontend/env/config.{dev,prd}.json` | 네이티브 | **`adobe_sdk_mboxes.offer_sdk_mbox_name`**(`target-msdk-mbox`)·**`adobe_mobile_app_id`**·api_url 등. 웹 mbox 이름은 프론트에 두지 않고 백엔드 `config.adobe.json` 을 단일 소스로 사용(프론트는 `bootstrap` 역할만 전달) | 포함 |
+| `frontend/env/config.{dev,prd}.json` | 네이티브 | **`adobe_sdk_mboxes`**(`offer_sdk_mbox_name`=XT `target-msdk-mbox` · `global_sdk_mbox_name`=A·B `target-global-msdk-mbox` · `rec_sdk_mbox_name`=추천 `target-rec-msdk-mbox`)·**`adobe_mobile_app_id`**·api_url 등. 웹 mbox 이름은 프론트에 두지 않고 백엔드 `config.adobe.json` 을 단일 소스로 사용(프론트는 `bootstrap` 역할만 전달) | 포함 |
 
 - CORS: `app/main.py`가 `GET/POST/OPTIONS`, `allow_private_network`, dev에서 localhost·127.0.0.1·`[::1]` 임의 포트 정규식을 처리(상세는 `03` §3.4).
 
