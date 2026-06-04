@@ -4,7 +4,8 @@
     "strict": true,
     "paths": {
       "@/*": ["./*"],
-      "@adobe/*": ["./adobe_frontend/target_frontend/*"]
+      "@adobe/*": ["./adobe_frontend/target_frontend/*"],
+      "@adobe-native/*": ["./adobe_frontend/target-native-frontend/*"]
     }
   },
   "include": [

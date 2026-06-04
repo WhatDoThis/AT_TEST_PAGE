@@ -1,5 +1,5 @@
 /**
- * adobe_frontend.target_frontend.native.adobeMobileTarget (네이티브 구현 · iOS/Android)
+ * adobe_frontend.target-native-frontend.native.adobeMobileTarget (네이티브 구현 · iOS/Android)
  * ================================================================================
  * Adobe Experience Platform Mobile SDK를 이용해 네이티브 앱에서 Adobe Target을 호출한다.
  * Data Collection(Tags) 모바일 속성의 Environment File ID(appId)로 SDK를 초기화하면
@@ -10,7 +10,7 @@
  * [Main Functions]
  * ===========
  * - isAdobeMobileTargetSupported: 네이티브에서 항상 true
- * - initAdobeMobileTarget: appId로 MobileCore 초기화(1회)
+ * - initAdobeMobileTarget: appId로 MobileCore 초기화(1회) + Property 토큰 주입(선택)
  * - retrieveTargetContent: 단일 mbox 콘텐츠 조회(콜백 → Promise 래핑)
  * - getTargetIds: tntId/thirdPartyId/sessionId 조회
  * - resetTargetExperience: 방문자 식별자 초기화
@@ -19,7 +19,7 @@
  * [Endpoints/Classes/Functions]
  * =======================
  * - isAdobeMobileTargetSupported(): boolean
- * - initAdobeMobileTarget(appId): Promise<boolean>
+ * - initAdobeMobileTarget(appId, propertyToken?): Promise<boolean>
  * - retrieveTargetContent(mboxName, defaultContent, mboxParameters?): Promise<string>
  * - getTargetIds(): Promise<TargetIds>
  * - resetTargetExperience(): void
@@ -52,7 +52,11 @@ export function isAdobeMobileTargetSupported(): boolean {
 }
 
 // 2. 초기화 — appId(Environment File ID)로 SDK 구성, v7은 확장 자동 등록
-export async function initAdobeMobileTarget(appId: string): Promise<boolean> {
+//    propertyToken 이 있으면 target.propertyToken 으로 주입해 특정 Property 활동만 매칭되게 한다.
+export async function initAdobeMobileTarget(
+  appId: string,
+  propertyToken?: string
+): Promise<boolean> {
   // 이미 초기화됐거나 appId가 비어있으면 조기 반환(가드 클로즈)
   if (initialized) {
     return true;
@@ -64,6 +68,11 @@ export async function initAdobeMobileTarget(appId: string): Promise<boolean> {
   try {
     MobileCore.setLogLevel(LogLevel.DEBUG);
     await MobileCore.initializeWithAppId(appId.trim());
+    // (AT) Target 활동을 특정 Property 로 구획한 경우, 모바일 요청에 at_property 토큰이 실려야
+    //      해당 Property 의 활동이 평가된다. 토큰이 없으면 생략(전체 평가).
+    if (propertyToken && propertyToken.trim().length > 0) {
+      MobileCore.updateConfiguration({ "target.propertyToken": propertyToken.trim() });
+    }
     initialized = true;
     return true;
   } catch (error) {

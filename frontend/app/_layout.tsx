@@ -11,6 +11,7 @@
  * - (AT) TargetAppProvider + TargetPageBootstrap
  * - (웹) DigitalDataSync — `window.digitalData.page.pageInfo.pageName`
  * - (웹) RN Web pointerEvents deprecation 경고 LogBox 무시
+ * - (Android) 몰입형 내비게이션 바: 홈/제스처 바를 숨기고 하단에서 위로 스와이프할 때만 잠깐 노출
  *
  * [Endpoints/Classes/Functions]
  * =======================
@@ -19,7 +20,9 @@
  * [Dependencies]
  * =========
  * - expo-router
+ * - expo-navigation-bar (Android 내비게이션 바 숨김/스와이프 노출)
  * - react-native-gesture-handler
+ * - react-native-safe-area-context (SafeAreaProvider — 하단 inset)
  * - @/utils/loadConfig
  * - @/components/AppFooter
  * - @adobe/app/targetApp
@@ -29,7 +32,9 @@
 
 import { useEffect } from "react";
 import { Stack } from "expo-router";
+import * as NavigationBar from "expo-navigation-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StyleSheet, Platform, LogBox, View } from "react-native";
 import { config } from "@/utils/loadConfig";
 import AppFooter from "@/components/AppFooter";
@@ -51,24 +56,35 @@ function RootLayoutInner() {
     LogBox.ignoreLogs(["props.pointerEvents is deprecated. Use style.pointerEvents"]);
   }, []);
 
+  // (Android) 몰입형 내비게이션 바: 숨김 + overlay-swipe(아래에서 위로 스와이프 시 잠깐 노출 후 자동 숨김).
+  // 일반 앱처럼 홈버튼이 평소엔 가려져 푸터 링크와 겹치지 않는다(웹/iOS는 미적용).
+  useEffect(() => {
+    if (Platform.OS !== "android") return;
+    NavigationBar.setBehaviorAsync("overlay-swipe").catch(() => {});
+    NavigationBar.setVisibilityAsync("hidden").catch(() => {});
+  }, []);
+
   return (
     <GestureHandlerRootView style={styles.root}>
-      <TargetPageBootstrap />
-      <DigitalDataSync />
-      <View style={styles.body}>
-        <View style={styles.stackArea}>
-          <Stack
-            screenOptions={{
-              headerTitle: config.app_title,
-              headerTitleAlign: "center",
-              headerStyle: { backgroundColor: "#4A90D9" },
-              headerTintColor: "#fff",
-              headerTitleStyle: { fontWeight: "700", fontSize: 20 },
-            }}
-          />
+      {/* SafeAreaProvider: 하단 푸터가 기기 제스처 바/홈버튼 영역을 피하도록 inset 제공(웹은 0) */}
+      <SafeAreaProvider>
+        <TargetPageBootstrap />
+        <DigitalDataSync />
+        <View style={styles.body}>
+          <View style={styles.stackArea}>
+            <Stack
+              screenOptions={{
+                headerTitle: config.app_title,
+                headerTitleAlign: "center",
+                headerStyle: { backgroundColor: "#4A90D9" },
+                headerTintColor: "#fff",
+                headerTitleStyle: { fontWeight: "700", fontSize: 20 },
+              }}
+            />
+          </View>
+          <AppFooter />
         </View>
-        <AppFooter />
-      </View>
+      </SafeAreaProvider>
     </GestureHandlerRootView>
   );
 }

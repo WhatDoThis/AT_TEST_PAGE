@@ -2,6 +2,15 @@
 
 ## Log Index
 
+130. 2026-06-02 네이티브 SDK 래퍼(adobeMobileTarget 3파일)를 target-native-frontend/native 로 이관·import 정리
+129. 2026-06-02 네이티브 테스트 화면 mbox 하드코딩 폴백 제거(미설정 경고)·공용 모듈(common)로 배너/스타일 중복 제거
+128. 2026-06-02 네이티브 Target 테스트 화면 패키지 이관(target-native-frontend)·XT/A·B 테스트 개편·Assurance 전역 자동세션·안드로이드 몰입형 내비바
+127. 2026-06-02 AB 이미지 테스트를 native-target-abtest 화면으로 분리(ab-image 파서 제거·단일 imageUrl 계약)
+126. 2026-06-02 global mbox(첫 로드 자동 호출) 추가 + AB 이미지 오퍼(ab-image) 중앙 적용
+125. 2026-06-02 프론트 config 모바일 전용값을 mobile_env 블록으로 통합(web/mobile 구분)
+124. 2026-06-02 Target Property 토큰 주입(config) + SDK 테스트 화면 A/B 이미지 영역 추가
+123. 2026-06-02 네이티브 SDK 테스트 화면 KeyboardAvoidingView 적용(입력 시 키보드 가림 방지)
+122. 2026-06-02 하단 푸터 safe-area inset 반영(모바일 제스처 바/홈버튼 클릭 충돌 방지)
 121. 2026-06-01 모바일 확장 설치 검증 + 가이드 문서(04) v3.1 갱신(검증 매트릭스·event-popup 공용·리팩토링 반영)
 120. 2026-06-01 모바일 SDK 경로에서도 event-popup 오퍼 시 웹과 동일한 EventPopup 표시
 119. 2026-06-01 백엔드 요청 모델 공통 베이스(_TargetVisitorRequest)로 Offers/ProfileTest 중복 필드 통합
@@ -125,6 +134,114 @@
 12. 2026-04-27 docs/main AT_TEST_PAGE PRD v1.0 작성
 
 ## Log Body
+
+130. 2026-06-02 네이티브 SDK 래퍼(adobeMobileTarget 3파일)를 target-native-frontend/native 로 이관·import 정리
+Purpose: 네이티브 전용 SDK 래퍼가 공용 target_frontend 아래 있던 것을, 네이티브 묶음(target-native-frontend) 하위로 옮겨 위치 일관성을 맞추고 import 를 정리.
+Changes:
+- 이관: `target_frontend/native/{adobeMobileTarget.ts, .native.ts, .types.ts}` → `target-native-frontend/native/` (빈 폴더 삭제). docstring 모듈 경로 갱신.
+- import 갱신: 화면(XtTest/AbTest)은 동일 패키지 상대경로 `./native/adobeMobileTarget`(+ .types), targetApp 은 `@adobe-native/native/adobeMobileTarget` 별칭 사용.
+- 3파일 리팩토링 점검: 이미 가드 클로즈·함수 40줄 미만·하드코딩 mbox 없음·플랫폼 분리(.ts/.native.ts) 규칙에 부합 → 동작 코드는 변경 없이 위치/문서만 정리(불필요한 변경 자제).
+Changed files: frontend/adobe_frontend/target-native-frontend/native/adobeMobileTarget.ts(신규), .native.ts(신규), .types.ts(신규), frontend/adobe_frontend/target_frontend/native/*(삭제), frontend/adobe_frontend/target-native-frontend/XtTestScreen.tsx, AbTestScreen.tsx, frontend/adobe_frontend/target_frontend/app/targetApp.tsx
+
+129. 2026-06-02 네이티브 테스트 화면 mbox 하드코딩 폴백 제거(미설정 경고)·공용 모듈(common)로 배너/스타일 중복 제거
+Purpose: 테스트 화면의 mbox 하드코딩 폴백이 설정 누락을 가려 디버깅을 방해하는 문제를 제거하고, 두 화면의 배너/스타일 중복을 공용 모듈로 모아 가독성·코드량을 개선.
+Changes:
+- 하드코딩 폴백 제거: `?? "target-msdk-mbox"`·`?? "target-global-msdk-mbox"` → config 값만 사용(없으면 ""). 미설정이면 SupportBanner 가 "mbox 미설정(환경변수 확인)" 경고를 띄워 디버깅 시 누락이 드러나게 함.
+- 공용 모듈 신설 `target-native-frontend/common.tsx`: OFFER_MBOX/GLOBAL_MBOX(config, 폴백 없음) + SupportBanner(웹 미지원/mbox 미설정/정상 3분기) + commonStyles(컨테이너·타이틀·배너·라벨·버튼·결과박스).
+- XtTestScreen/AbTestScreen: 공용 모듈을 사용하도록 정리(배너 JSX·중복 스타일 ~60줄 제거, 화면 고유 스타일만 로컬 유지). AB 는 GLOBAL_MBOX 미설정 시 자동 호출 스킵.
+- 점검: targetApp 의 appId 는 이미 `?? ""`(폴백 없음)로 안전. 웹/공용 targetHttp 의 `?? "http://localhost:8010"` 는 web 경로라 이번 native 범위에서 제외(현재 config 에 api_url 항상 존재).
+Changed files: frontend/adobe_frontend/target-native-frontend/common.tsx(신규), frontend/adobe_frontend/target-native-frontend/XtTestScreen.tsx, frontend/adobe_frontend/target-native-frontend/AbTestScreen.tsx
+
+128. 2026-06-02 네이티브 Target 테스트 화면 패키지 이관(target-native-frontend)·XT/A·B 테스트 개편·Assurance 전역 자동세션·안드로이드 몰입형 내비바
+Purpose: 어도비 타겟 네이티브 테스트 화면을 app/ 에서 adobe_frontend 하위로 이관하고, XT/A·B 테스트 화면 요구사항을 반영하며, Assurance 를 전역 1회 자동 적용하고, 모바일 홈버튼이 푸터를 가리는 문제를 몰입형 내비게이션 바로 해결.
+Changes:
+- 패키지 구조: `adobe_frontend/target-native-frontend/` 신설 + tsconfig `@adobe-native/*` 별칭. 화면 구현(XtTestScreen/AbTestScreen)을 이관하고 `app/xttest.tsx`·`app/abtest.tsx` 는 default re-export 래퍼만 둠. 기존 `app/native-target-test.tsx`·`app/native-target-abtest.tsx` 삭제(라우트 /xttest, /abtest).
+- XT 테스트(XtTestScreen): mbox 입력폼·Assurance 입력폼/버튼 제거(환경변수 고정값 사용). 버튼 '오퍼 가져오기'→'XT 테스트'. 반환 콘텐츠·방문자 식별자·경험 초기화·event-popup 유지.
+- 전역 init: `mobile_env.assurance_session_url`(+참고용 pin) 환경변수 추가, `targetApp` 에서 SDK init 후 Assurance 세션을 전역 1회 자동 시작(웹 no-op, PIN 은 앱 내 입력).
+- A/B 테스트(AbTestScreen): 진입 시 global mbox 자동 호출. 친절 안내문구 추가, 중앙을 좌(기본 default.png)/우(오퍼 imageUrl) 2열로 배치, contain 으로 라인 폭 자동 맞춤. 버튼·받은 오퍼(JSON)·초기화 유지.
+- 푸터: 라벨 'SDK 테스트'→'XT 테스트', 'AB 테스트'→'A/B 테스트', 라우트 /xttest·/abtest 로 갱신.
+- 안드로이드 몰입형: `expo-navigation-bar` 설치, app.json 플러그인(visibility hidden) + `_layout` 에서 setBehaviorAsync('overlay-swipe')·setVisibilityAsync('hidden') 적용 → 홈/제스처 바가 평소 숨겨지고 하단 스와이프 시만 노출(웹/iOS 미적용). ※ 네이티브 재빌드 필요.
+Changed files: frontend/tsconfig.json, frontend/app.json, frontend/app/_layout.tsx, frontend/app/xttest.tsx(신규), frontend/app/abtest.tsx(신규), frontend/adobe_frontend/target-native-frontend/XtTestScreen.tsx(신규), frontend/adobe_frontend/target-native-frontend/AbTestScreen.tsx(신규), frontend/app/native-target-test.tsx(삭제), frontend/app/native-target-abtest.tsx(삭제), frontend/components/AppFooter.tsx, frontend/adobe_frontend/target_frontend/app/targetApp.tsx, frontend/utils/loadConfig.ts, frontend/env/config.dev.json, frontend/env/config.prd.json, frontend/package.json
+
+127. 2026-06-02 AB 이미지 테스트를 native-target-abtest 화면으로 분리(ab-image 파서 제거·단일 imageUrl 계약)
+
+Purpose: 요소별 전용 파서는 기업 앱 확장성에 부적합하므로 ab-image 파서를 제거하고, AB 이미지 테스트를 단순한 전용 화면으로 분리한다. 시스템은 "오퍼 JSON 의 imageUrl" 단일 계약만 두고 변형은 Target 활동에서 결정.
+
+Changes:
+
+- `adobe_frontend/.../utils/targetOfferParser.ts`: `AdobeTargetImageOffer` 타입·`parseAdobeTargetImageOfferContent` 제거(docstring 동기화). event-popup 파서는 유지
+- `app/native-target-test.tsx`: 첫 로드 global mbox useEffect·abImageUrl·AB 이미지 영역·관련 import/스타일 제거 → SDK 테스트 본래 화면으로 환원
+- `app/native-target-abtest.tsx`(신규): global mbox 호출 → `JSON.parse(raw).imageUrl` 인라인 추출(전용 파서 없음) → 중앙 이미지 적용, 없으면 default.png 폴백, `<Image source={{uri}}>` 주의(크기/https/onError) 반영. 다시 불러오기·초기화 버튼
+- `components/AppFooter.tsx`: 'AB 테스트' 탭(`/native-target-abtest`) 추가
+- 검증: `npx tsc --noEmit` 통과, 린트 0
+
+Changed files: frontend/adobe_frontend/target_frontend/utils/targetOfferParser.ts, frontend/app/native-target-test.tsx, frontend/app/native-target-abtest.tsx, frontend/components/AppFooter.tsx, docs/log/log.md
+
+126. 2026-06-02 global mbox(첫 로드 자동 호출) 추가 + AB 이미지 오퍼(ab-image) 중앙 적용
+
+Purpose: 웹 bootstrap 역할의 global mbox 를 모바일에 추가해, SDK 테스트 화면 첫 로드 시 1회 자동 호출로 AB 이미지를 분배·적용한다. 기존 '오퍼 가져오기' 버튼/offer mbox 는 그대로 유지.
+
+Changes:
+
+- `env/config.dev.json`·`env/config.prd.json`: `mobile_env.adobe_sdk_mboxes` 에 `global_sdk_mbox_name: "target-global-msdk-mbox"` 추가
+- `utils/loadConfig.ts`: `AdobeSdkMboxesConfig.global_sdk_mbox_name?` 추가(주석으로 offer/global 역할 구분)
+- `adobe_frontend/.../utils/targetOfferParser.ts`: `AdobeTargetImageOffer` 타입 + `parseAdobeTargetImageOfferContent(content)` 추가(`{type:"ab-image", imageUrl|url|image}` 해석, 공용 `_coerceContentValue` 재사용)
+- `app/native-target-test.tsx`: 첫 로드 `useEffect` 1회 → `retrieveTargetContent(GLOBAL_MBOX)` → ab-image 파싱 → 중앙 이미지에 원격 URL 적용(`<Image source={{uri}}>`), 없으면 `getImage("default.png")` 폴백, `onError` 폴백, 경험 초기화 시 함께 리셋. 버튼/offer 경로 무변경
+- 검증: `npx tsc --noEmit` 통과, 린트 0
+
+Changed files: frontend/env/config.dev.json, frontend/env/config.prd.json, frontend/utils/loadConfig.ts, frontend/adobe_frontend/target_frontend/utils/targetOfferParser.ts, frontend/app/native-target-test.tsx, docs/log/log.md
+
+125. 2026-06-02 프론트 config 모바일 전용값을 mobile_env 블록으로 통합(web/mobile 구분)
+
+Purpose: frontend/env/config 에 web·mobile 값이 섞여 있어, 모바일(네이티브 SDK) 전용 값을 `mobile_env` 블록으로 묶어 명확히 구분한다(사용자 요청).
+
+Changes:
+
+- `env/config.dev.json`·`env/config.prd.json`: `adobe_mobile_app_id`·`adobe_target_property_token`·`adobe_sdk_mboxes` 를 모두 `mobile_env` 하위로 이동(web/공용 값 port·base_url·api_url·app_title·images 는 최상위 유지)
+- `utils/loadConfig.ts`: `MobileEnvConfig` 인터페이스 신설(3개 키 포함), `AppConfig` 에서 개별 키 제거 후 `mobile_env?: MobileEnvConfig` 로 대체. 모듈 docstring 갱신
+- `app/targetApp.tsx`: `config.mobile_env?.adobe_mobile_app_id`/`...adobe_target_property_token` 으로 참조 변경
+- `app/native-target-test.tsx`: `config.mobile_env?.adobe_sdk_mboxes?.offer_sdk_mbox_name` 으로 참조 변경
+- 검증: `npx tsc --noEmit` 통과, 잔여 구참조 0건
+
+Changed files: frontend/env/config.dev.json, frontend/env/config.prd.json, frontend/utils/loadConfig.ts, frontend/adobe_frontend/target_frontend/app/targetApp.tsx, frontend/app/native-target-test.tsx, docs/log/log.md
+
+124. 2026-06-02 Target Property 토큰 주입(config) + SDK 테스트 화면 A/B 이미지 영역 추가
+
+Purpose: Adobe Target 활동을 특정 Property(at_property)로 구획한 경우 모바일 요청에 토큰을 실어 매칭시키고, SDK 테스트 화면에 A/B 검증용 이미지 영역을 추가한다.
+
+Changes:
+
+- `env/config.dev.json`·`env/config.prd.json`: `adobe_target_property_token` 추가(하드코딩 대신 config 분리). 값 `c851da4c-8201-3d44-b91a-4dc532f7ec72`
+- `utils/loadConfig.ts`: `AppConfig.adobe_target_property_token?` 타입·docstring 추가
+- `native/adobeMobileTarget.native.ts`: `initAdobeMobileTarget(appId, propertyToken?)`로 확장, 초기화 후 `MobileCore.updateConfiguration({ "target.propertyToken": token })` 주입(토큰 있을 때만)
+- `native/adobeMobileTarget.ts`(웹 no-op): 시그니처만 동일하게 맞춤
+- `app/targetApp.tsx`: `config.adobe_target_property_token` 을 init 에 전달
+- `app/native-target-test.tsx`: '오퍼 가져오기' 버튼 하단에 A/B 테스트 이미지 영역(`getImage("default.png")`, 높이 140 contain) 추가. 기존 `imageMap` 패턴 재사용
+
+Changed files: frontend/env/config.dev.json, frontend/env/config.prd.json, frontend/utils/loadConfig.ts, frontend/adobe_frontend/target_frontend/native/adobeMobileTarget.native.ts, frontend/adobe_frontend/target_frontend/native/adobeMobileTarget.ts, frontend/adobe_frontend/target_frontend/app/targetApp.tsx, frontend/app/native-target-test.tsx, docs/log/log.md
+
+123. 2026-06-02 네이티브 SDK 테스트 화면 KeyboardAvoidingView 적용(입력 시 키보드 가림 방지)
+
+Purpose: 모바일에서 mbox/Assurance URL 입력칸을 탭하면 키보드가 입력창을 가려 입력 내용이 안 보이는 불편을 RN 기본 KeyboardAvoidingView로 해결한다.
+
+Changes:
+
+- `app/native-target-test.tsx`: ScrollView를 `KeyboardAvoidingView`(iOS=padding/Android=height)로 감쌈. `keyboardShouldPersistTaps="handled"`·`keyboardDismissMode="on-drag"` 추가로 키보드 떠 있어도 버튼 1탭 동작·드래그로 닫기. `s.flex` 스타일 추가, docstring 갱신
+- 입력칸이 있는 화면은 이 화면 1개뿐이라 변경 범위 한정(다른 테스트 페이지엔 TextInput 없음)
+
+Changed files: frontend/app/native-target-test.tsx, docs/log/log.md
+
+122. 2026-06-02 하단 푸터 safe-area inset 반영(모바일 제스처 바/홈버튼 클릭 충돌 방지)
+
+Purpose: 모바일에서 하단 푸터 탭이 기기 제스처 바/홈버튼과 위치가 겹쳐 클릭이 어려운 문제를 safe-area 하단 inset 반영으로 해결한다.
+
+Changes:
+
+- `app/_layout.tsx`: `react-native-safe-area-context`의 `SafeAreaProvider`를 `GestureHandlerRootView` 하위에 추가(누락돼 있던 Provider). 웹은 inset=0이라 기존과 동일
+- `components/AppFooter.tsx`: `useSafeAreaInsets()`로 하단 inset 사용. 네이티브만 `insets.bottom + FOOTER_BOTTOM_GAP(=18)`로 시스템 내비(제스처 바/홈버튼) 위에 간격을 두고, 웹은 홈버튼이 없으므로 기존 `WEB_BOTTOM_PADDING(=10)` 유지(Platform 분기). 간격은 상수로 조절
+- 두 파일 상단 docstring [Dependencies]/[Main Functions] 동기화
+
+Changed files: frontend/app/_layout.tsx, frontend/components/AppFooter.tsx, docs/log/log.md
 
 121. 2026-06-01 모바일 확장 설치 검증 + 가이드 문서(04) v3.1 갱신(검증 매트릭스·event-popup 공용·리팩토링 반영)
 

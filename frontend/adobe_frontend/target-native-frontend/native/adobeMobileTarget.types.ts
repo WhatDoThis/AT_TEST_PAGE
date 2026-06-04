@@ -1,5 +1,5 @@
 /**
- * adobe_frontend.target_frontend.native.adobeMobileTarget.types (네이티브 Target SDK 공용 타입)
+ * adobe_frontend.target-native-frontend.native.adobeMobileTarget.types (네이티브 Target SDK 공용 타입)
  * ================================================================================
  * 웹(no-op)·네이티브 구현이 공유하는 타입 정의. 두 구현(`adobeMobileTarget.ts` / `.native.ts`)이
  * 동일 시그니처를 유지하도록 타입만 한곳에 모은다.

@@ -1,5 +1,5 @@
 /**
- * adobe_frontend.target_frontend.native.adobeMobileTarget (웹 기본 구현 · no-op)
+ * adobe_frontend.target-native-frontend.native.adobeMobileTarget (웹 기본 구현 · no-op)
  * ================================================================================
  * Adobe Mobile SDK(AEPCore/AEPTarget/AEPAssurance)는 네이티브 전용이라 웹 번들에서는
  * 절대 import 되면 안 된다. Metro가 네이티브에서는 `adobeMobileTarget.native.ts`,
@@ -19,7 +19,7 @@
  * [Endpoints/Classes/Functions]
  * =======================
  * - isAdobeMobileTargetSupported(): boolean
- * - initAdobeMobileTarget(appId): Promise<boolean>
+ * - initAdobeMobileTarget(appId, propertyToken?): Promise<boolean>
  * - retrieveTargetContent(mboxName, defaultContent, mboxParameters?): Promise<string>
  * - getTargetIds(): Promise<TargetIds>
  * - resetTargetExperience(): void
@@ -37,8 +37,11 @@ export function isAdobeMobileTargetSupported(): boolean {
   return false;
 }
 
-// 2. 초기화 — 웹은 no-op
-export async function initAdobeMobileTarget(_appId: string): Promise<boolean> {
+// 2. 초기화 — 웹은 no-op (propertyToken 시그니처만 네이티브와 맞춘다)
+export async function initAdobeMobileTarget(
+  _appId: string,
+  _propertyToken?: string
+): Promise<boolean> {
   return false;
 }
 
