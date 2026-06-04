@@ -20,7 +20,7 @@
 ```text
 1부. 개념        — Target이 뭔지, 용어 5개, 두 길의 차이
 2부. 웹 길        — 흐름 → 식별 정책 → 백엔드 알고리즘 → 프론트 → HTTP 예시
-3부. 네이티브 길  — 흐름 → 왜 분리하나 → 패키지/설정 → 코드 → 빌드
+3부. 네이티브 길  — 흐름 → 왜 분리하나 → 패키지/설정 → 코드 → 테스트 화면 → 추천(Recommendations) → 빌드
 4부. 운영        — 설정 총정리 → 체크리스트 → 문제 해결 → 이력
 ```
 
@@ -448,31 +448,44 @@ flowchart TB
 
 ### 14.1 초기화 위치 — `targetApp.tsx`
 
-앱 루트 Provider의 마운트 시점에 두 가지를 호출한다(둘 다 **웹에서는 no-op**).
+앱 루트 Provider의 마운트 시점에 호출한다(모두 **웹에서는 no-op**). 모바일 전용 설정은 `config.mobile_env` 하위에 모여 있다.
 
 ```ts
 useEffect(() => {
-  void hydrateSessionStore();                              // (네이티브) 세션 캐시 적재
-  void initAdobeMobileTarget(config.adobe_mobile_app_id ?? ""); // (네이티브) SDK 초기화
+  void hydrateSessionStore();                               // (네이티브) 세션 캐시 적재
+  void (async () => {
+    await initAdobeMobileTarget(                             // (네이티브) SDK 초기화 + Property 토큰 주입
+      config.mobile_env?.adobe_mobile_app_id ?? "",
+      config.mobile_env?.adobe_target_property_token,
+    );
+    const url = config.mobile_env?.assurance_session_url;    // (네이티브) Assurance 자동 세션
+    if (url) startAssuranceSession(url);
+  })();
 }, []);
 ```
 
-### 14.2 설정 키 — `adobe_mobile_app_id`
+### 14.2 설정 키 — `mobile_env`
 
-- `frontend/utils/loadConfig.ts`의 `AppConfig`에 `adobe_mobile_app_id?: string` 추가.
-- `frontend/env/config.dev.json` **및** `config.prd.json` 둘 다에 Environment File ID를 기입.
+- 모바일 전용 값은 `frontend/env/config.{dev,prd}.json`의 **`mobile_env`** 블록에 모은다(웹 값과 명확히 구분).
+  - `adobe_mobile_app_id`(Environment File ID), `adobe_target_property_token`, `assurance_session_url`/`assurance_session_pin`, `adobe_sdk_mboxes`(offer/global).
+- `frontend/utils/loadConfig.ts`의 `AppConfig.mobile_env`(타입 `MobileEnvConfig`)로 로드.
+- dev·prd 둘 다 development File ID를 기입(릴리스 빌드는 `config.prd.json`을 읽기 때문). 운영 배포 시 prd 값을 production File ID로 교체.
 
 > ⚠️ **빌드와 설정의 관계:** EAS의 `preview`/`production` 빌드는 릴리스(`__DEV__=false`)라 **`config.prd.json`을 읽는다.** 그래서 실기기 테스트가 바로 되도록 dev·prd 양쪽에 development `appId`를 넣었다. **실제 운영 배포 시에는 `config.prd.json`의 값을 production 환경 File ID로 교체**해야 한다.
 
-### 14.3 테스트 화면 — `/native-target-test`
+### 14.3 테스트 화면(3종) — XT / A·B / 추천 SDK
 
-- mbox 이름 입력 → **오퍼 가져오기**(retrieveTargetContent) → 반환 콘텐츠 표시.
-- **방문자 ID**(tntId/thirdPartyId/sessionId) 조회·새로고침.
-- **Assurance 세션 URL** 입력 → 세션 시작(실기기 디버깅).
-- **경험 초기화**(resetExperience) → 콘텐츠·ID·팝업 상태 모두 초기화.
-- **event-popup 오퍼면 팝업 표시**(§14.4) — 반환 JSON이 `type:event-popup`일 때.
-- 웹에서 열면 "네이티브 빌드에서 테스트하세요" 안내 배너만 보인다.
-- 하단 푸터 **"SDK 테스트"** 탭으로 진입.
+화면 구현은 `frontend/adobe_frontend/target-native-frontend/`에 모으고, `app/`의 라우트 파일은 얇은 re-export만 둔다. 셋 다 웹에서 열면 "네이티브 빌드에서 테스트하세요" 안내 배너만 보인다.
+
+| 화면 | 라우트 | 푸터 라벨 | 핵심 |
+|------|--------|-----------|------|
+| **XT 테스트** | `/xttest` | XT 테스트 | offer mbox로 **오퍼 가져오기**(retrieveTargetContent) → 반환 콘텐츠 표시. event-popup 오퍼면 팝업(§14.4). |
+| **A/B 테스트** | `/abtest` | A/B 테스트 | 진입 시 자동 오퍼 → 중앙 이미지를 **디폴트 vs 오퍼(JSON `imageUrl`)** 로 나란히 비교(자동 리사이즈). |
+| **추천 SDK** | `/recommendation` | 추천 SDK | **추천 데이터 적재 루프 + 추천 가져오기**(§15). |
+
+- **공통:** 방문자 ID(tntId/thirdPartyId/sessionId) 조회·새로고침, **경험 초기화**(resetExperience + `MobileCore.resetIdentities()` → tntId·ECID 모두 재발급). 공용 `VisitorPanel`/`SupportBanner`/`commonStyles`(`common.tsx`)를 공유.
+- **SDK init·Assurance는 전역 1회**(`targetApp.tsx`, §14.1) — 화면별 입력폼 없음. **mbox는 환경변수(`config.mobile_env.adobe_sdk_mboxes`)만** 사용(하드코딩 폴백 없음 → 누락 시 배너 경고).
+- 하단 푸터는 탭 7개를 **두 줄(4 + 3)** 로 배치: (1행) 메인·프로필 테스트·추천 테스트·스크롤 테스트 (2행) XT 테스트·A/B 테스트·추천 SDK.
 
 ### 14.4 event-popup 팝업 — 웹/네이티브 공용
 
@@ -490,22 +503,132 @@ flowchart LR
 - **컴포넌트 재사용:** 네이티브 테스트 화면은 웹과 **동일한 `@/components/EventPopup`**을 렌더한다(`offer=null`이면 미표시). 즉 팝업 UI/동작은 한 곳에서 관리된다.
 - 웹 흐름(`parseAdobeTargetOffersPayload`→Context→`main.tsx`)은 **전혀 바뀌지 않았다**.
 
-## 15. 네이티브 빌드·테스트 방법(EAS)
+## 15. 네이티브 추천(Recommendations) 완전 가이드
+
+추천(Recommendations)은 "이 사용자/이 상품과 관련해 보여줄 다른 상품들"을 Adobe가 **자동 계산**해 돌려주는 기능이다. A/B·XT 오퍼처럼 사람이 정한 고정 콘텐츠를 주는 게 아니라, **앱이 쌓아 둔 행동 데이터(조회·구매)를 학습한 알고리즘**이 매번 후보 상품을 골라준다. 그래서 ① 데이터를 먼저 쌓고 → ② Adobe가 학습하고 → ③ 조회하면 결과가 나오는, **순서가 있는 기능**이다.
+
+### 15.1 구성 요소 (활동을 만들기 위해 필요한 것)
+
+| 요소 | 무엇인가 | 우리 설정값 |
+|------|----------|-------------|
+| **Catalog(엔티티)** | 추천 대상 상품 목록. `entity.id`(필수)·name·categoryId 등 속성 | 메뉴 60개(`entity.id`=21~60) |
+| **Collection(컬렉션)** | 추천 후보를 한정하는 상품 묶음(카테고리 등) | Test Woo Star Product 02 (sb, sf) |
+| **Criteria(기준)** | 어떤 알고리즘으로 추천할지 | Item-Based · `BOUGHT_CF based on Most Viewed Item` |
+| **Design(디자인)** | 추천 결과를 어떤 JSON/HTML로 내보낼지(템플릿) | Test Woo Start Product - Json (`meta` + `items` 5) |
+| **Activity(액티비티)** | mbox + Criteria + Design + Audience 를 묶어 게시 | `target-msdk-mbox` 에 연결 |
+| **mbox(위치)** | 앱이 추천을 요청하는 위치 이름 | `target-msdk-mbox`(= offer mbox) |
+
+> 디자인 출력 계약(우리 활동):
+> ```json
+> { "meta": { "algorithmName": "...", "keyName": "..." },
+>   "items": [ { "entityId": "...", "name": "...", "categoryId": "...", "stCode": "..." }, … 최대 5 ] }
+> ```
+> 추천이 5개 미만이면 `$entity5.id` 같은 **미해결 토큰**이 올 수 있어, 앱(`parseRecommendations`)이 토큰·빈 슬롯을 걸러낸다.
+
+### 15.2 전체 흐름 (데이터 적재 → 학습 → 조회)
+
+```mermaid
+flowchart TB
+  subgraph S1["① 데이터 적재 (앱 → Adobe)"]
+    A["추천 데이터 보내기<br/>1초 루프"] --> B["수신자(thirdPartyId) 선택<br/>+ 무작위 2~5품목 묶음"]
+    B --> C["entity.* + TargetProduct<br/>+ TargetOrder(구매)"]
+    C --> D[("Adobe Target<br/>행동 데이터 누적")]
+  end
+  subgraph S2["② 알고리즘 학습 (Adobe 내부)"]
+    D --> E["Criteria(BOUGHT_CF) 계산<br/>함께 구매된 상품 쌍 분석"]
+  end
+  subgraph S3["③ 추천 조회 (앱 → Adobe → 앱)"]
+    F["추천 가져오기<br/>setThirdPartyId(수신자)"] --> G["retrieveLocationContent<br/>(target-msdk-mbox)"]
+    G --> H["Design JSON {meta, items[]}"]
+    H --> I["parseRecommendations<br/>→ Top5 표시"]
+  end
+  E -. 학습 반영 .-> G
+```
+
+### 15.3 만드는 순서 (Target UI 세팅)
+
+1. **Catalog 적재**: `entity.id` 기준 상품이 Adobe에 있어야 한다. 우리는 앱이 `entity.*` 파라미터를 함께 보내며 자동 등록한다(속성은 **61일 만료** → 주기적 재전송 필요).
+2. **Collection 생성**: 추천 후보 범위 지정(예: 카테고리 sb/sf).
+3. **Criteria 생성**: Algorithm Type=Item-Based, Algorithm=People Who Bought This/Bought That, Key=Most Viewed Item, **Backup Content** 설정(§15.5).
+4. **Design 생성**: 결과 JSON 템플릿(`$entity1.id` … 5개 슬롯).
+5. **Activity 생성**: Recommendations 활동 → **mbox=`target-msdk-mbox`** 지정 → Criteria·Design·Collection·Audience 연결 → **게시(Activate)**.
+
+> 게시되지 않았거나 mbox 이름이 다르면 조회 시 default/빈 응답만 온다(§18 FAQ).
+
+### 15.4 데이터 적재(삽입) 순서 — 앱 동작
+
+"추천 데이터 보내기"를 누르면 1초마다 다음을 반복한다(멈출 때까지).
+
+1. 수신자 10명을 **순서대로 1명** 선택(`RECIPIENT_IDS` 순환).
+2. `resetExperience()` → `setThirdPartyId(수신자)` — 한 기기에서 **수신자별 프로필을 분리**(reset이 thirdPartyId까지 지우므로 reset→set 순서).
+3. 메뉴에서 **중복 없이 2~5개** 무작위 선택.
+4. `TargetParameters(entity.*(대표 1개), TargetProduct, TargetOrder(orderId, 합계, [선택 id들]))` 구성.
+5. `retrieveLocationContent(target-msdk-mbox, params)` 로 전송 → Adobe에 **구매 이벤트 누적**.
+
+> 왜 묶음인가: `BOUGHT_CF`(함께 구매)는 **한 주문/한 사용자가 함께 산 상품 쌍**으로 학습된다. 1개만 보내면 쌍이 안 생기므로, 2~5개를 묶어 보내 co-purchase 쌍을 빠르게 만든다. (60개 전부 묶으면 모든 상품이 서로 연관돼 신호가 희석 → 비권장)
+
+### 15.5 "기본 디폴트로 보여줄 것" — 정할 수 있나?
+
+**답: Target에서 정할 수 있고(권장), 앱에서도 마지막 안전망을 둘 수 있다.** "무엇을 보여줄지"는 아래 3개 층으로 결정된다.
+
+| 층 | 누가/어디서 | 동작 |
+|----|-------------|------|
+| ① **Criteria 알고리즘** | Target Criteria | `BOUGHT_CF` 결과를 우선 채운다 |
+| ② **Backup Content** | **Target Criteria 설정** | 결과가 디자인 슬롯보다 **적을 때** 채우는 방법:<br/>· **Partial Design Rendering**: 부족분은 빈칸으로 둠<br/>· **Show Backup Recommendations**: 빈 슬롯을 **사이트 인기(최근 1주, 최다 조회 top 500)** 상품으로 자동 채움<br/>· 둘 다 끄고 부족하면 → 템플릿 대신 **default content** 표시 |
+| ③ **Default content / 앱 폴백** | Target 활동 default + **앱 코드** | 활동이 아예 안 떨어지거나(미게시·오류·오프라인) 응답이 비면 → 앱이 자체 기본 UI 표시(`retrieveLocationContent`의 `defaultContent`) |
+
+- 너의 criteria는 **Show backup recommendations = Yes** 라, 추천이 부족하면 **인기 상품으로 Adobe가 자동으로 채운다(앱 구현 불필요).**
+- "이 활동/이 mbox가 추천을 전혀 못 줄 때의 최종 기본값"은 **Target의 default content**(활동에서 지정) 또는 **앱의 기본 UI**(시스템 구현) 중에서 정한다. 즉 **둘 다 가능**하다.
+- 더 정교하게 "부족 시 일반 인기 대신 다른 알고리즘으로 채우기"를 원하면 **Criteria Sequence**(최대 5개 기준 순차)로 백업 기준을 지정할 수 있다.
+
+```mermaid
+flowchart TB
+  Q["조회: 추천 N개 필요"] --> R{"알고리즘 결과 충분?"}
+  R -- 예 --> OK["criteria 결과로 채움"]
+  R -- 아니오(부족) --> BK{"Backup 설정?"}
+  BK -- "Show Backup Recs" --> POP["인기상품으로 빈슬롯 채움"]
+  BK -- "Partial Rendering" --> BLANK["부족분 빈칸"]
+  BK -- "둘 다 OFF & 부족" --> DEF["Target default content"]
+  Q -. "활동 무응답/오류" .-> APP["앱 기본 UI(defaultContent)"]
+```
+
+### 15.6 가드레일(공식 제한 — 출처: Adobe Target limits)
+
+| 항목 | 제한 |
+|------|------|
+| `purchasedProductIds` 개별 값 | **50자/개**(초과 시 잘림) |
+| `purchasedProductIds` 전체(콤마 연결) | **총 250자**(초과 시 400 에러) |
+| mbox 파라미터(표준) | mbox당 500개 (모바일 Batch Delivery API는 50개) |
+| entity 속성 만료 | **61일** → 월 1회 이상 재전송 권장 |
+
+- 우리 `entity.id`는 2자리라 2~5개 묶음은 길이 제한에 한참 못 미친다(여유).
+- **학습엔 시간·데이터량이 필요**하다. 특히 구매 데이터는 희소해 `BOUGHT_CF`는 늦게 동작 → 초기에는 backup(인기)만 나올 수 있다.
+
+### 15.7 우리 구현 매핑
+
+| 기능 | 파일 |
+|------|------|
+| 화면(적재 루프 + 조회) | `target-native-frontend/RecommendationScreen.tsx` |
+| 데이터·파서 | `target-native-frontend/recommendationData.ts` (`RECIPIENT_IDS`, `MENU_ENTITIES`, `pickRandomEntities`, `parseRecommendations`) |
+| SDK 전송/방문자 | `target-native-frontend/native/adobeMobileTarget(.native).ts` (`sendTargetRecommendationData`, `setTargetVisitor`) |
+| 라우트/푸터 | `app/recommendation.tsx`, `components/AppFooter.tsx`("추천 SDK" 탭) |
+
+## 16. 네이티브 빌드·테스트 방법(EAS)
 
 네이티브 모듈이 추가됐으므로 **OTA 업데이트가 아니라 새 빌드**가 필요하다(리눅스 기준).
 
 ```bash
 git pull                                   # 변경사항 반영
 eas build -p android --profile preview     # APK 빌드
-# 설치 후: 앱 실행 → 하단 "SDK 테스트" → mbox 입력 → 오퍼 가져오기
-# 디버깅: Assurance 세션 URL 입력해 실시간 이벤트 확인
+# 설치 후: 앱 실행 → 하단 "추천 SDK" 탭 → ① 추천 데이터 보내기(잠시 누적) → ② 추천 가져오기
+# 디버깅: Assurance 는 전역 자동 세션(환경변수). 실기기에서 PIN 입력해 실시간 이벤트 확인
 ```
 
 ---
 
 # 4부. 운영
 
-## 16. 설정 파일 총정리
+## 17. 설정 파일 총정리
 
 | 파일 | 길 | 용도 | Git |
 |------|----|------|-----|
@@ -515,7 +638,7 @@ eas build -p android --profile preview     # APK 빌드
 
 - CORS: `app/main.py`가 `GET/POST/OPTIONS`, `allow_private_network`, dev에서 localhost·127.0.0.1·`[::1]` 임의 포트 정규식을 처리(상세는 `03` §3.4).
 
-## 17. 이식·점검 체크리스트
+## 18. 이식·점검 체크리스트
 
 **웹(서버 프록시)**
 
@@ -534,7 +657,7 @@ eas build -p android --profile preview     # APK 빌드
 10. Adobe 패키지 import는 **`*.native.ts`에만** — 웹 base `*.ts`는 no-op 유지(웹 번들 오염 금지).
 11. 네이티브 변경 후에는 **EAS 새 빌드**(OTA 불가).
 
-## 18. 문제 해결(FAQ)
+## 19. 문제 해결(FAQ)
 
 | 증상 | 원인 / 조치 |
 |------|-------------|
@@ -542,15 +665,18 @@ eas build -p android --profile preview     # APK 빌드
 | 웹에서 HTTP 502 | Adobe 응답 실패. `AT_DEBUG_DELIVERY=1`로 요청/응답 확인 |
 | `recommendations`가 빈 배열 | Adobe Recommendations Activity·디자인·카탈로그 미구성, 또는 `recs_mbox_name` 불일치 |
 | 네이티브에서 오퍼가 default만 옴 | `appId` 미설정(빈 문자열) / 잘못된 환경 File ID / Activity 미게시 |
+| 추천(추천 SDK)이 빈 결과/인기상품만 옴 | 학습 데이터 부족(구매 데이터 희소). "추천 데이터 보내기"로 누적 후 재시도. backup=Yes면 인기상품으로 채워짐(§15.5). Activity 게시·mbox 일치 확인(§15.3) |
+| 추천 결과에 `$entity5.id` 같은 토큰 표시 | 추천이 디자인 슬롯보다 적을 때의 미해결 토큰 — 앱이 걸러내며(§15.1) backup 설정으로 슬롯을 채울 수 있음 |
 | Tags의 Profile 확장이 앱에서 동작 안 함 | RN에 `@adobe/react-native-aepuserprofile` 미설치라 UserProfile 미등록(§10.1). Target 서버측 프로필과는 무관 — 필요 시 설치 후 EAS 새 빌드 |
 | event-popup 팝업이 안 뜸 | 반환 콘텐츠가 `type:event-popup` JSON인지 확인(§14.4). 활동 오퍼 타입/내용·mbox 이름 점검 |
 | 웹 빌드가 Adobe 네이티브 때문에 깨짐 | `*.native.ts`에 import가 새어 들어갔는지 확인(base `*.ts`는 no-op이어야 함) |
 | 네이티브 변경이 앱에 반영 안 됨 | OTA가 아니라 **EAS 새 빌드** 필요 |
 
-## 19. 문서 이력
+## 20. 문서 이력
 
 | 버전 | 일자 | 요약 |
 |------|------|------|
+| **3.2** | 2026-06-04 | **네이티브 추천(Recommendations) 완전 가이드(§15)** 신규 — 구성요소·데이터 적재→학습→조회 흐름도·Target UI 세팅 순서·**Backup/Default 동작(§15.5)**·가드레일(250자 등)·구현 매핑. 테스트 화면 3종(§14.3 XT/A·B/추천 SDK)·`mobile_env` 설정(§14.1~2)·푸터 두 줄 반영. 섹션 번호 15~19→16~20. FAQ에 추천 항목 추가 |
 | **3.1** | 2026-06-01 | **설치 확장 검증 매트릭스(§10.1)** 추가(Core·Identity·Target·Assurance ✅, Profile ⚠️ 선택). **event-popup 웹/네이티브 공용화(§14.4)** 기술. **노출/클릭 알림 미연결 범위 명시(§11).** 리팩토링 정리 반영 — 웹 mbox 백엔드 단일 소스(`bootstrap` 역할)·`_run_delivery`·`targetHttp`·요청 모델 공통 베이스(`_TargetVisitorRequest`) |
 | **3.0** | 2026-06-01 | **전면 재작성(가독성·흐름 중심).** 1~4부 구성, 개념·웹·네이티브·운영 분리. **네이티브 모바일 SDK 연동(AEPCore/AEPTarget/AEPAssurance·플랫폼 분리·`adobe_mobile_app_id`·테스트 화면) 신규 기술.** 시퀀스/흐름도·예시 JSON 추가 |
 | 2.3 | 2026-05-14 | `app/main.py` CORS(dev 정규식·OPTIONS·private network)·`build_delivery_id` 시그니처·`entity.categoryId` 항상 키 존재 정합 |

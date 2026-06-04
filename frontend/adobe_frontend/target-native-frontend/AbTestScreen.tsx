@@ -6,11 +6,12 @@
  * 중앙은 두 이미지를 한 라인에 나란히 둔다 — 왼쪽은 항상 기본(default.png, 대조군),
  * 오른쪽은 Target 활동이 내려준 오퍼 이미지(URL). 어떤 이미지든 라인 폭에 맞춰 자동 크기 조정한다.
  * 요소별 전용 파서 없이 "오퍼 JSON 의 imageUrl" 단일 계약만 사용한다.
+ * 하단에 공용 VisitorPanel(방문자 식별자/새로고침/경험 초기화)을 두어 A/B 변형 전환 테스트를 돕는다.
  * 라우트 파일(app/abtest.tsx)에서 이 컴포넌트를 default 로 re-export 한다.
  *
  * [Main Functions]
  * ===========
- * - AbTestScreen: 진입 시 global mbox 호출 → 좌(기본)/우(오퍼) 이미지 비교 표시 / 다시 불러오기 / 초기화
+ * - AbTestScreen: 진입 시 global mbox 호출 → 좌(기본)/우(오퍼) 이미지 비교 / 다시 불러오기 / 방문자 식별자(VisitorPanel)
  *
  * [Endpoints/Classes/Functions]
  * =======================
@@ -20,8 +21,8 @@
  * =========
  * - react, react-native
  * - @/utils/imageMap (getImage — 기본 이미지 default.png)
- * - ./native/adobeMobileTarget (retrieveTargetContent / isAdobeMobileTargetSupported)
- * - ./common (GLOBAL_MBOX, SupportBanner, commonStyles)
+ * - ./native/adobeMobileTarget (retrieveTargetContent / getTargetIds / resetTargetExperience / isAdobeMobileTargetSupported)
+ * - ./common (GLOBAL_MBOX, EMPTY_IDS, SupportBanner, VisitorPanel, commonStyles)
  */
 
 import React, { useCallback, useEffect, useState } from "react";
@@ -37,10 +38,19 @@ import {
 
 import { getImage } from "@/utils/imageMap";
 import {
+  getTargetIds,
   isAdobeMobileTargetSupported,
+  resetTargetExperience,
   retrieveTargetContent,
 } from "./native/adobeMobileTarget";
-import { GLOBAL_MBOX, SupportBanner, commonStyles as c } from "./common";
+import type { TargetIds } from "./native/adobeMobileTarget.types";
+import {
+  EMPTY_IDS,
+  GLOBAL_MBOX,
+  SupportBanner,
+  VisitorPanel,
+  commonStyles as c,
+} from "./common";
 
 // 오퍼 없음을 구분하기 위한 기본 콘텐츠(빈 문자열).
 const DEFAULT_CONTENT = "";
@@ -65,9 +75,10 @@ export default function AbTestScreen(): React.ReactElement {
   const supported = isAdobeMobileTargetSupported();
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [rawOffer, setRawOffer] = useState("");
+  const [ids, setIds] = useState<TargetIds>(EMPTY_IDS);
   const [loading, setLoading] = useState(false);
 
-  // 1. global mbox 호출 → 오른쪽 이미지(오퍼)에 반영. mbox 미설정/웹이면 스킵.
+  // 1. global mbox 호출 → 오른쪽 이미지(오퍼)에 반영 + ID 갱신. mbox 미설정/웹이면 스킵.
   const loadOffer = useCallback(async () => {
     if (!supported || !GLOBAL_MBOX) {
       return;
@@ -77,6 +88,7 @@ export default function AbTestScreen(): React.ReactElement {
       const raw = await retrieveTargetContent(GLOBAL_MBOX, DEFAULT_CONTENT);
       setRawOffer(raw);
       setImageUrl(extractImageUrl(raw));
+      setIds(await getTargetIds());
     } finally {
       setLoading(false);
     }
@@ -87,8 +99,15 @@ export default function AbTestScreen(): React.ReactElement {
     void loadOffer();
   }, [loadOffer]);
 
-  // 3. 초기화(오른쪽도 비움).
+  // 3. 방문자 식별자만 조회
+  const onRefreshIds = useCallback(async () => {
+    setIds(await getTargetIds());
+  }, []);
+
+  // 4. 경험 초기화(tntId+ECID 제거) + 화면 비움 → 다음 "다시 불러오기"에서 새 방문자로 A/B 재추첨
   const onReset = useCallback(() => {
+    resetTargetExperience();
+    setIds(EMPTY_IDS);
     setImageUrl(null);
     setRawOffer("");
   }, []);
@@ -155,12 +174,7 @@ export default function AbTestScreen(): React.ReactElement {
         <Text style={c.resultText}>{rawOffer || "(아직 없음)"}</Text>
       </View>
 
-      <Pressable
-        style={({ pressed }) => [c.btnSecondary, pressed && c.btnPressed]}
-        onPress={onReset}
-      >
-        <Text style={c.btnSecondaryText}>초기화</Text>
-      </Pressable>
+      <VisitorPanel ids={ids} onRefresh={onRefreshIds} onReset={onReset} />
     </ScrollView>
   );
 }

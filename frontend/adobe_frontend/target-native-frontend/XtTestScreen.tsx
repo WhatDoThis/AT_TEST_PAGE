@@ -6,11 +6,12 @@
  * 미설정이면 빈 문자열 그대로 사용해 SupportBanner 가 누락을 경고한다(하드코딩 폴백 없음).
  * Assurance 세션은 화면이 아니라 앱 init(targetApp)에서 환경변수로 전역 1회 적용한다.
  * 반환 오퍼가 event-popup JSON 이면 웹과 동일한 EventPopup 모달을 띄운다.
+ * 방문자 식별자 표시·새로고침·경험 초기화는 공용 VisitorPanel 을 사용한다.
  * 라우트 파일(app/xttest.tsx)에서 이 컴포넌트를 default 로 re-export 한다.
  *
  * [Main Functions]
  * ===========
- * - XtTestScreen: XT 테스트(offer mbox 조회) / 반환 콘텐츠 / 방문자 식별자 / 경험 초기화 / event-popup
+ * - XtTestScreen: XT 테스트(offer mbox 조회) / 반환 콘텐츠 / 방문자 식별자(VisitorPanel) / event-popup
  *
  * [Endpoints/Classes/Functions]
  * =======================
@@ -22,18 +23,11 @@
  * - @/components/EventPopup (웹과 공용 팝업 UI)
  * - ./native/adobeMobileTarget (네이티브 SDK 래퍼)
  * - @adobe/utils/targetOfferParser (parseAdobeTargetEventPopupContent)
- * - ./common (OFFER_MBOX, SupportBanner, commonStyles)
+ * - ./common (OFFER_MBOX, EMPTY_IDS, SupportBanner, VisitorPanel, commonStyles)
  */
 
 import React, { useCallback, useState } from "react";
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 
 import EventPopup from "@/components/EventPopup";
 import {
@@ -47,11 +41,16 @@ import {
   parseAdobeTargetEventPopupContent,
   type AdobeTargetEventPopupOffer,
 } from "@adobe/utils/targetOfferParser";
-import { OFFER_MBOX, SupportBanner, commonStyles as c } from "./common";
+import {
+  EMPTY_IDS,
+  OFFER_MBOX,
+  SupportBanner,
+  VisitorPanel,
+  commonStyles as c,
+} from "./common";
 
 // 활동/오퍼 미세팅 상태를 식별하기 위한 기본 콘텐츠(오퍼 없으면 이 값이 그대로 반환됨).
 const DEFAULT_CONTENT = "default-content";
-const EMPTY_IDS: TargetIds = { tntId: null, thirdPartyId: null, sessionId: null };
 
 export default function XtTestScreen(): React.ReactElement {
   const supported = isAdobeMobileTargetSupported();
@@ -80,7 +79,7 @@ export default function XtTestScreen(): React.ReactElement {
     setIds(await getTargetIds());
   }, []);
 
-  // 3. 경험 초기화(식별자 제거)
+  // 3. 경험 초기화(tntId+ECID 제거 → 다음 조회 시 새 방문자로 재추첨)
   const onReset = useCallback(() => {
     resetTargetExperience();
     setIds(EMPTY_IDS);
@@ -115,40 +114,10 @@ export default function XtTestScreen(): React.ReactElement {
         <Text style={c.resultText}>{content || "(아직 없음)"}</Text>
       </View>
 
-      <Text style={c.label}>방문자 식별자</Text>
-      <View style={c.resultBox}>
-        <Text style={s.idText}>tntId: {ids.tntId ?? "-"}</Text>
-        <Text style={s.idText}>thirdPartyId: {ids.thirdPartyId ?? "-"}</Text>
-        <Text style={s.idText}>sessionId: {ids.sessionId ?? "-"}</Text>
-      </View>
-      <Pressable
-        style={({ pressed }) => [c.btnSecondary, pressed && c.btnPressed]}
-        onPress={onRefreshIds}
-      >
-        <Text style={c.btnSecondaryText}>ID 새로고침</Text>
-      </Pressable>
-
-      <Pressable
-        style={({ pressed }) => [s.btnDanger, pressed && c.btnPressed]}
-        onPress={onReset}
-      >
-        <Text style={c.btnText}>경험 초기화(식별자 제거)</Text>
-      </Pressable>
+      <VisitorPanel ids={ids} onRefresh={onRefreshIds} onReset={onReset} />
 
       {/* (AT) event-popup 오퍼일 때만 모달 표시(offer=null 이면 미렌더). */}
       <EventPopup offer={eventPopupOffer} onClose={() => setEventPopupOffer(null)} />
     </ScrollView>
   );
 }
-
-// 이 화면 고유 스타일만 정의(공용은 common.commonStyles).
-const s = StyleSheet.create({
-  idText: { fontSize: 13, color: "#333", marginVertical: 1 },
-  btnDanger: {
-    backgroundColor: "#D93025",
-    borderRadius: 8,
-    paddingVertical: 12,
-    alignItems: "center",
-    marginTop: 20,
-  },
-});

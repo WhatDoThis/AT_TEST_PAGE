@@ -13,7 +13,9 @@
  * - initAdobeMobileTarget: appId로 MobileCore 초기화(1회) + Property 토큰 주입(선택)
  * - retrieveTargetContent: 단일 mbox 콘텐츠 조회(콜백 → Promise 래핑)
  * - getTargetIds: tntId/thirdPartyId/sessionId 조회
- * - resetTargetExperience: 방문자 식별자 초기화
+ * - resetTargetExperience: Target tntId 초기화 + ECID 등 전체 ID 재발급(새 방문자로 A/B 재추첨)
+ * - setTargetVisitor: 추천 데이터용 방문자 구분(reset 후 thirdPartyId 설정)
+ * - sendTargetRecommendationData: 추천 학습 데이터(entity+product+order) 전송
  * - startAssuranceSession: Assurance 검증 세션 시작
  *
  * [Endpoints/Classes/Functions]
@@ -23,12 +25,14 @@
  * - retrieveTargetContent(mboxName, defaultContent, mboxParameters?): Promise<string>
  * - getTargetIds(): Promise<TargetIds>
  * - resetTargetExperience(): void
+ * - setTargetVisitor(thirdPartyId): void
+ * - sendTargetRecommendationData(mboxName, data): void
  * - startAssuranceSession(url): void
  *
  * [Dependencies]
  * =========
  * - @adobe/react-native-aepcore (MobileCore, LogLevel)
- * - @adobe/react-native-aeptarget (Target, TargetParameters, TargetRequestObject)
+ * - @adobe/react-native-aeptarget (Target, TargetParameters, TargetRequestObject, TargetProduct, TargetOrder)
  * - @adobe/react-native-aepassurance (Assurance)
  * - ./adobeMobileTarget.types (공용 타입)
  */
@@ -39,9 +43,11 @@ import {
   Target,
   TargetParameters,
   TargetRequestObject,
+  TargetProduct,
+  TargetOrder,
 } from "@adobe/react-native-aeptarget";
 
-import type { TargetIds } from "./adobeMobileTarget.types";
+import type { TargetIds, RecommendationData } from "./adobeMobileTarget.types";
 
 // 초기화 중복 방지 플래그(앱 생애주기 동안 1회)
 let initialized = false;
@@ -131,16 +137,63 @@ export async function getTargetIds(): Promise<TargetIds> {
   }
 }
 
-// 5. 방문자 식별자 초기화
+// 5. 방문자 식별자 초기화 — Target tntId 초기화 + ECID 등 전체 ID 재발급
+//    tntId 만 지우면(resetExperience) 기존 ECID 로 서버 프로필이 복원돼 A/B 배정이 그대로 유지된다.
+//    resetIdentities 로 ECID 까지 새로 발급해야 "새 방문자"가 되어 다음 요청에서 재추첨된다.
 export function resetTargetExperience(): void {
   try {
     Target.resetExperience();
+    MobileCore.resetIdentities();
   } catch (error) {
     console.warn("[adobeMobileTarget] resetTargetExperience 실패:", String(error));
   }
 }
 
-// 6. Assurance 검증 세션 시작
+// 6. 추천 데이터용 방문자 구분 — resetExperience 가 thirdPartyId 까지 지우므로 reset 후 set 순서로 호출.
+//    기기 tntId 를 매번 비워 thirdPartyId(수신자)를 프로필 키로 만들어 수신자별 데이터가 섞이지 않게 한다.
+export function setTargetVisitor(thirdPartyId: string): void {
+  try {
+    Target.resetExperience();
+    const id = (thirdPartyId ?? "").trim();
+    if (id.length > 0) {
+      Target.setThirdPartyId(id);
+    }
+  } catch (error) {
+    console.warn("[adobeMobileTarget] setTargetVisitor 실패:", String(error));
+  }
+}
+
+// 7. 추천 학습 데이터 전송 — 수신자(thirdPartyId) 설정 후 entity 파라미터 + product + order(구매) 전송.
+//    "People Who Bought This, Bought That" 는 구매(order.purchasedProductIds=entity.id) 이벤트로 학습된다.
+//    한 주문에 여러 품목(purchasedProductIds)을 묶어 보내 co-purchase 쌍을 더 빨리 만든다.
+export function sendTargetRecommendationData(
+  mboxName: string,
+  data: RecommendationData
+): void {
+  try {
+    setTargetVisitor(data.thirdPartyId);
+    const orderId = `ord_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const productIds =
+      data.purchasedProductIds.length > 0 ? data.purchasedProductIds : [data.entityId];
+    const parameters = new TargetParameters(
+      {
+        "entity.id": data.entityId,
+        "entity.categoryId": data.categoryId,
+        "entity.name": data.entityName,
+      },
+      undefined,
+      new TargetProduct(data.entityId, data.categoryId),
+      new TargetOrder(orderId, data.total, productIds)
+    );
+    // 응답 콘텐츠는 사용하지 않고(데이터 적재 목적) 빈 콜백으로 전송한다.
+    const request = new TargetRequestObject(mboxName, parameters, "", () => {});
+    Target.retrieveLocationContent([request], parameters);
+  } catch (error) {
+    console.warn("[adobeMobileTarget] sendTargetRecommendationData 실패:", String(error));
+  }
+}
+
+// 8. Assurance 검증 세션 시작
 export function startAssuranceSession(url: string): void {
   // 빈 URL 가드
   if (!url || url.trim().length === 0) {

@@ -14,6 +14,8 @@
  * - retrieveTargetContent: mbox 콘텐츠 조회(웹=defaultContent 반환)
  * - getTargetIds: 방문자 식별자 조회(웹=null)
  * - resetTargetExperience: 방문자 식별자 초기화(웹=no-op)
+ * - setTargetVisitor: 추천 데이터용 방문자 구분(웹=no-op)
+ * - sendTargetRecommendationData: 추천 학습 데이터 전송(웹=no-op)
  * - startAssuranceSession: Assurance 세션 시작(웹=no-op)
  *
  * [Endpoints/Classes/Functions]
@@ -23,6 +25,8 @@
  * - retrieveTargetContent(mboxName, defaultContent, mboxParameters?): Promise<string>
  * - getTargetIds(): Promise<TargetIds>
  * - resetTargetExperience(): void
+ * - setTargetVisitor(thirdPartyId): void
+ * - sendTargetRecommendationData(mboxName, data): void
  * - startAssuranceSession(url): void
  *
  * [Dependencies]
@@ -30,7 +34,7 @@
  * - ./adobeMobileTarget.types (공용 타입)
  */
 
-import type { TargetIds } from "./adobeMobileTarget.types";
+import type { TargetIds, RecommendationData } from "./adobeMobileTarget.types";
 
 // 1. 지원 여부 — 웹은 네이티브 SDK 미사용
 export function isAdobeMobileTargetSupported(): boolean {
@@ -62,5 +66,14 @@ export async function getTargetIds(): Promise<TargetIds> {
 // 5. 방문자 식별자 초기화 — 웹은 no-op
 export function resetTargetExperience(): void {}
 
-// 6. Assurance 세션 시작 — 웹은 no-op
+// 6. 추천 데이터용 방문자 구분 — 웹은 no-op
+export function setTargetVisitor(_thirdPartyId: string): void {}
+
+// 7. 추천 학습 데이터 전송 — 웹은 no-op
+export function sendTargetRecommendationData(
+  _mboxName: string,
+  _data: RecommendationData
+): void {}
+
+// 8. Assurance 세션 시작 — 웹은 no-op
 export function startAssuranceSession(_url: string): void {}

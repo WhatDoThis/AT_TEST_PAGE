@@ -1,11 +1,12 @@
 /**
  * components/AppFooter.tsx (전역 하단 페이지 이동 푸터)
  * ================================================================================
- * 메인·프로필 테스트·추천 테스트·스크롤 테스트·XT 테스트·A/B 테스트 라우트로 이동하는 고정 푸터. 루트 `_layout` 에서 모든 화면 하단에 공통으로 붙인다.
+ * 메인·프로필 테스트·추천 테스트·스크롤 테스트·XT 테스트·A/B 테스트·추천 SDK 라우트로 이동하는 고정 푸터. 루트 `_layout` 에서 모든 화면 하단에 공통으로 붙인다.
  *
  * [Main Functions]
  * ===========
  * - AppFooter: 현재 경로 강조 + `router.replace` 로 화면 전환(메인 `/main`)
+ * - 탭 7개를 두 줄(4 + 3)로 배치해 좁은 화면에서도 모두 노출
  * - 하단 safe-area inset 반영으로 모바일 제스처 바/홈버튼과 클릭 충돌 방지
  *
  * [Endpoints/Classes/Functions]
@@ -33,7 +34,14 @@ const FOOTER_BOTTOM_GAP = 18;
 /** 웹은 홈버튼이 없으므로 기본 여백만 사용(간격 불필요). */
 const WEB_BOTTOM_PADDING = 10;
 
-type FooterKey = "main" | "profile" | "recommendation" | "scroll" | "sdk" | "abtest";
+type FooterKey =
+  | "main"
+  | "profile"
+  | "recommendation"
+  | "scroll"
+  | "sdk"
+  | "abtest"
+  | "recsdk";
 
 const ROUTES: Record<FooterKey, string> = {
   main: "/main",
@@ -42,6 +50,7 @@ const ROUTES: Record<FooterKey, string> = {
   scroll: "/scroll-test",
   sdk: "/xttest",
   abtest: "/abtest",
+  recsdk: "/recommendation",
 };
 
 const LABELS: Record<FooterKey, string> = {
@@ -51,6 +60,7 @@ const LABELS: Record<FooterKey, string> = {
   scroll: "스크롤 테스트",
   sdk: "XT 테스트",
   abtest: "A/B 테스트",
+  recsdk: "추천 SDK",
 };
 
 function activeKeyForPath(pathname: string): FooterKey {
@@ -69,6 +79,9 @@ function activeKeyForPath(pathname: string): FooterKey {
   }
   if (p === "/abtest") {
     return "abtest";
+  }
+  if (p === "/recommendation") {
+    return "recsdk";
   }
   return "main";
 }
@@ -94,44 +107,63 @@ export default function AppFooter(): React.ReactElement {
     [pathname, router],
   );
 
-  const keys: FooterKey[] = ["main", "profile", "recommendation", "scroll", "sdk", "abtest"];
+  // 탭이 7개라 한 줄에 다 넣으면 좁다 → 두 줄(4 + 3)로 나눠 모두 보이게 한다.
+  const rows: FooterKey[][] = [
+    ["main", "profile", "recommendation", "scroll"],
+    ["sdk", "abtest", "recsdk"],
+  ];
+
+  const renderTab = (key: FooterKey, i: number) => {
+    const isActive = active === key;
+    return (
+      <React.Fragment key={key}>
+        {i > 0 ? <View style={s.divider} /> : null}
+        <Pressable
+          style={({ pressed }) => [
+            s.tab,
+            isActive && s.tabActive,
+            pressed && !isActive && s.tabPressed,
+          ]}
+          onPress={() => go(key)}
+          accessibilityRole="button"
+          accessibilityState={{ selected: isActive }}
+          accessibilityLabel={LABELS[key]}
+        >
+          <Text style={[s.tabText, isActive && s.tabTextActive]}>{LABELS[key]}</Text>
+        </Pressable>
+      </React.Fragment>
+    );
+  };
 
   return (
     <View style={[s.bar, { paddingBottom: bottomPadding }]} accessibilityRole="toolbar">
-      {keys.map((key, i) => {
-        const isActive = active === key;
-        return (
-          <React.Fragment key={key}>
-            {i > 0 ? <View style={s.divider} /> : null}
-            <Pressable
-              style={({ pressed }) => [
-                s.tab,
-                isActive && s.tabActive,
-                pressed && !isActive && s.tabPressed,
-              ]}
-              onPress={() => go(key)}
-              accessibilityRole="button"
-              accessibilityState={{ selected: isActive }}
-              accessibilityLabel={LABELS[key]}
-            >
-              <Text style={[s.tabText, isActive && s.tabTextActive]}>{LABELS[key]}</Text>
-            </Pressable>
-          </React.Fragment>
-        );
-      })}
+      {rows.map((rowKeys, r) => (
+        <React.Fragment key={r}>
+          {r > 0 ? <View style={s.rowDivider} /> : null}
+          <View style={s.row}>{rowKeys.map((key, i) => renderTab(key, i))}</View>
+        </React.Fragment>
+      ))}
     </View>
   );
 }
 
 const s = StyleSheet.create({
   bar: {
-    flexDirection: "row",
-    alignItems: "stretch",
+    flexDirection: "column",
     borderTopWidth: 1,
     borderTopColor: "#DDE1E6",
     backgroundColor: "#fff",
     paddingBottom: 10,
     paddingTop: 4,
+  },
+  row: {
+    flexDirection: "row",
+    alignItems: "stretch",
+  },
+  rowDivider: {
+    height: 1,
+    backgroundColor: "#E1E5EA",
+    marginHorizontal: 6,
   },
   divider: {
     width: 1,

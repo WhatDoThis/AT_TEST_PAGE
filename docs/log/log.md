@@ -2,6 +2,16 @@
 
 ## Log Index
 
+140. 2026-06-04 추천 네이티브 코드 점검·경량 리팩토링(recommendationData toRecord DRY·렌더 중복계산 제거·docstring 동기화)
+139. 2026-06-04 docs/adobe/02_AB.md 신규 — A/B 테스트 가이드(개념·활동 3종·트래픽/통계·네이티브 Form/mbox·abtest 매핑)
+138. 2026-06-04 docs/adobe/01_XT.md 신규 — XT(Experience Targeting) 가이드(개념·3단계·오디언스/우선순위·네이티브 Form/mbox·xttest 매핑) + 03 §2.4 실제 구독 반영
+137. 2026-06-04 docs/adobe/03_RECOMMANDATION.md 필기노트 스타일 전면 재정리 + §2.4 고객 데이터 평면(Customer Attributes·recipient_id 조인) 추가
+136. 2026-06-04 docs/adobe/03_RECOMMANDATION.md 신규 — 추천 Zero→Live 세팅 가이드(카탈로그·Collection·Criteria·Design·Activity·부가옵션)
+135. 2026-06-04 docs/main 04 v3.2 — 네이티브 추천(Recommendations) 완전 가이드(§15)·테스트 화면 3종·mobile_env·푸터 두 줄 반영
+134. 2026-06-04 추천 데이터 적재를 묶음 구매(랜덤 2~5품목/주문)로 변경(co-purchase 쌍 가속·Adobe 250자 가드레일 내)
+133. 2026-06-04 푸터 탭 7개를 두 줄(4 + 3) 레이아웃으로 변경(좁은 화면에서 모두 노출)
+132. 2026-06-04 네이티브 SDK 추천(Recommendations) 테스트 화면 추가(데이터 적재 루프 + 추천 가져오기)·푸터 탭(추천 SDK)
+131. 2026-06-04 방문자 패널 공용화(VisitorPanel)·A/B 화면에 식별자/초기화 추가·경험 초기화에 ECID 재발급(resetIdentities) 적용
 130. 2026-06-02 네이티브 SDK 래퍼(adobeMobileTarget 3파일)를 target-native-frontend/native 로 이관·import 정리
 129. 2026-06-02 네이티브 테스트 화면 mbox 하드코딩 폴백 제거(미설정 경고)·공용 모듈(common)로 배너/스타일 중복 제거
 128. 2026-06-02 네이티브 Target 테스트 화면 패키지 이관(target-native-frontend)·XT/A·B 테스트 개편·Assurance 전역 자동세션·안드로이드 몰입형 내비바
@@ -134,6 +144,95 @@
 12. 2026-04-27 docs/main AT_TEST_PAGE PRD v1.0 작성
 
 ## Log Body
+
+140. 2026-06-04 추천 네이티브 코드 점검·경량 리팩토링(recommendationData toRecord DRY·렌더 중복계산 제거·docstring 동기화)
+Purpose: 구현된 추천 기능·유틸 코드를 전체 점검하고, 검증된 SDK 래퍼는 보존하면서 가독성·중복만 안전하게 개선.
+Changes:
+- recommendationData.ts: 반복되던 `item as Record`·`o.entity as Record` 캐스팅을 공통 헬퍼 `toRecord()` 로 통합(hasUsefulValue/parseRecommendations/pickRecLabel/pickRecId). 동작 동일, 가독성 향상.
+- RecommendationScreen.tsx: 추천 슬롯 렌더에서 `pickRecId(slot)` 2회 호출을 1회 계산(label/recId 변수화)으로 정리.
+- docstring 동기화(rule 2.6): recommendationData.ts에 pickRecId 추가, RecommendationScreen.tsx 의존성 표기 pickRandomEntity→pickRandomEntities·pickRecId 보강.
+- 점검 결과 native 래퍼(adobeMobileTarget.native.ts: setTargetVisitor/sendTargetRecommendationData/resetTargetExperience 등)는 가드클로즈·try/catch·자원정리 양호 → 변경 없음.
+- 검증: tsc --noEmit 통과, 린트 클린.
+Changed files: frontend/adobe_frontend/target-native-frontend/recommendationData.ts, frontend/adobe_frontend/target-native-frontend/RecommendationScreen.tsx
+
+139. 2026-06-04 docs/adobe/02_AB.md 신규 — A/B 테스트 가이드(개념·활동 3종·트래픽/통계·네이티브 Form/mbox·abtest 매핑)
+Purpose: XT·추천 가이드와 동일한 필기노트 스타일로, 공식 문서를 요약해 A/B 테스트 개념부터 트래픽 분배·통계·네이티브 적용까지 한눈에 보는 가이드를 신규 작성.
+Changes:
+- 신규 docs/adobe/02_AB.md 생성. §0 3단계 흐름도, §1 용어 7개, §2 활동 3종(Manual/Auto-Allocate/Auto-Target), §3 생성 순서(VEC/Form), §4 트래픽 분배·통계(랜덤 수렴·표본 크기·신뢰도 95%/power 80%·고정 배정), §5 Goals&Settings, §6 네이티브 Form/mbox(이미지 imageUrl 계약), §7 본 프로젝트 abtest 매핑(global mbox 진입 자동호출·좌우 이미지·resizeMode contain), §8 가드레일(50/50 고정 배정·경험 초기화), 부록 공식 링크. (모든 다이어그램 ASCII)
+Changed files: docs/adobe/02_AB.md
+
+138. 2026-06-04 docs/adobe/01_XT.md 신규 — XT(Experience Targeting) 가이드(개념·3단계·오디언스/우선순위·네이티브 Form/mbox·xttest 매핑) + 03 §2.4 실제 구독 반영
+Purpose: 추천 가이드와 동일한 필기노트 스타일로, 공식 문서를 요약해 XT(경험 타게팅) 개념부터 세팅·우선순위·네이티브 적용까지 한눈에 보는 가이드를 신규 작성. 더불어 본 프로젝트의 실제 Customer Attributes 구독 내용을 추천 문서에 반영.
+Changes:
+- 신규 docs/adobe/01_XT.md 생성. §0 Zero→Live 3단계 흐름도, §1 용어 6개, §2 XT vs A/B, §3 생성 순서(VEC/Form), §4 오디언스·경험·우선순위(순서=우선순위 흐름도·전환·All Visitors 폴백), §5 Goals&Settings(리포팅·우선순위 0~999), §6 네이티브 Form/mbox(VEC 불가·crs.* 오디언스), §7 활동 간 우선순위(tiebreaker), §8 본 프로젝트 xttest 매핑, §9 가드레일, 부록 공식 링크. (모든 다이어그램 ASCII)
+- 03_RECOMMANDATION.md §2.4: 본 프로젝트 실제 구성(CSV 드래그업로드·.fin 불필요, Target 구독 속성 campaign_label/workflow_label/recipient_id→crs.*) 표 추가, §10 고객 주입 행 갱신, 문서 이력 v1.2.
+Changed files: docs/adobe/01_XT.md, docs/adobe/03_RECOMMANDATION.md
+
+137. 2026-06-04 docs/adobe/03_RECOMMANDATION.md 필기노트 스타일 전면 재정리 + §2.4 고객 데이터 평면(Customer Attributes·recipient_id 조인) 추가
+Purpose: 문서 가독성 개선 요청에 따라 내용을 누락 없이 보존하면서 짧은 구문·불릿·화살표 중심의 필기노트 스타일로 전면 재작성하고, 직전 논의(상품 평면 vs 고객 평면) 내용을 정식 섹션으로 편입.
+Changes:
+- 전 섹션을 산문 → 노트형(핵심 굵게·화살표·축약)으로 재정리(흐름도·표·링크 등 기존 정보 보존).
+- §2.4 신규: 고객(Customer) 데이터 평면 = Customer Attributes. recipient_id가 setThirdPartyId(=mbox3rdPartyId)로 crs.* 프로필에 조인되는 메커니즘·FTP(.fin)·구독 제한(5/200)·조인 3조건 정리(공식 문서 근거).
+- §3.2 오해 정리(컬렉션=Entity, 고객속성=Audience/Profile 매칭) 노트형으로 압축, §4.5에 Entity Attribute Matching 보강.
+- §9 가드레일에 Customer Attributes 행·증상(crs.* 빈값) 추가, §10 요약에 Feed/고객주입 분리 명시, 부록에 Customer Attributes·Entity Attribute Matching 링크 추가.
+- 문서 이력 v1.1 추가.
+Changed files: docs/adobe/03_RECOMMANDATION.md
+
+136. 2026-06-04 docs/adobe/03_RECOMMANDATION.md 신규 — 추천 Zero→Live 세팅 가이드(카탈로그·Collection·Criteria·Design·Activity·부가옵션)
+Purpose: 아무것도 세팅 안 된 상태에서 추천 활동을 만들고 적용하기까지의 전체 흐름·각 구성요소 세팅법·부가 옵션을, 비종사자도 이해하도록 흐름도·부가설명과 함께 정리(공식 문서 근거).
+Changes:
+- 신규 docs/adobe 폴더에 03_RECOMMANDATION.md 생성.
+- §0 Zero→Live 전체 흐름도(6단계), §1 용어, §2 카탈로그 주입(entity.id 규칙·속성·Feed/API/mbox 3방법), §3 Collection 생성·규칙(AND), §4 Criteria(알고리즘 유형·Key·Backup Content 결정 흐름도·Inclusion Rules·Attribute Weighting·우리 매핑), §5 Design(Velocity 변수·우리 JSON 예시·자주 막히는 점), §6 Activity 폼 기반 생성·게시(흐름도), §7 조회·검증, §8 부가옵션(Exclusions/Promotions/Sequence/Feeds/Settings), §9 가드레일·증상별 점검, §10 본 프로젝트 매핑, 부록 공식 링크.
+- 직전 질문(Inclusion Rules/Attribute Weighting) 설명을 §4.5~4.6에 통합.
+- 흐름도는 mermaid 미지원 뷰어(예: Cursor 미리보기)에서도 보이도록 모두 텍스트(ASCII, ```text) 다이어그램으로 작성.
+- 오해 정정 추가: 컬렉션 데이터는 Customer Attribute가 아니라 Entity(카탈로그) 속성으로 정의(§3.2), Customer/Profile 속성은 Audience·Criteria의 Profile Attribute Matching에서 사용(§4.5)·부록 링크 추가.
+Changed files: docs/adobe/03_RECOMMANDATION.md
+Purpose: 추천 기능을 처음 보는 사람도 이해하도록 구성요소·흐름·세팅 순서·기본(backup/default) 동작·가드레일을 정리하고, 그간 변경(화면 개편·mobile_env·푸터)을 문서에 동기화.
+Changes:
+- §15 신규: 구성요소 표, 데이터 적재→학습→조회 mermaid 흐름도, Target UI 세팅 순서, 앱 적재 순서, "기본 디폴트" 답(Criteria/Backup/Default 3층·결정 흐름도), 가드레일(250자·61일 등), 구현 매핑.
+- §14.1~2: 초기화 스니펫·설정 키를 `mobile_env`(app_id/property_token/assurance/sdk_mboxes) 기준으로 갱신.
+- §14.3: 테스트 화면을 3종(XT `/xttest`·A·B `/abtest`·추천 SDK `/recommendation`)으로 갱신, 공용(VisitorPanel/SupportBanner)·환경변수 mbox·푸터 두 줄(4+3) 명시.
+- 섹션 번호 15~19 → 16~20, 읽는 순서 TOC·FAQ(추천 2건)·문서 이력(v3.2) 갱신.
+Changed files: docs/main/04_AT_TEST_PAGE_ADOBE_TARGET_INTEGRATION.md
+
+134. 2026-06-04 추천 데이터 적재를 묶음 구매(랜덤 2~5품목/주문)로 변경(co-purchase 쌍 가속·Adobe 250자 가드레일 내)
+Purpose: "People Who Bought This, Bought That(BOUGHT_CF)"는 같은 주문/사용자의 함께 구매 쌍으로 학습되므로, 한 주문에 여러 품목을 묶어 보내 co-purchase 데이터를 빠르게 적재.
+Changes:
+- 가드레일 확인(Adobe Target limits): purchasedProductIds 개당 50자·콤마 연결 총 250자(초과 시 400). 우리 entity.id 2자리 기준 약 80개까지 가능하나 신호 희석 방지 위해 현실적 2~5개로 제한.
+- 타입 RecommendationData: price → total(주문 합계) + purchasedProductIds(string[])로 변경.
+- adobeMobileTarget.native: TargetOrder(orderId, total, purchasedProductIds)로 묶음 전송(빈 배열이면 대표 entityId 단일 사용).
+- recommendationData: pickRandomEntity → pickRandomEntities(min/max, 부분 Fisher-Yates 중복 없음), BUNDLE_MIN/BUNDLE_MAX(2/5) 상수 추가.
+- RecommendationScreen: 매 틱 2~5품목 묶음 전송, 로그 "수신자 ← 품목 N개 (id:...)", 안내 문구·docstring 갱신.
+- 점검: tsc --noEmit 통과, 린트 0. 웹 .ts no-op 시그니처만 타입 반영.
+Changed files: frontend/adobe_frontend/target-native-frontend/native/adobeMobileTarget.types.ts, frontend/adobe_frontend/target-native-frontend/native/adobeMobileTarget.native.ts, frontend/adobe_frontend/target-native-frontend/recommendationData.ts, frontend/adobe_frontend/target-native-frontend/RecommendationScreen.tsx
+
+133. 2026-06-04 푸터 탭 7개를 두 줄(4 + 3) 레이아웃으로 변경(좁은 화면에서 모두 노출)
+Purpose: 탭이 7개로 늘며 한 줄 배치가 좁아져, 가로 스크롤 대신 두 줄로 나눠 모든 탭을 항상 노출.
+Changes:
+- AppFooter: 단일 행 → 두 행(상단 메인/프로필/추천 테스트/스크롤, 하단 XT/A·B/추천 SDK)으로 분리, 행 사이 구분선(rowDivider) 추가, bar 를 column 방향으로 변경(safe-area 하단 패딩은 유지).
+- 점검: tsc --noEmit 통과, 린트 0.
+Changed files: frontend/components/AppFooter.tsx
+
+132. 2026-06-04 네이티브 SDK 추천(Recommendations) 테스트 화면 추가(데이터 적재 루프 + 추천 가져오기)·푸터 탭(추천 SDK)
+Purpose: 웹 추천 패널을 참고하되, 네이티브 AEPTarget SDK 로 추천 학습 데이터를 적재하고 추천을 조회하는 전용 화면을 추가. mbox 는 기존 offer mbox(target-msdk-mbox) 사용.
+Changes:
+- 알고리즘 확인: Adobe 문서상 "People Who Bought This, Bought That" 는 구매(order, productPurchasedId=entity.id) 이벤트로 학습됨 → 데이터 적재는 entity 파라미터 + TargetProduct + TargetOrder(구매) 전송으로 구현.
+- recommendationData.ts: 고정 recipient_id 10개·메뉴 엔티티 60개(웹과 동일)·pickRandomEntity/parseRecommendations/pickRecLabel/pickRecId. 활동 디자인 출력 계약 `{meta, items:[{entityId,name,categoryId,stCode}]}`(criteria "BOUGHT_CF based on Most Viewed Item")에 맞춰 파싱, 추천 부족 시 미해결 토큰($entity5.* 등)·빈 슬롯은 제거.
+- 네이티브 래퍼(adobeMobileTarget): `setTargetVisitor`(resetExperience 후 setThirdPartyId 순서로 수신자 분리)·`sendTargetRecommendationData`(entity+product+order 전송) 추가, 웹 .ts 는 no-op, 타입 RecommendationData 추가.
+- RecommendationScreen: ① "추천 데이터 보내기"/"보내기 멈춤" 토글 — 1초 간격으로 수신자 순차 순회 + 무작위 메뉴를 구매로 전송(누계·최근 로그 표시, 언마운트 시 인터벌 정리). ② 수신자 선택 후 "추천 가져오기"(thirdPartyId 기준 offer mbox 조회·Top5·원본 JSON).
+- 라우트 app/recommendation.tsx(@adobe-native/RecommendationScreen re-export), 푸터에 recsdk 탭("추천 SDK", /recommendation) 추가.
+- 점검: tsc --noEmit 통과, 린트 0. 웹/백엔드 경로 변경 없음(네이티브 SDK 직접 호출).
+Changed files: frontend/adobe_frontend/target-native-frontend/recommendationData.ts, frontend/adobe_frontend/target-native-frontend/RecommendationScreen.tsx, frontend/adobe_frontend/target-native-frontend/native/adobeMobileTarget.native.ts, frontend/adobe_frontend/target-native-frontend/native/adobeMobileTarget.ts, frontend/adobe_frontend/target-native-frontend/native/adobeMobileTarget.types.ts, frontend/app/recommendation.tsx, frontend/components/AppFooter.tsx
+
+131. 2026-06-04 방문자 패널 공용화(VisitorPanel)·A/B 화면에 식별자/초기화 추가·경험 초기화에 ECID 재발급(resetIdentities) 적용
+Purpose: A/B 화면 하단에 XT 의 방문자 정보·초기화 양식을 동일하게 추가하고, "경험 초기화해도 값이 안 바뀌는" 문제(ECID 잔존으로 서버 프로필 복원)를 해결.
+Changes:
+- 원인/수정: `Target.resetExperience()`는 tntId 만 지워 기존 ECID 로 A/B 배정이 복원됨 → `resetTargetExperience()` 에 `MobileCore.resetIdentities()` 추가해 ECID 까지 재발급(새 방문자로 재추첨).
+- 공용화: common 에 `EMPTY_IDS` + `VisitorPanel`(방문자 식별자 표시·ID 새로고침·경험 초기화) 추가, `btnDanger`·`idText` 스타일을 commonStyles 로 이동.
+- XtTestScreen: 인라인 방문자 블록·로컬 스타일 제거하고 VisitorPanel 사용(코드 축소).
+- AbTestScreen: ids 상태 추가, 조회 시 ID 갱신, 하단에 VisitorPanel 배치(기존 단순 "초기화" 버튼은 경험 초기화로 통합 — 식별자 제거 + 표시 비움).
+- 점검: tsc 로 `MobileCore.resetIdentities()` 타입 확인(@adobe/react-native-aepcore v7 존재). 웹 no-op 은 변경 없음.
+Changed files: frontend/adobe_frontend/target-native-frontend/native/adobeMobileTarget.native.ts, frontend/adobe_frontend/target-native-frontend/common.tsx, frontend/adobe_frontend/target-native-frontend/XtTestScreen.tsx, frontend/adobe_frontend/target-native-frontend/AbTestScreen.tsx
 
 130. 2026-06-02 네이티브 SDK 래퍼(adobeMobileTarget 3파일)를 target-native-frontend/native 로 이관·import 정리
 Purpose: 네이티브 전용 SDK 래퍼가 공용 target_frontend 아래 있던 것을, 네이티브 묶음(target-native-frontend) 하위로 옮겨 위치 일관성을 맞추고 import 를 정리.
