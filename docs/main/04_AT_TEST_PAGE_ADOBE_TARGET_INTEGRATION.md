@@ -503,6 +503,26 @@ flowchart LR
 - **컴포넌트 재사용:** 네이티브 테스트 화면은 웹과 **동일한 `@/components/EventPopup`**을 렌더한다(`offer=null`이면 미표시). 즉 팝업 UI/동작은 한 곳에서 관리된다.
 - 웹 흐름(`parseAdobeTargetOffersPayload`→Context→`main.tsx`)은 **전혀 바뀌지 않았다**.
 
+### 14.5 SDK 객체 레퍼런스 — `@adobe/react-native-aeptarget`
+
+`adobeMobileTarget.native.ts`가 import하는 클래스/모듈은 **모두 Adobe가 제공**하는 모바일 Target SDK(네이티브 AEPTarget의 React Native 래퍼)다. 직접 만든 타입이 아니다.
+
+| 객체 | 역할 | 본 프로젝트 사용(생성자/호출) |
+|------|------|-------------------------------|
+| **`Target`** | Target 메인 모듈(메서드 모음): `retrieveLocationContent`·`prefetchContent`·`getTntId`·`getThirdPartyId`·`setThirdPartyId`·`resetExperience`·`getSessionId`·`clickedLocation` 등 | `Target.retrieveLocationContent([req], params)` |
+| **`TargetParameters`** | 한 요청에 실어 보낼 파라미터 묶음(mbox 파라미터 + profile 파라미터 + product + order) | `new TargetParameters(mbox, profile, product, order)` |
+| **`TargetRequestObject`** | mbox **1개** 요청 단위(이름·파라미터·기본값·콜백) | `new TargetRequestObject(name, params, default, (err, content) => …)` |
+| **`TargetProduct`** | 상품 정보(productId, categoryId) — 추천/주문 컨텍스트 | `new TargetProduct(entityId, categoryId)` |
+| **`TargetOrder`** | 주문 정보(orderId, total, purchasedProductIds[]) — 구매 이벤트 | `new TargetOrder(orderId, total, [ids])` |
+
+**공식 문서(설명을 볼 곳)**
+
+- 모바일 Target API 레퍼런스(메서드·클래스 전체, 상단 탭에서 언어 선택): https://developer.adobe.com/client-sdks/solution/adobe-target/api-reference
+- React Native Target 패키지 README(RN 시그니처·예제 — 본 코드와 가장 일치): https://github.com/adobe/aepsdk-react-native/tree/main/packages/target
+- npm 패키지: https://www.npmjs.com/package/@adobe/react-native-aeptarget
+
+> 실제 설치 버전 기준으로 보려면 `frontend/package.json`의 `@adobe/react-native-aeptarget` 버전을 확인해 해당 태그의 README를 참조한다.
+
 ## 15. 네이티브 추천(Recommendations) 완전 가이드
 
 추천(Recommendations)은 "이 사용자/이 상품과 관련해 보여줄 다른 상품들"을 Adobe가 **자동 계산**해 돌려주는 기능이다. A/B·XT 오퍼처럼 사람이 정한 고정 콘텐츠를 주는 게 아니라, **앱이 쌓아 둔 행동 데이터(조회·구매)를 학습한 알고리즘**이 매번 후보 상품을 골라준다. 그래서 ① 데이터를 먼저 쌓고 → ② Adobe가 학습하고 → ③ 조회하면 결과가 나오는, **순서가 있는 기능**이다.
@@ -672,10 +692,67 @@ eas build -p android --profile preview     # APK 빌드
 | 웹 빌드가 Adobe 네이티브 때문에 깨짐 | `*.native.ts`에 import가 새어 들어갔는지 확인(base `*.ts`는 no-op이어야 함) |
 | 네이티브 변경이 앱에 반영 안 됨 | OTA가 아니라 **EAS 새 빌드** 필요 |
 
+## 부록 B. 네이티브 백엔드(서버사이드) 연동 — Python/Java SDK & 하이브리드
+
+네이티브 앱도 단말 Mobile SDK 대신(또는 함께) **앱 → 내 백엔드 컨트롤러(Python/Java SDK) → Adobe Target Delivery API** 구조로 연동할 수 있다. 두 방식 모두 결국 **같은 Delivery API**를 호출하므로, 서버 SDK는 호출 주체(웹/앱)를 가리지 않는다. 실제로 본 프로젝트의 **웹 경로가 이미 이 서버사이드 구조**(`backend/adobe_backend`, `target-python-sdk`)다.
+
+### B.1 두 가지 연동 아키텍처
+
+```
+[A] 클라이언트사이드 (현재 네이티브)
+  앱 ──(AEPTarget, Tags 모바일 익스텐션)──▶ Adobe Target Delivery API
+       └ ECID/tntId 자동관리(Identity 익스텐션), 환경 = environmentFileId
+
+[B] 서버사이드 (현재 웹 백엔드와 동일)
+  앱 ──HTTP──▶ 내 백엔드(Python/Java SDK) ──▶ Adobe Target Delivery API
+                └ 식별자/파라미터를 백엔드가 직접 구성, 환경 = at_property + client/orgId
+```
+
+### B.2 비교
+
+| 항목 | [A] Mobile SDK + Tags | [B] 백엔드 SDK(서버사이드) |
+|------|----------------------|---------------------------|
+| 호출 주체 | 단말 SDK | 내 백엔드 |
+| Tags 모바일 속성(`environmentFileId`) | **사용** | **불필요**(`client`/`orgId`/`at_property`만) |
+| ECID/tntId | SDK가 **자동** 생성·보관(Identity) | 백엔드가 **직접** 관리·전달 |
+| 방문자 식별 | ECID 중심(+`thirdPartyId`) | 보통 **`thirdPartyId`(=recipient_id) 중심** |
+| 자동 수집(Lifecycle/A4T/오프라인 큐) | 있음 | 없음(직접 파라미터 전송) |
+| 오퍼 적용 | 앱 코드가 form 콘텐츠 해석 | 동일(앱이 백엔드 응답 해석) |
+
+### B.3 핵심: 식별자(Identity) 스티칭 — ECID 주입과 하이브리드
+
+**ECID**(Experience Cloud ID = `marketing_cloud_visitor_id`)는 Adobe가 "같은 사용자"를 인식하는 대표 방문자 ID다.
+
+- [A] Mobile SDK는 Identity 익스텐션이 단말에 ECID를 자동 보관하고 모든 호출에 실어 보낸다.
+- [B] 백엔드는 그냥 요청을 만들면 ECID가 없어 **다른 방문자**로 인식된다. → 한 사람이 [A]·[B]를 섞어 쓰면 Target은 **두 명**으로 봐서 A/B 배정이 갈리고 세그먼트·A4T 리포트가 쪼개진다.
+
+**해결(= 하이브리드):** 단말 SDK가 가진 ECID를 앱이 백엔드로 전달하고, 백엔드가 delivery 요청의 `VisitorId.marketing_cloud_visitor_id` 에 그 값을 주입한다. 그러면 두 경로가 같은 ECID를 가리켜 Target이 한 사람으로 묶는다.
+
+```
+[A] 단말 SDK ─ECID(자동)──────────────────────▶ Target
+                  │ (같은 ECID 공유)
+[B] 앱 ─ECID전달─▶ 내 백엔드 ─VisitorId.marketing_cloud_visitor_id=ECID─▶ Target
+```
+
+- 앱에서 ECID 획득: `Identity.getExperienceCloudId()` (AEP Identity 익스텐션).
+- 백엔드 주입 지점: `build_visitor_id(...)`에 `marketing_cloud_visitor_id`(ECID)를 추가해 `VisitorId`에 실어 보낸다(예시 패키지 `adobe_backend_example/base_model_python_sdk.py`의 `build_visitor_id` 확장).
+
+### B.4 언제 무엇을 쓰나 (권장)
+
+| 상황 | 권장 |
+|------|------|
+| CRM 키(recipient_id) 기반 추천/오퍼만 필요 | **[B] 순수 서버사이드** — Tags 모바일 속성 없이 `target-python-sdk`(또는 Java SDK) + `at_property` + `thirdPartyId`만으로 동작. 스티칭 고민 최소 |
+| 단말 자동 컨텍스트·A4T·자동 오퍼가 필요 | **[A] Mobile SDK 유지** |
+| 둘 다 필요(자동 수집 + 서버 결정) | **[A]+[B] 하이브리드** — ECID 공유로 식별자 일치 |
+
+> 본 프로젝트 기준: 추천/AB 흐름이 `thirdPartyId = recipient_id`로 이미 동작하므로, 네이티브를 서버사이드로 돌릴 때 같은 `thirdPartyId`만 일관되게 넘기면 같은 프로필로 묶인다. A4T·ECID 연속성이 필요할 때만 ECID 주입(하이브리드)을 추가한다.
+
 ## 20. 문서 이력
 
 | 버전 | 일자 | 요약 |
 |------|------|------|
+| **3.4** | 2026-06-05 | **부록 B(네이티브 서버사이드/하이브리드 연동)** 추가 — 앱→백엔드(Python/Java SDK)→Delivery API 구조, [A]/[B] 비교, ECID(`marketing_cloud_visitor_id`) 스티칭·하이브리드 정의, 사용 시나리오별 권장 |
+| **3.3** | 2026-06-04 | **SDK 객체 레퍼런스(§14.5)** 추가 — `@adobe/react-native-aeptarget`의 `Target`·`TargetParameters`·`TargetRequestObject`·`TargetProduct`·`TargetOrder` 역할·생성자·공식 문서 링크. 추천 전용 mbox(`target-rec-msdk-mbox`) 분리 반영(§14.2~3·§15) |
 | **3.2** | 2026-06-04 | **네이티브 추천(Recommendations) 완전 가이드(§15)** 신규 — 구성요소·데이터 적재→학습→조회 흐름도·Target UI 세팅 순서·**Backup/Default 동작(§15.5)**·가드레일(250자 등)·구현 매핑. 테스트 화면 3종(§14.3 XT/A·B/추천 SDK)·`mobile_env` 설정(§14.1~2)·푸터 두 줄 반영. 섹션 번호 15~19→16~20. FAQ에 추천 항목 추가 |
 | **3.1** | 2026-06-01 | **설치 확장 검증 매트릭스(§10.1)** 추가(Core·Identity·Target·Assurance ✅, Profile ⚠️ 선택). **event-popup 웹/네이티브 공용화(§14.4)** 기술. **노출/클릭 알림 미연결 범위 명시(§11).** 리팩토링 정리 반영 — 웹 mbox 백엔드 단일 소스(`bootstrap` 역할)·`_run_delivery`·`targetHttp`·요청 모델 공통 베이스(`_TargetVisitorRequest`) |
 | **3.0** | 2026-06-01 | **전면 재작성(가독성·흐름 중심).** 1~4부 구성, 개념·웹·네이티브·운영 분리. **네이티브 모바일 SDK 연동(AEPCore/AEPTarget/AEPAssurance·플랫폼 분리·`adobe_mobile_app_id`·테스트 화면) 신규 기술.** 시퀀스/흐름도·예시 JSON 추가 |

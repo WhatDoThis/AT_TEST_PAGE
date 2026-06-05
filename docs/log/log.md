@@ -2,6 +2,17 @@
 
 ## Log Index
 
+152. 2026-06-05 docs/main 04 v3.4 — 부록 B(네이티브 서버사이드/하이브리드 연동) 추가: 앱→백엔드(Python/Java SDK)→Delivery API 구조·[A]/[B] 비교·ECID(marketing_cloud_visitor_id) 스티칭/하이브리드·시나리오별 권장
+151. 2026-06-05 SDK 예시 명명 일관화 — 가격 짝 entity_value↔entities_total_value 통일·TELECOM 상수 접미사 통일(_PROFILE_PARAMS)·get_offers_example params→mbox_parameters·네이티브 payload total→entitiesTotalValue(+entityValue/attrs/profile 연결)
+150. 2026-06-05 SDK 예시 추천 가격 의미 분리 — order_total(전환 총액, 묶음=합계)·entity_value(단건 카탈로그가) 별도 인자화(묶음 시 entity.value 오기입 방지)
+149. 2026-06-05 SDK 예시 추천 호출 가격 하드코딩(1000.0) 제거 — price·purchased_ids 인자화(order.total·entity.value 반영, 묶음 구매 지원)
+148. 2026-06-05 adobe_backend_example 검수 — API/객체/반환 구조 공식·운영코드와 일치 확인, client docstring·주석의 stale "mbox 이름" 문구 2곳만 정정
+147. 2026-06-05 SDK 예시 client 설정에서 미사용 mbox 필드(offer/recs_mbox_name) 제거 — 초기화에 불필요(요청 시 인자 전달)·죽은 설정 정리
+146. 2026-06-05 SDK 예시 4-B 주석 보강 — profile.* 와 entity.* 분리 이유·유용/주의점(프로필 만료·덮어쓰기·PII)·profile script(user.*) vs 전달 파라미터 구분 요약(py/native)
+145. 2026-06-05 SDK 예시 엔터티 속성을 [예약(Adobe 기본)]/[커스텀(통신사 제안)]으로 분리 표기·entity.margin 등 예약 누락 보완·커스텀 속성 추가(공식 문서 근거)·profile.* vs crs.* 구분 주석
+144. 2026-06-05 SDK 예시 베이스 모델에 통신사(텔코) 확장 반영(엔터티/프로필 속성 템플릿·조회/전환 신호 빌더)·전 필드 용도 주석·py import 누락(VisitorId) 수정
+143. 2026-06-05 Adobe SDK 예시 패키지 신설(adobe_backend_example: Web Python SDK 3파일 / adobe_frontend_example: Native SDK 3파일) — 최소 구성·자기완결형·요청/반환 주석
+142. 2026-06-04 docs/main 04 §14.5 SDK 객체 레퍼런스 추가(@adobe/react-native-aeptarget Target/TargetParameters/TargetRequestObject/TargetProduct/TargetOrder·공식 링크) v3.3
 141. 2026-06-04 추천 전용 mbox(target-rec-msdk-mbox) 분리 — XT 활동과 location 충돌 제거(config·loadConfig·common·RecommendationScreen·문서)
 140. 2026-06-04 추천 네이티브 코드 점검·경량 리팩토링(recommendationData toRecord DRY·렌더 중복계산 제거·docstring 동기화)
 139. 2026-06-04 docs/adobe/02_AB.md 신규 — A/B 테스트 가이드(개념·활동 3종·트래픽/통계·네이티브 Form/mbox·abtest 매핑)
@@ -145,6 +156,115 @@
 12. 2026-04-27 docs/main AT_TEST_PAGE PRD v1.0 작성
 
 ## Log Body
+
+152. 2026-06-05 docs/main 04 v3.4 — 부록 B(네이티브 서버사이드/하이브리드 연동) 추가: 앱→백엔드(Python/Java SDK)→Delivery API 구조·[A]/[B] 비교·ECID(marketing_cloud_visitor_id) 스티칭/하이브리드·시나리오별 권장
+Purpose: 네이티브도 백엔드 컨트롤러(Python/Java SDK)로 연동 가능한지에 대한 설명을 가이드 부록으로 영구화하고, ECID 주입=하이브리드 개념을 정리.
+Changes:
+- `## 부록 B` 신설: B.1 두 아키텍처([A] Mobile SDK+Tags / [B] 서버사이드)·다이어그램, B.2 비교표, B.3 식별자 스티칭(ECID=marketing_cloud_visitor_id 주입·하이브리드 정의·시퀀스·앱 Identity.getExperienceCloudId·백엔드 build_visitor_id 확장 지점), B.4 시나리오별 권장.
+- 문서 이력 v3.4 행 추가.
+Changed files: docs/main/04_AT_TEST_PAGE_ADOBE_TARGET_INTEGRATION.md
+
+151. 2026-06-05 SDK 예시 명명 일관화 — 가격 짝 entity_value↔entities_total_value 통일·TELECOM 상수 접미사 통일(_PROFILE_PARAMS)·get_offers_example params→mbox_parameters·네이티브 payload total→entitiesTotalValue(+entityValue/attrs/profile 연결)
+Purpose: order_total/entity_value 처럼 용도는 비슷한데 이름이 동떨어진 짝을 보는 사람 친화적으로 통일하고, 백엔드·프론트 example 패키지 전반의 명명 규칙을 재점검.
+Changes:
+- 가격 어휘 통일(도메인/호출자용): entity_value(단건 카탈로그가) ↔ entities_total_value(전체 합계). Adobe 객체 미러 빌더 build_order/buildOrder 는 SDK 원래 이름 total 유지.
+  - backend delivery: order_total → entities_total_value, 시그니처에 entity_value 인접 배치·주석 정렬.
+  - backend base_model build_purchase_signal_mbox: total → entities_total_value.
+  - native base_model RecommendationPayload: total → entitiesTotalValue, entityValue?(단건가) 추가. buildPurchaseSignal: total → entitiesTotalValue.
+  - native target_native_sdk sendRecommendationData: payload.total → payload.entitiesTotalValue, 미사용이던 entityAttrs/profileParams/entityValue 까지 실제 연결(entity.value 포함).
+- TELECOM 상수 3종 접미사 병렬화: TELECOM_PROFILE_PARAMS_TEMPLATE → TELECOM_PROFILE_PARAMS (py/native, _RESERVED·_CUSTOM 와 통일).
+- 호출자용 인자명 통일: get_offers_example params → mbox_parameters (네이티브 mboxParameters 와 짝). 단명 로컬변수 params·SDK 미러 빌더 total 은 유지.
+- 검증: py_compile 통과, 린트 무오류.
+Changed files: backend/adobe_backend/adobe_backend_example/{delivery_python_sdk.py, base_model_python_sdk.py}, frontend/adobe_frontend/adobe_frontend_example/{base_model_native_sdk.ts, target_native_sdk.ts}
+
+150. 2026-06-05 SDK 예시 추천 가격 의미 분리 — order_total(전환 총액, 묶음=합계)·entity_value(단건 카탈로그가) 별도 인자화(묶음 시 entity.value 오기입 방지)
+Purpose: 직전 변경에서 price 하나를 order.total 과 entity.value 양쪽에 써, 묶음 구매 시 entity.value(=단건 카탈로그 가격)에 합계가 잘못 들어가던 의미 충돌 수정.
+Changes:
+- get_recommendations_example 인자 분리: price → order_total(주문 전환 총액: 묶음=합계, 단건=품목가), entity_value(entity_id 단건 카탈로그 가격, 미지정 시 entity.value 미전송) 추가.
+- order.total 은 order_total 사용, entity.value 는 entity_value 로만 세팅. 함수/모듈 docstring·주석에 두 값의 의미 차이 명시.
+- 검증: py_compile 통과, 린트 무오류.
+Changed files: backend/adobe_backend/adobe_backend_example/delivery_python_sdk.py
+
+149. 2026-06-05 SDK 예시 추천 호출 가격 하드코딩(1000.0) 제거 — price·purchased_ids 인자화(order.total·entity.value 반영, 묶음 구매 지원)
+Purpose: 품목별 가격이 다른 실제 환경을 반영하도록, 테스트 전제(동일 가격)에 묶여 하드코딩됐던 추천 호출의 가격을 파라미터화. 패키지 내 다른 하드코딩/재사용성 저하 지점도 점검.
+Changes:
+- get_recommendations_example 에 price(기본 0.0)·purchased_ids(기본 [entity_id]) 인자 추가.
+  - order.total 을 1000.0 고정 → price 사용. price>0 이면 parameters 에 entity.value(소수점 포맷) 추가(정렬·Inclusion Rule).
+  - 단일 [entity_id] 고정 → purchased_ids 로 묶음 구매 가능.
+- 점검 결과: 나머지(uuid 자동 order id/third_party_id, EXAMPLE_SETTINGS placeholder, timeout=3000, TELECOM 템플릿 예시값)는 의도된 자동생성/플레이스홀더/템플릿이라 수정 불필요.
+- 모듈 docstring 시그니처 갱신, 함수 주석에 가격/묶음 설명 추가.
+- 검증: py_compile 통과, 린트 무오류.
+Changed files: backend/adobe_backend/adobe_backend_example/delivery_python_sdk.py
+
+148. 2026-06-05 adobe_backend_example 검수 — API/객체/반환 구조 공식·운영코드와 일치 확인, client docstring·주석의 stale "mbox 이름" 문구 2곳만 정정
+Purpose: 공식 문서·오픈소스(target-python-sdk)·운영 코드(target_backend) 기준으로 예시 패키지의 오류 검수.
+Changes:
+- 검증(정확): TargetClient.create(client/organization_id/timeout), get_offers({"request":...}) dict 반환(response/target_cookie/...), 응답 속성(execute.mboxes[].options[].content/type·id.tnt_id/third_party_id·status), 객체 시그니처(VisitorId/CustomerId/MboxRequest/Product/Order/DeliveryRequest/ModelProperty), ApiException.status, delivery_api_client 전이의존, timeout ms — 모두 운영코드와 일치.
+- 정정: client_python_sdk.py 모듈 docstring의 "…타임아웃·mbox 이름)" → "…타임아웃)", [설정] 주석 "administration·mboxes 블록" → "administration 블록"(직전 mbox 필드 제거와 정합).
+- 검증: py_compile 통과, 린트 무오류.
+Changed files: backend/adobe_backend/adobe_backend_example/client_python_sdk.py
+
+147. 2026-06-05 SDK 예시 client 설정에서 미사용 mbox 필드(offer/recs_mbox_name) 제거 — 초기화에 불필요(요청 시 인자 전달)·죽은 설정 정리
+Purpose: "client 설정에 offer/recs mbox 를 미리 정의한 게 필수인가" 질문 검증. TargetClient.create 는 client/organization_id/timeout 만 사용하고, mbox 이름은 delivery 함수가 인자로 받으므로 settings 의 두 필드는 어디서도 참조되지 않는 죽은 설정임을 확인 → 제거.
+Changes:
+- AdobeTargetSettings 에서 offer_mbox_name·recs_mbox_name 필드 삭제, EXAMPLE_SETTINGS 의 두 값 삭제.
+- 각 필드에 초기화 필수/요청용 구분 주석 추가, "mbox 이름은 요청 시 인자로 전달(delivery_python_sdk 참고)" 안내 주석 추가.
+- 모듈 docstring 의 AdobeTargetSettings 설명 갱신.
+- 검증: py_compile(client/delivery) 통과, 린트 무오류.
+Changed files: backend/adobe_backend/adobe_backend_example/client_python_sdk.py
+
+146. 2026-06-05 SDK 예시 4-B 주석 보강 — profile.* 와 entity.* 분리 이유·유용/주의점(프로필 만료·덮어쓰기·PII)·profile script(user.*) vs 전달 파라미터 구분 요약(py/native)
+Purpose: "profile 값을 쓰려면 profile script 정의·activate가 필요한가, 엔터티와 왜 분리하나"라는 질문에 대한 핵심을 베이스 모델 4-B 주석에 요약 명시.
+Changes:
+- 정정: 단순 전달 profile.* 는 스크립트 없이 오디언스 타겟 가능 / profile script(user.*)는 파생·계산값 필요 시에만 정의(요청마다 서버 평가).
+- 분리 이유 요약: entity.*='아이템'(Catalog·Collection·Inclusion·Design / 키=entity.id) vs profile.*='사람'(오디언스·타겟 / 키=tntId·thirdPartyId) — 저장소·소비단계 상이. 접점은 Inclusion Rule 비교(entity.id≠profile.currentPlan=보유상품 제외).
+- 유용(피드 없이 실시간 개인화)/주의(프로필 만료 기본 14일·영속 저장소 아님·last-write 덮어쓰기·PII 금지 → 영속/대량은 crs.*) 요약.
+- base_model_python_sdk.py(4-B)·base_model_native_sdk.ts(4-B) 동일 반영(예시 대칭 유지).
+- 검증: py_compile 통과, 프론트 린트 무오류.
+Changed files: backend/adobe_backend/adobe_backend_example/base_model_python_sdk.py, frontend/adobe_frontend/adobe_frontend_example/base_model_native_sdk.ts
+
+145. 2026-06-05 SDK 예시 엔터티 속성을 [예약(Adobe 기본)]/[커스텀(통신사 제안)]으로 분리 표기·entity.margin 등 예약 누락 보완·커스텀 속성 추가(공식 문서 근거)·profile.* vs crs.* 구분 주석
+Purpose: 사용자 요청대로 "Adobe가 기본 제공하는 엔터티 속성(그대로 연동 가능)"과 "직접 정의하는 커스텀 속성(추가 제안용)"을 명확히 구분. 공식 문서(Recommendations > Entity Attributes)를 근거로 예약 속성 목록을 정정·보완하고, 통신사에 유용한 커스텀 속성을 추가.
+Changes:
+- 공식 문서 확인: 예약 속성 = entity.id/name/categoryId/brand/pageUrl/thumbnailUrl/message/inventory/value/margin, entity.environment=시스템 예약(사용 불가). 커스텀 최대 100개(단일/다중값).
+- base_model_python_sdk.py / base_model_native_sdk.ts 4-A 를 두 상수로 분리:
+  - TELECOM_ENTITY_ATTRS_RESERVED(예약): 누락됐던 entity.margin 추가, inventory 값을 수량(1)·value 소수점·categoryId 콤마 다중분류·id 문자제한 등 공식 제약을 주석화. entity.environment 사용불가 주석.
+  - TELECOM_ENTITY_ATTRS_CUSTOM(커스텀): 기존 network/dataAllowance/contractTerm/deviceCompat + 신규 subscriptionType/bundleType/promoEndDate/discount/popularity 추가(각 용도 주석).
+- 4-B(profile.*): Adobe 예약어가 아니라 전송 시 생성·갱신되는 설계임을 명시 + 이미 CRM에 있는 값은 crs.<통합코드>.* 로 매칭 권장(배치=crs / 실시간=profile, 보완 관계) 주석 추가.
+- 모듈 docstring의 상수명 갱신(RESERVED/CUSTOM 분리 반영).
+- 검증: backend py_compile 통과, 프론트 린트 무오류.
+Changed files: backend/adobe_backend/adobe_backend_example/base_model_python_sdk.py, frontend/adobe_frontend/adobe_frontend_example/base_model_native_sdk.ts
+
+144. 2026-06-05 SDK 예시 베이스 모델에 통신사(텔코) 확장 반영(엔터티/프로필 속성 템플릿·조회/전환 신호 빌더)·전 필드 용도 주석·py import 누락(VisitorId) 수정
+Purpose: 다음 고객(통신사) 웹/앱 SDK 구축을 대비해, 추천 신호로 활용 가능한 영역(엔터티 속성·프로필 속성·조회/전환 신호)을 예시 베이스 모델에 미리 정의. "쓸 수 있는 후보를 펼쳐두고 필요 없는 것을 지워 쓰는" 방식으로 활용하도록 각 값 옆에 용도 주석을 명시.
+Changes:
+- base_model_python_sdk.py: 기존 빌더(build_visitor_id/customer_id/mbox/product/order/delivery_request) 각 인자에 용도 인라인 주석 추가. [TELECOM] 섹션 신설 — TELECOM_ENTITY_ATTRS_TEMPLATE(entity.*: id/name/categoryId/value/inventory/brand/message/thumbnail/pageUrl + 커스텀 network/dataAllowance/contractTerm/deviceCompat), TELECOM_PROFILE_PARAMS_TEMPLATE(profile.*: currentPlan/contractEndDate/dataUsageGB/deviceModel/familyBundle/ageBand/churnRisk), build_view_signal_mbox(order 없음=조회 신호)/build_purchase_signal_mbox(order=전환 신호). + 누락돼 있던 VisitorId import 추가(런타임 NameError 예방).
+- base_model_native_sdk.ts: RecommendationPayload 에 entityAttrs/profileParams 선택 필드 + 전 필드 주석. buildProduct/buildOrder/buildParameters/buildRequest 인자 주석. [TELECOM] 섹션 — TELECOM_ENTITY_ATTRS_TEMPLATE/TELECOM_PROFILE_PARAMS_TEMPLATE, buildViewSignal(조회)/buildPurchaseSignal(전환) 빌더.
+- 각 속성 주석에 Collection 필터·Inclusion Rule·Attribute Weighting·디자인 노출 등 쓰임을 표기.
+- 검증: backend py_compile 통과, 프론트 린트 무오류.
+Changed files: backend/adobe_backend/adobe_backend_example/base_model_python_sdk.py, frontend/adobe_frontend/adobe_frontend_example/base_model_native_sdk.ts
+
+143. 2026-06-05 Adobe SDK 예시 패키지 신설(adobe_backend_example: Web Python SDK 3파일 / adobe_frontend_example: Native SDK 3파일) — 최소 구성·자기완결형·요청/반환 주석
+Purpose: 실제 운영 코드와 별개로, 새 시스템 구축·대고객 설명·한눈 파악에 바로 쓸 수 있는 "최소 SDK 구성 예시" 패키지를 Web(Python SDK)·Native(Mobile SDK) 두 갈래로 정제 제작. 다른 내부 모듈에 의존하지 않는 자기완결형(임포트는 SDK·표준 라이브러리만)으로 구성하고, 패키지 설치는 주석, API 콜·요청/반환은 예시 주석으로 명시.
+Changes:
+- backend/adobe_backend/adobe_backend_example 신설(Web 서버사이드 Python SDK 기준):
+  - __init__.py: 패키지 개요(구성 파일·사용 범위).
+  - client_python_sdk.py: 설정 dataclass(자격·property·mbox) + TargetClient.create 싱글톤 초기화 + property 토큰.
+  - base_model_python_sdk.py: Adobe Delivery 객체 빌더(VisitorId/CustomerId/MboxRequest/Product/Order/DeliveryRequest).
+  - delivery_python_sdk.py: get_offers 호출 + 오퍼/식별자 파싱 + 추천(meta/items) 예시 + FastAPI 연동 주석.
+- frontend/adobe_frontend/adobe_frontend_example 신설(Native Mobile SDK 기준):
+  - init_native_sdk.ts: initializeWithAppId(1회) + target.propertyToken 주입 + Assurance 세션.
+  - base_model_native_sdk.ts: Adobe 객체 빌더(TargetParameters/TargetProduct/TargetOrder/TargetRequestObject) + RecommendationPayload 타입.
+  - target_native_sdk.ts: retrieveLocationContent(Promise) + 식별자 조회 + 방문자 set/reset(resetIdentities) + 추천 학습 전송, 요청/반환 예시 주석.
+- 검증: backend py_compile 통과, 프론트 린트 무오류.
+Changed files: backend/adobe_backend/adobe_backend_example/{__init__.py,client_python_sdk.py,base_model_python_sdk.py,delivery_python_sdk.py}, frontend/adobe_frontend/adobe_frontend_example/{init_native_sdk.ts,base_model_native_sdk.ts,target_native_sdk.ts}
+
+142. 2026-06-04 docs/main 04 §14.5 SDK 객체 레퍼런스 추가(@adobe/react-native-aeptarget Target/TargetParameters/TargetRequestObject/TargetProduct/TargetOrder·공식 링크) v3.3
+Purpose: 코드에서 import하는 Adobe 모바일 Target SDK 객체들의 역할·생성자·공식 문서 위치를 가이드 문서에 정리해, 추후 코드 열람 시 바로 레퍼런스를 찾도록 함.
+Changes:
+- 04 §14.5 신규: Target/TargetParameters/TargetRequestObject/TargetProduct/TargetOrder 표(역할·본 프로젝트 생성자) + 공식 문서 3개 링크(Adobe API 레퍼런스·RN target 패키지 README·npm).
+- 문서 이력 v3.3 추가.
+Changed files: docs/main/04_AT_TEST_PAGE_ADOBE_TARGET_INTEGRATION.md
 
 141. 2026-06-04 추천 전용 mbox(target-rec-msdk-mbox) 분리 — XT 활동과 location 충돌 제거(config·loadConfig·common·RecommendationScreen·문서)
 Purpose: 추천 화면이 XT 와 동일 mbox(target-msdk-mbox)를 써서 추천 조회 시 XT event-popup 오퍼가 반환되던 충돌 해결. 추천 전용 mbox 를 신설해 XT/A·B/추천이 각자 mbox 로 독립 동작하게 함.
