@@ -654,7 +654,7 @@ eas build -p android --profile preview     # APK 빌드
 |------|----|------|-----|
 | `backend/env/config.adobe.json` | 웹 | `administration`(client·org·property_token·timeout) + `mboxes`(offer/recs/bootstrap) | **제외**(자격). `config.adobe.example.json` 복사해 작성 |
 | `backend/env/config.{dev,prd}.json` | 웹 | `cors_origins` 등(쿠폰 API와 공유) | 포함 |
-| `frontend/env/config.{dev,prd}.json` | 네이티브 | **`adobe_sdk_mboxes`**(`offer_sdk_mbox_name`=XT `target-msdk-mbox` · `global_sdk_mbox_name`=A·B `target-global-msdk-mbox` · `rec_sdk_mbox_name`=추천 `target-rec-msdk-mbox`)·**`adobe_mobile_app_id`**·api_url 등. 웹 mbox 이름은 프론트에 두지 않고 백엔드 `config.adobe.json` 을 단일 소스로 사용(프론트는 `bootstrap` 역할만 전달) | 포함 |
+| `frontend/env/config.{dev,prd}.json` | 네이티브 | **`mobile_env`**(`adobe_mobile_app_id`·`adobe_target_property_token`·`assurance_session_url`·`assurance_session_pin`·**`adobe_sdk_mboxes`**: `offer_sdk_mbox_name`=XT `target-msdk-mbox`·`global_sdk_mbox_name`=A·B `target-global-msdk-mbox`·`rec_sdk_mbox_name`=추천 `target-rec-msdk-mbox`)·api_url 등. 웹 mbox 이름은 프론트에 두지 않고 백엔드 `config.adobe.json` 을 단일 소스로 사용 | **제외**(민감: appId·property token·Assurance). `config.{dev,prd}.example.json` 복사해 작성 |
 
 - CORS: `app/main.py`가 `GET/POST/OPTIONS`, `allow_private_network`, dev에서 localhost·127.0.0.1·`[::1]` 임의 포트 정규식을 처리(상세는 `03` §3.4).
 
@@ -673,7 +673,7 @@ eas build -p android --profile preview     # APK 빌드
 **네이티브(모바일 SDK)**
 
 8. Tags 모바일 속성에 확장 설치 + Environment File ID 확보.
-9. `frontend/env/config.{dev,prd}.json`의 `adobe_mobile_app_id` 설정(운영은 production File ID).
+9. `frontend/env/config.{dev,prd}.example.json` 복사 → `config.{dev,prd}.json` 작성(git 제외). `mobile_env.adobe_mobile_app_id`(운영은 production File ID)·`adobe_target_property_token`·Assurance 세션 값 입력.
 10. Adobe 패키지 import는 **`*.native.ts`에만** — 웹 base `*.ts`는 no-op 유지(웹 번들 오염 금지).
 11. 네이티브 변경 후에는 **EAS 새 빌드**(OTA 불가).
 
@@ -737,6 +737,19 @@ eas build -p android --profile preview     # APK 빌드
 - 앱에서 ECID 획득: `Identity.getExperienceCloudId()` (AEP Identity 익스텐션).
 - 백엔드 주입 지점: `build_visitor_id(...)`에 `marketing_cloud_visitor_id`(ECID)를 추가해 `VisitorId`에 실어 보낸다(예시 패키지 `adobe_backend_example/base_model_python_sdk.py`의 `build_visitor_id` 확장).
 
+#### 식별자 발급 주체 — "임의 생성"은 thirdPartyId뿐, 나머지는 "받아서 재사용"
+
+ECID/`tntId`는 **임의로 만들어 넣는 값이 아니다.** Adobe가 발급한 값을 **받아 저장 → 이후 동일하게 재사용**한다. 직접 정해서 넣는 건 `thirdPartyId`뿐이다.
+
+| 식별자 | 누가 만드나 | 방식 |
+|--------|------------|------|
+| `thirdPartyId`(=recipient_id) | **내가** 지정 | 내 CRM 키 — 임의로 정해서 전송하는 유일한 ID |
+| `tntId` | **Adobe Target** 발급 | 응답으로 받음 → 저장 → 재요청 시 그대로 전송(스티키니스 핵심) |
+| `ECID`/`marketing_cloud_visitor_id` | **Adobe ID 서비스** 발급 | 받아서 저장 → 재사용. 임의 생성 금지 ❌ |
+
+- **하이브리드([A]+[B])**: 단말 SDK가 이미 보관한 ECID를 `Identity.getExperienceCloudId()`로 **읽어** 백엔드로 넘겨 재사용(새로 만들면 단말과 다른 사람이 됨).
+- **순수 서버사이드([B])**: 첫 호출에 식별자를 안 넣으면 Adobe가 발급해 응답으로 돌려준다 → 그 값(`tntId` 등)을 앱/세션/DB에 저장했다가 다음 호출에 재전송(웹 경로가 이미 쓰는 패턴, §4).
+
 ### B.4 언제 무엇을 쓰나 (권장)
 
 | 상황 | 권장 |
@@ -751,7 +764,7 @@ eas build -p android --profile preview     # APK 빌드
 
 | 버전 | 일자 | 요약 |
 |------|------|------|
-| **3.4** | 2026-06-05 | **부록 B(네이티브 서버사이드/하이브리드 연동)** 추가 — 앱→백엔드(Python/Java SDK)→Delivery API 구조, [A]/[B] 비교, ECID(`marketing_cloud_visitor_id`) 스티칭·하이브리드 정의, 사용 시나리오별 권장 |
+| **3.4** | 2026-06-05 | **부록 B(네이티브 서버사이드/하이브리드 연동)** 추가 — 앱→백엔드(Python/Java SDK)→Delivery API 구조, [A]/[B] 비교, ECID(`marketing_cloud_visitor_id`) 스티칭·하이브리드 정의, **식별자 발급 주체(thirdPartyId=임의지정 / tntId·ECID=받아서 재사용) 원칙(B.3)**, 사용 시나리오별 권장 |
 | **3.3** | 2026-06-04 | **SDK 객체 레퍼런스(§14.5)** 추가 — `@adobe/react-native-aeptarget`의 `Target`·`TargetParameters`·`TargetRequestObject`·`TargetProduct`·`TargetOrder` 역할·생성자·공식 문서 링크. 추천 전용 mbox(`target-rec-msdk-mbox`) 분리 반영(§14.2~3·§15) |
 | **3.2** | 2026-06-04 | **네이티브 추천(Recommendations) 완전 가이드(§15)** 신규 — 구성요소·데이터 적재→학습→조회 흐름도·Target UI 세팅 순서·**Backup/Default 동작(§15.5)**·가드레일(250자 등)·구현 매핑. 테스트 화면 3종(§14.3 XT/A·B/추천 SDK)·`mobile_env` 설정(§14.1~2)·푸터 두 줄 반영. 섹션 번호 15~19→16~20. FAQ에 추천 항목 추가 |
 | **3.1** | 2026-06-01 | **설치 확장 검증 매트릭스(§10.1)** 추가(Core·Identity·Target·Assurance ✅, Profile ⚠️ 선택). **event-popup 웹/네이티브 공용화(§14.4)** 기술. **노출/클릭 알림 미연결 범위 명시(§11).** 리팩토링 정리 반영 — 웹 mbox 백엔드 단일 소스(`bootstrap` 역할)·`_run_delivery`·`targetHttp`·요청 모델 공통 베이스(`_TargetVisitorRequest`) |

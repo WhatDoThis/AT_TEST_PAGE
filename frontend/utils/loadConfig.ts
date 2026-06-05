@@ -2,6 +2,8 @@
  * utils/loadConfig.ts (앱 설정 로드)
  * ================================================================================
  * `frontend/env/config.dev.json` / `config.prd.json` 을 __DEV__ 로 선택해 로드한다.
+ * ※ 이 두 파일은 민감정보(appId·property token·Assurance 세션)를 포함하므로 git 제외 대상이다.
+ *    저장소에는 `config.{dev,prd}.example.json` 만 두며, 클론 후 복사해 실제 값을 채워야 빌드된다.
  * 모바일(네이티브 SDK) 전용 값은 모두 `mobile_env` 블록으로 묶어 web/공용 값과 명확히 구분한다.
  *   - `mobile_env.adobe_mobile_app_id`: Data Collection(Tags) 모바일 속성의 Environment File ID(SDK 초기화)
  *   - `mobile_env.adobe_target_property_token`: Target Property(at_property) 토큰(특정 Property 활동 매칭)

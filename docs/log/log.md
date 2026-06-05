@@ -2,6 +2,8 @@
 
 ## Log Index
 
+154. 2026-06-05 프론트 env 민감정보 git 제외 — config.{dev,prd}.json 추적 해제(로컬 보존)·example 2종 신설(민감 4필드 플레이스홀더)·.gitignore·loadConfig 주석·docs 04 §17/§18 동기화
+153. 2026-06-05 docs 점검 — docs/adobe·docs/main stale 참조 없음(구 명칭은 log 이력에만). docs/main 04 부록 B.3에 식별자 발급 주체 원칙(thirdPartyId=임의지정 / tntId·ECID=받아서 재사용) 보강
 152. 2026-06-05 docs/main 04 v3.4 — 부록 B(네이티브 서버사이드/하이브리드 연동) 추가: 앱→백엔드(Python/Java SDK)→Delivery API 구조·[A]/[B] 비교·ECID(marketing_cloud_visitor_id) 스티칭/하이브리드·시나리오별 권장
 151. 2026-06-05 SDK 예시 명명 일관화 — 가격 짝 entity_value↔entities_total_value 통일·TELECOM 상수 접미사 통일(_PROFILE_PARAMS)·get_offers_example params→mbox_parameters·네이티브 payload total→entitiesTotalValue(+entityValue/attrs/profile 연결)
 150. 2026-06-05 SDK 예시 추천 가격 의미 분리 — order_total(전환 총액, 묶음=합계)·entity_value(단건 카탈로그가) 별도 인자화(묶음 시 entity.value 오기입 방지)
@@ -156,6 +158,24 @@
 12. 2026-04-27 docs/main AT_TEST_PAGE PRD v1.0 작성
 
 ## Log Body
+
+154. 2026-06-05 프론트 env 민감정보 git 제외 — config.{dev,prd}.json 추적 해제(로컬 보존)·example 2종 신설(민감 4필드 플레이스홀더)·.gitignore·loadConfig 주석·docs 04 §17/§18 동기화
+Purpose: frontend/env/config.dev.json 의 모바일 SDK 민감정보(adobe_mobile_app_id·adobe_target_property_token·assurance_session_url·assurance_session_pin)가 그대로 커밋되던 문제를, 백엔드 config.adobe.json 방식과 동일하게 example만 저장소에 유지하도록 정리.
+Changes:
+- frontend/env/config.dev.example.json, config.prd.example.json 신설 — 민감 4필드만 플레이스홀더, 나머지(port·url·mbox·images)는 기본값 유지.
+- .gitignore: frontend/env/config.dev.json, config.prd.json 추가(저장소엔 example만).
+- 이미 추적되던 두 파일 git rm --cached 로 추적 해제(로컬 파일은 보존, loadConfig 정적 import 유지).
+- loadConfig.ts 상단 주석에 "민감정보 git 제외·example 복사" 안내 추가.
+- docs/main 04 §17 설정표(프론트 행: 포함→제외+example)·§18 체크리스트 9 (example 복사·mobile_env 입력) 동기화.
+Changed files: .gitignore, frontend/env/{config.dev.example.json,config.prd.example.json}, frontend/utils/loadConfig.ts, docs/main/04_AT_TEST_PAGE_ADOBE_TARGET_INTEGRATION.md
+
+153. 2026-06-05 docs 점검 — docs/adobe·docs/main stale 참조 없음(구 명칭은 log 이력에만). docs/main 04 부록 B.3에 식별자 발급 주체 원칙(thirdPartyId=임의지정 / tntId·ECID=받아서 재사용) 보강
+Purpose: 최근 변경(example 패키지 명명 통일·부록 B)이 문서에 반영돼야 하는지 docs/adobe·docs/main 전수 점검하고, 사용자가 두 번 질문한 ECID 발급/재사용 혼동을 부록에 영구 정리.
+Changes:
+- 점검 결과: docs/adobe(01_XT·02_AB·03_RECOMMANDATION)는 이번 변경과 무관 → 수정 없음. docs/main 04 본문은 example 심볼을 기술하지 않아 stale 참조 없음(구 명칭 order_total/_TEMPLATE 등은 log 이력에만 존재 → 이력은 보존).
+- docs/main 04 부록 B.3에 "식별자 발급 주체" 표·원칙 추가: thirdPartyId(내가 임의 지정) vs tntId·ECID(Adobe 발급→받아 저장→재사용, 임의 생성 금지). 하이브리드=SDK ECID 읽어 재사용 / 순수 서버사이드=응답으로 받은 값 저장·재전송(§4 패턴) 명시.
+- 문서 이력 3.4 행에 보강 내용 반영.
+Changed files: docs/main/04_AT_TEST_PAGE_ADOBE_TARGET_INTEGRATION.md
 
 152. 2026-06-05 docs/main 04 v3.4 — 부록 B(네이티브 서버사이드/하이브리드 연동) 추가: 앱→백엔드(Python/Java SDK)→Delivery API 구조·[A]/[B] 비교·ECID(marketing_cloud_visitor_id) 스티칭/하이브리드·시나리오별 권장
 Purpose: 네이티브도 백엔드 컨트롤러(Python/Java SDK)로 연동 가능한지에 대한 설명을 가이드 부록으로 영구화하고, ECID 주입=하이브리드 개념을 정리.

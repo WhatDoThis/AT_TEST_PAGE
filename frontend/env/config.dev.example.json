@@ -3,10 +3,10 @@
   "base_url": "http://localhost:3010",
   "api_url": "http://localhost:8010",
   "mobile_env": {
-    "adobe_mobile_app_id": "ce8d64c4e8e1/9c6ed559c876/launch-a47665d87020-development",
-    "adobe_target_property_token": "c851da4c-8201-3d44-b91a-4dc532f7ec72",
-    "assurance_session_url": "attestpage://?adb_validation_sessionid=16125dcc-8b7e-4734-8681-1d6756849fbd",
-    "assurance_session_pin": "6657",
+    "adobe_mobile_app_id": "YOUR_LAUNCH_APP_ID/dev_environment/launch-xxxxxxxx-development",
+    "adobe_target_property_token": "00000000-0000-0000-0000-000000000000",
+    "assurance_session_url": "attestpage://?adb_validation_sessionid=YOUR_ASSURANCE_SESSION_ID",
+    "assurance_session_pin": "0000",
     "adobe_sdk_mboxes": {
       "offer_sdk_mbox_name": "target-msdk-mbox",
       "global_sdk_mbox_name": "target-global-msdk-mbox",

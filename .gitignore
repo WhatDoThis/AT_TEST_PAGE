@@ -52,6 +52,11 @@ backend/env/config.prd.json
 backend/env/config.adobe.json
 frontend/env/config.adobe.json
 
+# 프론트 환경설정(모바일 SDK appId·property token·Assurance 세션 등 민감정보)
+# 저장소에는 config.dev.example.json / config.prd.example.json 만 유지 → 복사해 실제 파일 작성
+frontend/env/config.dev.json
+frontend/env/config.prd.json
+
 # Python (백엔드 가상환경·바이트코드)
 backend/venv/
 backend/__pycache__/
