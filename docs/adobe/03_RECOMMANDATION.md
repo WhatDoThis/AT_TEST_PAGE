@@ -322,6 +322,7 @@ Audience 빌더 / Profile Attribute Matching 에서 crs.<속성> 사용
 | `$entity1.id` … `$entityN.id` | N순위 상품 id(최대 99) |
 | `$entity1.name` / `.value` / `.pageUrl` / `.thumbnailUrl` / `.message` | N순위 속성 |
 | `$entity1.<custom>` | 커스텀(예: `$entity1.stCode`) |
+| `$entity1.categoriesList` | `categoryId` 다중값 배열(직접 출력 불가한 categoryId 대신 `#foreach`로 펼침) |
 | `$key.id` / `$key.name` / `$key.thumbnailURL` | 기준(key) 상품 |
 | `$algorithm.name` / `$algorithm.dayCount` / `$criteria.title` | 알고리즘·기준 메타 |
 
@@ -337,21 +338,22 @@ Audience 빌더 / Profile Attribute Matching 에서 crs.<속성> 사용
     "keyName": "$key.name"
   },
   "items": [
-    { "entityId": "$entity1.id", "name": "$entity1.name", "categoryId": "$entity1.category", "stCode": "$entity1.stCode" },
-    { "entityId": "$entity2.id", "name": "$entity2.name", "categoryId": "$entity2.category", "stCode": "$entity2.stCode" },
-    { "entityId": "$entity3.id", "name": "$entity3.name", "categoryId": "$entity3.category", "stCode": "$entity3.stCode" },
-    { "entityId": "$entity4.id", "name": "$entity4.name", "categoryId": "$entity4.category", "stCode": "$entity4.stCode" },
-    { "entityId": "$entity5.id", "name": "$entity5.name", "categoryId": "$entity5.category", "stCode": "$entity5.stCode" }
+    { "entityId": "$entity1.id", "name": "$entity1.name", "categoryId": "#foreach($c in $entity1.categoriesList)$c#end", "stCode": "$entity1.stCode" },
+    { "entityId": "$entity2.id", "name": "$entity2.name", "categoryId": "#foreach($c in $entity2.categoriesList)$c#end", "stCode": "$entity2.stCode" },
+    { "entityId": "$entity3.id", "name": "$entity3.name", "categoryId": "#foreach($c in $entity3.categoriesList)$c#end", "stCode": "$entity3.stCode" },
+    { "entityId": "$entity4.id", "name": "$entity4.name", "categoryId": "#foreach($c in $entity4.categoriesList)$c#end", "stCode": "$entity4.stCode" },
+    { "entityId": "$entity5.id", "name": "$entity5.name", "categoryId": "#foreach($c in $entity5.categoriesList)$c#end", "stCode": "$entity5.stCode" }
   ]
 }
 ```
 
+- ⚠️ **카테고리는 `$entityN.categoryId`(또는 없는 속성 `$entityN.category`)로 직접 출력 불가 → 빈값("")**. `categoryId`는 multi-value라 Adobe가 직접 치환을 막는다([Design FAQ](https://experienceleague.adobe.com/en/docs/target/using/recommendations/recommendations-design/template-faq)). **검증된 방법: `#foreach($c in $entityN.categoriesList)$c#end`** 로 리스트를 펼쳐 출력(단일 카테고리면 `"sb"`처럼 그대로 나옴). 또는 표시용 커스텀 단일값(`entity.displayCategory`)을 별도 전송해 `$entityN.displayCategory` 참조.
 - 5개 못 채우면 `$entity5.id` 같은 **미해결 토큰** 그대로 올 수 있음 → 앱(`parseRecommendations`)이 토큰·빈슬롯 필터. (또는 §4.4 백업으로 채움.)
 
 ### 5.4 자주 막히는 부분
 
 - **숫자 표시:** Velocity는 값을 문자열로 다룸. `$entity1.value`의 `35.00`이 `35`로 보일 수 있음 → 표시는 커스텀 속성(`entity.displayValue` 문자열), 계산은 `parseInt`/`parseDouble`.
-- **카테고리 표시 불가:** `categoryId` 다중값 → 커스텀 속성 사용.
+- **카테고리 표시 불가:** `categoryId` 다중값이라 `$entityN.categoryId` 직접 출력 시 빈값 → **`#foreach($c in $entityN.categoriesList)$c#end`** 로 펼치거나 커스텀 단일값(`entity.displayCategory`) 사용.
 - **디자인 즉시 반영:** 사용 중 디자인 수정은 반영 느림 → **새 디자인 만들어 활동에서 교체**하면 즉시.
 
 ---

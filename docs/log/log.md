@@ -2,6 +2,8 @@
 
 ## Log Index
 
+156. 2026-06-09 docs/adobe/04_CAMPAIGN_AUDIENCE.md 신규 — 외부(Adobe Campaign) 세그먼트→Target 오디언스 연동 가이드(3경로 비교·권장 ②속성적재 아키텍처·흐름/의사코드·식별자 정합·지연별 수단·U+ 맥락)
+155. 2026-06-05 docs/adobe 03 추천 디자인 categoryId 빈값 원인·해결 정정 — $entity.category(없는 속성)·$entity.categoryId(multi-value 직접출력 불가) → categoriesList #foreach 로 교체(사용자 A안 검증 완료)
 154. 2026-06-05 프론트 env 민감정보 git 제외 — config.{dev,prd}.json 추적 해제(로컬 보존)·example 2종 신설(민감 4필드 플레이스홀더)·.gitignore·loadConfig 주석·docs 04 §17/§18 동기화
 153. 2026-06-05 docs 점검 — docs/adobe·docs/main stale 참조 없음(구 명칭은 log 이력에만). docs/main 04 부록 B.3에 식별자 발급 주체 원칙(thirdPartyId=임의지정 / tntId·ECID=받아서 재사용) 보강
 152. 2026-06-05 docs/main 04 v3.4 — 부록 B(네이티브 서버사이드/하이브리드 연동) 추가: 앱→백엔드(Python/Java SDK)→Delivery API 구조·[A]/[B] 비교·ECID(marketing_cloud_visitor_id) 스티칭/하이브리드·시나리오별 권장
@@ -158,6 +160,23 @@
 12. 2026-04-27 docs/main AT_TEST_PAGE PRD v1.0 작성
 
 ## Log Body
+
+156. 2026-06-09 docs/adobe/04_CAMPAIGN_AUDIENCE.md 신규 — 외부(Adobe Campaign) 세그먼트→Target 오디언스 연동 가이드
+Purpose: 가입 시스템이 관할 밖이고 세그가 Campaign에서 운영되는 U+ 상황에서, Campaign이 만든 대상자를 Target 오디언스로 넘기는 경로·지연·식별자 조건을 study-notes 스타일로 정리.
+Changes:
+- 3경로 비교: ①Experience Cloud 공유 오디언스(Campaign 워크플로, 24~36h, ECID/Declared ID) / ②속성 적재(recipient_id+플래그 → CRS·Bulk/Single Profile API, 지연 통제, profile.* 규칙) / ③RT-CDP→Target(준실시간, AEP 필요).
+- 권장 = ②(앱이 이미 thirdPartyId=recipient_id 사용): 데이터 흐름·의사코드·식별자 정합(3곳 키 일치)·지연별 수단표(요청파라미터/Single/Bulk/공유오디언스/RT-CDP).
+- 가드레일·U+ 제약 3개에 대한 답·공식 문서 링크 6종(Campaign 공유, Importing/exporting 24~36h, People Core Service, AAM→Target, RT-CDP destination, Profile API).
+Changed files: docs/adobe/04_CAMPAIGN_AUDIENCE.md(신규), docs/log/log.md
+
+155. 2026-06-05 docs/adobe 03 추천 디자인 categoryId 빈값 원인·해결 정정 — $entity.category(없는 속성)·$entity.categoryId(multi-value 직접출력 불가) → categoriesList #foreach 로 교체(사용자 A안 검증 완료)
+Purpose: 추천 반환 JSON 의 categoryId 가 빈값("")으로 오던 문제. 원인=디자인 토큰이 존재하지 않는 $entity.category 였고, $entity.categoryId 로 바꿔도 multi-value 라 Adobe 가 직접 출력을 차단(공식 FAQ). 검증된 categoriesList 방식으로 문서 정정.
+Changes:
+- §5.3 디자인(JSON) 스니펫 entity1~5 의 categoryId 를 "#foreach($c in $entityN.categoriesList)$c#end" 로 교체.
+- §5.3 하단에 원인·해결 주의문(FAQ 링크) 추가, §5.4 카테고리 표시 불가 항목에 categoriesList/displayCategory 해법 명시.
+- §5.2 변수표에 $entityN.categoriesList 행 추가.
+- 앱 전송(entity.categoryId)은 정상이라 변경 없음(필터·어피니티에 필요).
+Changed files: docs/adobe/03_RECOMMANDATION.md
 
 154. 2026-06-05 프론트 env 민감정보 git 제외 — config.{dev,prd}.json 추적 해제(로컬 보존)·example 2종 신설(민감 4필드 플레이스홀더)·.gitignore·loadConfig 주석·docs 04 §17/§18 동기화
 Purpose: frontend/env/config.dev.json 의 모바일 SDK 민감정보(adobe_mobile_app_id·adobe_target_property_token·assurance_session_url·assurance_session_pin)가 그대로 커밋되던 문제를, 백엔드 config.adobe.json 방식과 동일하게 example만 저장소에 유지하도록 정리.
