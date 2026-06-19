@@ -6,9 +6,11 @@
  *
  * [Main Functions]
  * ===========
- * - AdobeTargetProvider: 캐러셀·이벤트 팝업 오퍼·`refreshOffers`
+ * - AdobeTargetProvider: 캐러셀·이벤트 팝업·상/하단 띠배너 오퍼·`refreshOffers`
  * - useAdobeTargetOffer / useAdobeTargetSetOffer
  * - useAdobeTargetEventPopup / useAdobeTargetSetEventPopupOffer
+ * - useAdobeTargetTopBanner / useAdobeTargetSetTopBanner
+ * - useAdobeTargetBottomBanner / useAdobeTargetSetBottomBanner
  * - useAdobeTargetRefreshOffers
  *
  * [Endpoints/Classes/Functions]
@@ -37,6 +39,7 @@ import React, {
 import { fetchAdobeTargetOffersResponseDeduped } from "../utils/targetOffersFetch";
 import {
   parseAdobeTargetOffersPayload,
+  type AdobeTargetBannerOffer,
   type AdobeTargetEventPopupOffer,
   type AdobeTargetOffer,
 } from "../utils/targetOfferParser";
@@ -46,6 +49,10 @@ interface AdobeTargetContextValue {
   setOffer: (offer: AdobeTargetOffer | null) => void;
   eventPopupOffer: AdobeTargetEventPopupOffer | null;
   setEventPopupOffer: (offer: AdobeTargetEventPopupOffer | null) => void;
+  topBannerOffer: AdobeTargetBannerOffer | null;
+  setTopBannerOffer: (offer: AdobeTargetBannerOffer | null) => void;
+  bottomBannerOffer: AdobeTargetBannerOffer | null;
+  setBottomBannerOffer: (offer: AdobeTargetBannerOffer | null) => void;
   refreshOffers: () => Promise<void>;
 }
 
@@ -58,6 +65,10 @@ export function AdobeTargetProvider({ children }: { children: ReactNode }) {
   const [offer, setOffer] = useState<AdobeTargetOffer | null>(null);
   const [eventPopupOffer, setEventPopupOffer] =
     useState<AdobeTargetEventPopupOffer | null>(null);
+  const [topBannerOffer, setTopBannerOffer] =
+    useState<AdobeTargetBannerOffer | null>(null);
+  const [bottomBannerOffer, setBottomBannerOffer] =
+    useState<AdobeTargetBannerOffer | null>(null);
 
   const refreshOffers = useCallback(async () => {
     try {
@@ -69,9 +80,12 @@ export function AdobeTargetProvider({ children }: { children: ReactNode }) {
         console.warn("[AT] refreshOffers HTTP fail:", status);
         return;
       }
-      const { carousel, eventPopup } = parseAdobeTargetOffersPayload(data);
+      const { carousel, eventPopup, topBanner, bottomBanner } =
+        parseAdobeTargetOffersPayload(data);
       setOffer(carousel);
       setEventPopupOffer(eventPopup);
+      setTopBannerOffer(topBanner);
+      setBottomBannerOffer(bottomBanner);
     } catch (err) {
       console.warn("[AT] refreshOffers fail:", err);
     }
@@ -83,9 +97,13 @@ export function AdobeTargetProvider({ children }: { children: ReactNode }) {
       setOffer,
       eventPopupOffer,
       setEventPopupOffer,
+      topBannerOffer,
+      setTopBannerOffer,
+      bottomBannerOffer,
+      setBottomBannerOffer,
       refreshOffers,
     }),
-    [offer, eventPopupOffer, refreshOffers],
+    [offer, eventPopupOffer, topBannerOffer, bottomBannerOffer, refreshOffers],
   );
   return (
     <AdobeTargetContext.Provider value={value}>
@@ -129,7 +147,35 @@ export function useAdobeTargetEventPopup(): {
   return { offer, dismiss };
 }
 
-// 6. bootstrap mbox 기준 offers 재조회
+// 6. 상단 띠배너 오퍼 읽기
+export function useAdobeTargetTopBanner(): AdobeTargetBannerOffer | null {
+  const ctx = useContext(AdobeTargetContext);
+  return ctx?.topBannerOffer ?? null;
+}
+
+// 7. 상단 띠배너 오퍼 저장
+export function useAdobeTargetSetTopBanner(): (
+  offer: AdobeTargetBannerOffer | null,
+) => void {
+  const ctx = useContext(AdobeTargetContext);
+  return ctx?.setTopBannerOffer ?? (() => {});
+}
+
+// 8. 하단 띠배너 오퍼 읽기
+export function useAdobeTargetBottomBanner(): AdobeTargetBannerOffer | null {
+  const ctx = useContext(AdobeTargetContext);
+  return ctx?.bottomBannerOffer ?? null;
+}
+
+// 9. 하단 띠배너 오퍼 저장
+export function useAdobeTargetSetBottomBanner(): (
+  offer: AdobeTargetBannerOffer | null,
+) => void {
+  const ctx = useContext(AdobeTargetContext);
+  return ctx?.setBottomBannerOffer ?? (() => {});
+}
+
+// 10. bootstrap mbox 기준 offers 재조회
 export function useAdobeTargetRefreshOffers(): () => Promise<void> {
   const ctx = useContext(AdobeTargetContext);
   return ctx?.refreshOffers ?? _noopRefreshOffers;

@@ -24,8 +24,10 @@
 import { useEffect } from "react";
 import { Platform } from "react-native";
 import {
+  useAdobeTargetSetBottomBanner,
   useAdobeTargetSetEventPopupOffer,
   useAdobeTargetSetOffer,
+  useAdobeTargetSetTopBanner,
 } from "../context/targetContext";
 import { parseAdobeTargetOffersPayload } from "../utils/targetOfferParser";
 import { fetchAdobeTargetOffersResponseDeduped } from "../utils/targetOffersFetch";
@@ -49,6 +51,8 @@ function _whenDomReady(run: () => void): void {
 export function TargetPageBootstrap() {
   const setOffer = useAdobeTargetSetOffer();
   const setEventPopupOffer = useAdobeTargetSetEventPopupOffer();
+  const setTopBannerOffer = useAdobeTargetSetTopBanner();
+  const setBottomBannerOffer = useAdobeTargetSetBottomBanner();
 
   useEffect(() => {
     if (Platform.OS !== "web" || typeof document === "undefined") {
@@ -68,16 +72,19 @@ export function TargetPageBootstrap() {
             console.warn("[AT] TargetPageBootstrap HTTP fail:", status);
             return;
           }
-          const { carousel, eventPopup } = parseAdobeTargetOffersPayload(data);
+          const { carousel, eventPopup, topBanner, bottomBanner } =
+            parseAdobeTargetOffersPayload(data);
           setOffer(carousel);
           setEventPopupOffer(eventPopup);
+          setTopBannerOffer(topBanner);
+          setBottomBannerOffer(bottomBanner);
         })
         .catch((err) => console.warn("[AT] TargetPageBootstrap fetch fail:", err));
     });
     return () => {
       cancelled = true;
     };
-  }, [setOffer, setEventPopupOffer]);
+  }, [setOffer, setEventPopupOffer, setTopBannerOffer, setBottomBannerOffer]);
 
   return null;
 }

@@ -6,14 +6,14 @@
  *
  * [Main Functions]
  * ===========
- * - parseAdobeTargetOffersPayload: bootstrap/일반 응답에서 carousel·eventPopup 추출
+ * - parseAdobeTargetOffersPayload: bootstrap/일반 응답에서 carousel·eventPopup·top/bottom 띠배너 추출
  * - parseAdobeTargetOfferItemContent: 단일 항목 content 객체화
  * - parseAdobeTargetEventPopupContent: 단일 오퍼 콘텐츠(문자열/객체)에서 event-popup 오퍼 추출(네이티브 SDK 공용)
  * - getAdobeTargetOfferRawEntryForLocation: mbox_name 또는 루트 `mbox` 와 일치하는 항목 탐색
  *
  * [Endpoints/Classes/Functions]
  * =======================
- * - AdobeTargetOffer, AdobeTargetEventPopupOffer
+ * - AdobeTargetOffer, AdobeTargetEventPopupOffer, AdobeTargetBannerOffer
  * - parseAdobeTargetOffersPayload(data)
  * - parseAdobeTargetOfferItemContent(item)
  * - parseAdobeTargetEventPopupContent(content)
@@ -35,21 +35,41 @@ export interface AdobeTargetEventPopupOffer {
   buttonText?: string;
 }
 
-// 1. `offers` 배열에서 캐러셀·이벤트 팝업 오퍼를 추출한다.
+/** 상단/하단 띠배너(strip banner) 오퍼. 노출 위치(top/bottom)는 오퍼 type 으로 구분한다. */
+export interface AdobeTargetBannerOffer {
+  title?: string;
+  body?: string;
+  ctaText?: string;
+  ctaUrl?: string;
+  backgroundColor?: string;
+  textColor?: string;
+}
+
+// 1. `offers` 배열에서 캐러셀·이벤트 팝업·상/하단 띠배너 오퍼를 추출한다.
 export function parseAdobeTargetOffersPayload(data: unknown): {
   carousel: AdobeTargetOffer | null;
   eventPopup: AdobeTargetEventPopupOffer | null;
+  topBanner: AdobeTargetBannerOffer | null;
+  bottomBanner: AdobeTargetBannerOffer | null;
 } {
+  const empty = {
+    carousel: null,
+    eventPopup: null,
+    topBanner: null,
+    bottomBanner: null,
+  };
   if (!data || typeof data !== "object") {
-    return { carousel: null, eventPopup: null };
+    return empty;
   }
   const offers = (data as { offers?: unknown }).offers;
   if (!Array.isArray(offers)) {
-    return { carousel: null, eventPopup: null };
+    return empty;
   }
 
   let carousel: AdobeTargetOffer | null = null;
   let eventPopup: AdobeTargetEventPopupOffer | null = null;
+  let topBanner: AdobeTargetBannerOffer | null = null;
+  let bottomBanner: AdobeTargetBannerOffer | null = null;
 
   for (const item of offers) {
     const candidate = _coerceOfferContent(item);
@@ -68,6 +88,18 @@ export function parseAdobeTargetOffersPayload(data: unknown): {
       }
       continue;
     }
+    if (offerType === "top-banner") {
+      if (topBanner === null) {
+        topBanner = _toBannerOffer(candidate);
+      }
+      continue;
+    }
+    if (offerType === "bottom-banner") {
+      if (bottomBanner === null) {
+        bottomBanner = _toBannerOffer(candidate);
+      }
+      continue;
+    }
 
     if (carousel !== null) {
       continue;
@@ -79,7 +111,7 @@ export function parseAdobeTargetOffersPayload(data: unknown): {
     }
   }
 
-  return { carousel, eventPopup };
+  return { carousel, eventPopup, topBanner, bottomBanner };
 }
 
 // 2. 단일 offers[] 항목에서 JSON content 객체를 추출한다(문자열·이중 문자열 파싱 포함).
@@ -186,6 +218,20 @@ function _coerceContentValue(content: unknown): Record<string, unknown> | null {
     return parsed as Record<string, unknown>;
   }
   return null;
+}
+
+// 띠배너 content 객체에서 표시·스타일 필드만 안전하게 추출한다.
+function _toBannerOffer(
+  candidate: Record<string, unknown>,
+): AdobeTargetBannerOffer {
+  return {
+    title: _toOptionalTrimmedString(candidate.title),
+    body: _toOptionalTrimmedString(candidate.body),
+    ctaText: _toOptionalTrimmedString(candidate.ctaText),
+    ctaUrl: _toOptionalTrimmedString(candidate.ctaUrl),
+    backgroundColor: _toOptionalTrimmedString(candidate.backgroundColor),
+    textColor: _toOptionalTrimmedString(candidate.textColor),
+  };
 }
 
 function _toPositiveNumber(value: unknown): number | undefined {

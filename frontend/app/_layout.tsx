@@ -6,9 +6,10 @@
  *
  * [Main Functions]
  * ===========
- * - Stack screenOptions로 헤더 스타일 구성
- * - 하단 AppFooter(메인·프로필 테스트·추천 테스트 이동)
- * - (AT) TargetAppProvider + TargetPageBootstrap
+ * - 전역 레이아웃: AppHeader(앱 네임 라벨) → TopBanner → Stack 화면 → BottomBanner → AppFooter 순서로 고정
+ * - Stack 은 headerShown:false (헤더는 AppHeader 가 대신, 그 바로 아래에 상단 띠배너를 끼움)
+ * - 하단 AppFooter(메인·프로필 테스트·추천 테스트 이동) 바로 위에 하단 띠배너 배치
+ * - (AT) TargetAppProvider + TargetPageBootstrap (띠배너 오퍼도 동일 bootstrap 응답에서 채움)
  * - (웹) DigitalDataSync — `window.digitalData.page.pageInfo.pageName`
  * - (웹) RN Web pointerEvents deprecation 경고 LogBox 무시
  * - (Android) 몰입형 내비게이션 바: 홈/제스처 바를 숨기고 하단에서 위로 스와이프할 때만 잠깐 노출
@@ -23,8 +24,9 @@
  * - expo-navigation-bar (Android 내비게이션 바 숨김/스와이프 노출)
  * - react-native-gesture-handler
  * - react-native-safe-area-context (SafeAreaProvider — 하단 inset)
- * - @/utils/loadConfig
+ * - @/components/AppHeader (앱 네임 라벨 헤더)
  * - @/components/AppFooter
+ * - @/components/banners/TopBanner, BottomBanner (LGU+ 스타일 상/하단 띠배너)
  * - @adobe/app/targetApp
  * - @adobe/app/TargetPageBootstrap
  * - @/components/DigitalDataSync
@@ -36,8 +38,10 @@ import * as NavigationBar from "expo-navigation-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StyleSheet, Platform, LogBox, View } from "react-native";
-import { config } from "@/utils/loadConfig";
+import AppHeader from "@/components/AppHeader";
 import AppFooter from "@/components/AppFooter";
+import TopBanner from "@/components/banners/TopBanner";
+import BottomBanner from "@/components/banners/BottomBanner";
 import { TargetAppProvider } from "@adobe/app/targetApp";
 import { TargetPageBootstrap } from "@adobe/app/TargetPageBootstrap";
 import DigitalDataSync from "@/components/DigitalDataSync";
@@ -71,17 +75,14 @@ function RootLayoutInner() {
         <TargetPageBootstrap />
         <DigitalDataSync />
         <View style={styles.body}>
+          {/* 앱 네임 라벨(헤더) → 그 바로 아래 상단 띠배너 */}
+          <AppHeader />
+          <TopBanner />
           <View style={styles.stackArea}>
-            <Stack
-              screenOptions={{
-                headerTitle: config.app_title,
-                headerTitleAlign: "center",
-                headerStyle: { backgroundColor: "#4A90D9" },
-                headerTintColor: "#fff",
-                headerTitleStyle: { fontWeight: "700", fontSize: 20 },
-              }}
-            />
+            <Stack screenOptions={{ headerShown: false }} />
           </View>
+          {/* 하단 띠배너 → 그 아래 전역 푸터 */}
+          <BottomBanner />
           <AppFooter />
         </View>
       </SafeAreaProvider>

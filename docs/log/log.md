@@ -2,6 +2,7 @@
 
 ## Log Index
 
+157. 2026-06-19 LGU+ 스타일 상/하단 띠배너 도입 — 앱 네임 라벨 아래(상단)·푸터 위(하단) 전역 배치, StripBanner/TopBanner/BottomBanner 컴포넌트 분리, Target top-banner/bottom-banner 오퍼 연동(파서·Context·bootstrap), Stack 헤더를 AppHeader 로 분리
 156. 2026-06-09 docs/adobe/04_CAMPAIGN_AUDIENCE.md 신규 — 외부(Adobe Campaign) 세그먼트→Target 오디언스 연동 가이드(3경로 비교·권장 ②속성적재 아키텍처·흐름/의사코드·식별자 정합·지연별 수단·U+ 맥락)
 155. 2026-06-05 docs/adobe 03 추천 디자인 categoryId 빈값 원인·해결 정정 — $entity.category(없는 속성)·$entity.categoryId(multi-value 직접출력 불가) → categoriesList #foreach 로 교체(사용자 A안 검증 완료)
 154. 2026-06-05 프론트 env 민감정보 git 제외 — config.{dev,prd}.json 추적 해제(로컬 보존)·example 2종 신설(민감 4필드 플레이스홀더)·.gitignore·loadConfig 주석·docs 04 §17/§18 동기화
@@ -160,6 +161,15 @@
 12. 2026-04-27 docs/main AT_TEST_PAGE PRD v1.0 작성
 
 ## Log Body
+
+157. 2026-06-19 LGU+ 스타일 상/하단 띠배너 도입
+Purpose: LG유플러스에서 자주 쓰는 상단 고정(앱 네임 라벨 아래)·하단 고정(푸터 위) 띠배너를 우리 Expo(웹+Android) 앱에 컴포넌트로 명확히 분리해 도입. 띠배너 영역에는 추후 Adobe Target 오퍼가 적용되도록 bootstrap 응답 파싱까지 연결하고, 오퍼가 없을 때는 위치 확인용 기본 문구("상단/하단 띠배너 위치")만 노출.
+Changes:
+- 컴포넌트 분리: `StripBanner`(공용 1줄 띠 UI: 텍스트+CTA+닫기, LGU+ 마젠타 #E6007E 기반) / `TopBanner`(마젠타 바, 흰색 텍스트, 헤더 바로 아래) / `BottomBanner`(밝은 배경+마젠타 강조 CTA+상단 헤어라인, 푸터 바로 위). 닫기는 세션 동안 숨김.
+- 레이아웃 재구성: 기존 Stack 기본 헤더(앱 네임 라벨)를 `AppHeader`(동일 파란 바·가운데 흰색 타이틀·상단 safe-area inset)로 분리하고 Stack 은 `headerShown:false`. `_layout` 순서 = AppHeader → TopBanner → Stack 화면 → BottomBanner → AppFooter. 모든 페이지 전역 노출(효율·LGU 공지형 패턴).
+- Target 오퍼 연동(추가만, 기존 흐름 불변): `targetOfferParser` 에 `AdobeTargetBannerOffer` 타입 + `top-banner`/`bottom-banner` content(type) 추출(title/body/ctaText/ctaUrl/backgroundColor/textColor). `targetContext` 에 top/bottomBanner 상태·훅(use*TopBanner/use*BottomBanner·set*)·refreshOffers 반영. `TargetPageBootstrap` 가 bootstrap 응답에서 두 배너 오퍼 set.
+- 검증: 변경 8파일 린트 0건, `tsc --noEmit` 통과(exit 0). parseAdobeTargetOffersPayload 기존 호출부(ProfileTestPanel·context·bootstrap)는 필요한 필드만 구조분해라 하위호환 유지.
+Changed files: frontend/components/banners/StripBanner.tsx(신규), frontend/components/banners/TopBanner.tsx(신규), frontend/components/banners/BottomBanner.tsx(신규), frontend/components/AppHeader.tsx(신규), frontend/app/_layout.tsx, frontend/adobe_frontend/target_frontend/utils/targetOfferParser.ts, frontend/adobe_frontend/target_frontend/context/targetContext.tsx, frontend/adobe_frontend/target_frontend/app/TargetPageBootstrap.tsx, docs/log/log.md
 
 156. 2026-06-09 docs/adobe/04_CAMPAIGN_AUDIENCE.md 신규 — 외부(Adobe Campaign) 세그먼트→Target 오디언스 연동 가이드
 Purpose: 가입 시스템이 관할 밖이고 세그가 Campaign에서 운영되는 U+ 상황에서, Campaign이 만든 대상자를 Target 오디언스로 넘기는 경로·지연·식별자 조건을 study-notes 스타일로 정리.
