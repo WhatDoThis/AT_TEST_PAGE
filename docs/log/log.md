@@ -2,6 +2,10 @@
 
 ## Log Index
 
+161. 2026-06-22 띠배너 CTA 새창/현재창 선택 — 오퍼에 ctaTarget("_self"/"_blank") 추가, 열기 로직을 openBannerCta 공용함수로 분리(웹: 현재창 location.assign / 새창 window.open noopener, 네이티브: Linking), TopBanner/BottomBanner 중복 제거
+160. 2026-06-22 띠배너 endAt 마케터 친화 입력 — useCountdown 에 _normalizeEndAt 추가("2026-06-22"→그날 23:59:59 / "YYYY-MM-DD HH:mm" 허용, 타임존 생략 시 KST(+09:00)), 풀 ISO 하위호환·Hermes/V8 공백형식·날짜만 UTC 어긋남 해소
+159. 2026-06-22 띠배너 카운트다운(마감 타이머) 추가 — 기존 top/bottom-banner 계약 재사용(endAt/expiredTitle만 확장), 공용 useCountdown 훅 신설, TopBanner/BottomBanner 진행중 남은시간·만료문구 노출(endAt 없으면 하위호환)
+158. 2026-06-19 docs/main 04 v3.5 — 부록 C(JSON 오퍼 타입별 적용) event-popup·top/bottom-banner·캐러셀·A/B imageUrl·추천 Design 샘플·페이지/mbox 매트릭스·bootstrap 다중 오퍼 예시
 157. 2026-06-19 LGU+ 스타일 상/하단 띠배너 도입 — 앱 네임 라벨 아래(상단)·푸터 위(하단) 전역 배치, StripBanner/TopBanner/BottomBanner 컴포넌트 분리, Target top-banner/bottom-banner 오퍼 연동(파서·Context·bootstrap), Stack 헤더를 AppHeader 로 분리
 156. 2026-06-09 docs/adobe/04_CAMPAIGN_AUDIENCE.md 신규 — 외부(Adobe Campaign) 세그먼트→Target 오디언스 연동 가이드(3경로 비교·권장 ②속성적재 아키텍처·흐름/의사코드·식별자 정합·지연별 수단·U+ 맥락)
 155. 2026-06-05 docs/adobe 03 추천 디자인 categoryId 빈값 원인·해결 정정 — $entity.category(없는 속성)·$entity.categoryId(multi-value 직접출력 불가) → categoriesList #foreach 로 교체(사용자 A안 검증 완료)
@@ -161,6 +165,45 @@
 12. 2026-04-27 docs/main AT_TEST_PAGE PRD v1.0 작성
 
 ## Log Body
+
+161. 2026-06-22 띠배너 CTA 새창/현재창 선택
+Purpose: 띠배너 CTA 클릭 시 새창/현재창을 오퍼에서 고를 수 있게 한다. 기존엔 Linking.openURL 이라 웹에서 항상 새 탭으로 열렸음.
+Changes:
+- 파서: `AdobeTargetBannerOffer` 에 `ctaTarget`("_self"|"_blank") 선택 필드 추가, `_toBannerOffer` 추출.
+- 공용 함수 신설 `openBannerCta(url, target)`: 웹은 _self→`window.location.assign`(현재창), 그 외/미지정→`window.open(..., "_blank", "noopener,noreferrer")`(새창, 기존 동작 기본). 네이티브는 `Linking.openURL`(외부 브라우저).
+- TopBanner/BottomBanner: 인라인 Linking 분기를 제거하고 `openBannerCta(ctaUrl, offer?.ctaTarget)` 로 통일(중복 제거).
+- 하위호환: ctaTarget 미지정 시 기존처럼 새창. 오퍼 계약·StripBanner 변경 없음.
+- 검증: 변경 4파일 린트 0건, `tsc --noEmit` 통과(exit 0).
+Changed files: frontend/components/banners/openBannerCta.ts(신규), frontend/components/banners/TopBanner.tsx, frontend/components/banners/BottomBanner.tsx, frontend/adobe_frontend/target_frontend/utils/targetOfferParser.ts, docs/log/log.md
+
+160. 2026-06-22 띠배너 endAt 마케터 친화 입력
+Purpose: 카운트다운 종료시각 `endAt` 을 마케터가 타임존·T 구분자 없이 쉽게 쓸 수 있게 하고, Date.parse 직접 사용 시의 엔진별 차이(공백형식 Hermes/V8 불일치, 날짜만 입력 시 UTC 자정으로 9시간 어긋남)를 제거.
+Changes:
+- useCountdown.ts 에 `_normalizeEndAt(raw)` 추가: 정규식으로 "YYYY-MM-DD[ |T]HH:MM[:SS]?[Z|±HH:MM]?" 를 받아 KST 기준 ISO 로 재조립 후 Date.parse. 시간 생략 시 그날 23:59:59, 타임존 생략 시 +09:00 채움. 인식 못 하는 형태는 Date.parse 위임(완전 커스텀 문자열 호환).
+- 허용 입력: "2026-06-22"(→그날 23:59:59 KST) / "2026-06-22 23:59" / "2026-06-22 18:00:00" / 풀 ISO "...+09:00"(하위호환).
+- `endAt` 미지정·무효 시 비활성(기존과 동일). 오퍼 계약·StripBanner·파서 변경 없음.
+- 검증: useCountdown.ts 린트 0건, `tsc --noEmit` 통과(exit 0).
+Changed files: frontend/components/banners/useCountdown.ts, docs/log/log.md
+
+159. 2026-06-22 띠배너 카운트다운(마감 타이머) 추가
+Purpose: 상/하단 띠배너에 "마감까지 남은시간" 카운트다운을 붙인다. 새 오퍼 type 없이 기존 top-banner/bottom-banner 계약을 그대로 재사용하고, 오퍼에 `endAt`(ISO8601 종료시각)과 `expiredTitle`(만료 후 문구)만 선택 필드로 확장. `endAt` 이 없으면 기존 일반 띠배너와 100% 동일하게 동작(하위호환).
+Changes:
+- 파서: `AdobeTargetBannerOffer` 에 `endAt`·`expiredTitle` 선택 필드 추가, `_toBannerOffer` 에서 두 필드 추출(targetOfferParser.ts, 이미 반영됨).
+- 공용 훅 신설: `useCountdown(endAt)` → `{ label, active, expired }`. endMs 기준 1초 간격 갱신, 남은시간을 "N일 HH:MM:SS"(일=0 생략)로 포맷, 종료 시 expired. endAt 무효/미지정 시 비활성.
+- TopBanner/BottomBanner: `useCountdown` 연결. 진행 중에는 본문 줄에 "{남은시간} 남음" 노출, 만료 시 `expiredTitle` 있으면 제목 교체. StripBanner 는 변경 없이 재사용.
+- 검증: 변경 4파일 린트 0건, `tsc --noEmit` 통과(exit 0).
+Changed files: frontend/components/banners/useCountdown.ts(신규), frontend/components/banners/TopBanner.tsx, frontend/components/banners/BottomBanner.tsx, frontend/adobe_frontend/target_frontend/utils/targetOfferParser.ts, docs/log/log.md
+
+158. 2026-06-19 docs/main 04 v3.5 — 부록 C(JSON 오퍼 타입별 적용)
+
+Purpose: JSON 오퍼를 받아 화면에 반영하는 기능(팝업·띠배너·캐러셀·A/B·추천)을 Adobe Activity 작성자·운영자가 한 문서에서 찾을 수 있도록 부록 C 로 정리.
+
+Changes:
+
+- `docs/main/04`: **부록 C** 신설 — 공통 파싱 규칙·페이지/mbox 매트릭스·type별 JSON 샘플(event-popup, top/bottom-banner, carousel buttonText/autoPlayMs, native imageUrl, recommendations items)·bootstrap 다중 오퍼 응답 예시·구현 파일表·FAQ
+- §6.2·§19·문서 이력 v3.5·읽는 순서(4부) 보강
+
+Changed files: docs/main/04_AT_TEST_PAGE_ADOBE_TARGET_INTEGRATION.md, docs/log/log.md
 
 157. 2026-06-19 LGU+ 스타일 상/하단 띠배너 도입
 Purpose: LG유플러스에서 자주 쓰는 상단 고정(앱 네임 라벨 아래)·하단 고정(푸터 위) 띠배너를 우리 Expo(웹+Android) 앱에 컴포넌트로 명확히 분리해 도입. 띠배너 영역에는 추후 Adobe Target 오퍼가 적용되도록 bootstrap 응답 파싱까지 연결하고, 오퍼가 없을 때는 위치 확인용 기본 문구("상단/하단 띠배너 위치")만 노출.

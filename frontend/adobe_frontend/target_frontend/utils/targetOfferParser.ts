@@ -41,8 +41,11 @@ export interface AdobeTargetBannerOffer {
   body?: string;
   ctaText?: string;
   ctaUrl?: string;
+  ctaTarget?: string;    // CTA 열기 방식(웹): "_self"=현재창 이동 / "_blank"=새창(기본). 네이티브는 무관
   backgroundColor?: string;
   textColor?: string;
+  endAt?: string;        // 카운트다운 종료 절대시각(ISO8601). 없으면 일반 띠배너
+  expiredTitle?: string; // 만료 후 표시 문구(없으면 기존 title 유지)
 }
 
 // 1. `offers` 배열에서 캐러셀·이벤트 팝업·상/하단 띠배너 오퍼를 추출한다.
@@ -229,8 +232,11 @@ function _toBannerOffer(
     body: _toOptionalTrimmedString(candidate.body),
     ctaText: _toOptionalTrimmedString(candidate.ctaText),
     ctaUrl: _toOptionalTrimmedString(candidate.ctaUrl),
+    ctaTarget: _toOptionalTrimmedString(candidate.ctaTarget),
     backgroundColor: _toOptionalTrimmedString(candidate.backgroundColor),
     textColor: _toOptionalTrimmedString(candidate.textColor),
+    endAt: _toOptionalTrimmedString(candidate.endAt),
+    expiredTitle: _toOptionalTrimmedString(candidate.expiredTitle),
   };
 }
 

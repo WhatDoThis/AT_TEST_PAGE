@@ -21,7 +21,7 @@
 1부. 개념        — Target이 뭔지, 용어 5개, 두 길의 차이
 2부. 웹 길        — 흐름 → 식별 정책 → 백엔드 알고리즘 → 프론트 → HTTP 예시
 3부. 네이티브 길  — 흐름 → 왜 분리하나 → 패키지/설정 → 코드 → 테스트 화면 → 추천(Recommendations) → 빌드
-4부. 운영        — 설정 총정리 → 체크리스트 → 문제 해결 → 이력
+4부. 운영        — 설정 총정리 → 체크리스트 → 문제 해결 → **부록 A~C(JSON 오퍼·하이브리드)** → 이력
 ```
 
 ---
@@ -266,7 +266,7 @@ flowchart TB
 
 | 경로 | 역할 |
 |------|------|
-| `app/_layout.tsx` | `TargetAppProvider` + `TargetPageBootstrap` + `Stack` + `AppFooter` |
+| `app/_layout.tsx` | `TargetAppProvider` + `TargetPageBootstrap` + `AppHeader` + **TopBanner/BottomBanner** + `Stack` + `AppFooter` |
 | `app/main.tsx` | Context 소비, `EventPopup` |
 | `app/profile-test.tsx` / `recommendation-test.tsx` | 각 테스트 패널 |
 | `adobe_frontend/.../app/TargetPageBootstrap.tsx` | **웹 첫 로드**: bootstrap mbox offers → Context |
@@ -277,7 +277,7 @@ flowchart TB
 | `adobe_frontend/.../utils/targetHttp.ts` | **3개 fetch 공통 헬퍼**: API URL·쿠키 추출·세션 읽기·응답→세션 저장 |
 | `adobe_frontend/.../utils/targetSession.ts` | 세션 키(`AT_*` 공통, `AT_RECS_*` 추천 전용) |
 | `adobe_frontend/.../utils/sessionStore.ts` | **웹/네이티브 범용 저장소**(§12) |
-| `adobe_frontend/.../utils/targetOfferParser.ts` | `type: event-popup` 추출 |
+| `adobe_frontend/.../utils/targetOfferParser.ts` | JSON 오퍼 파싱(`event-popup`·`top-banner`·`bottom-banner`·캐러셀) — **부록 C** |
 
 > **`event-popup` 오퍼 예:** `{ type, title, body, buttonText }`. 메인은 Context 경유, 프로필 테스트는 재요청 후 파서로 감지해 동일한 `EventPopup`으로 표시한다.
 
@@ -688,7 +688,8 @@ eas build -p android --profile preview     # APK 빌드
 | 추천(추천 SDK)이 빈 결과/인기상품만 옴 | 학습 데이터 부족(구매 데이터 희소). "추천 데이터 보내기"로 누적 후 재시도. backup=Yes면 인기상품으로 채워짐(§15.5). Activity 게시·mbox 일치 확인(§15.3) |
 | 추천 결과에 `$entity5.id` 같은 토큰 표시 | 추천이 디자인 슬롯보다 적을 때의 미해결 토큰 — 앱이 걸러내며(§15.1) backup 설정으로 슬롯을 채울 수 있음 |
 | Tags의 Profile 확장이 앱에서 동작 안 함 | RN에 `@adobe/react-native-aepuserprofile` 미설치라 UserProfile 미등록(§10.1). Target 서버측 프로필과는 무관 — 필요 시 설치 후 EAS 새 빌드 |
-| event-popup 팝업이 안 뜸 | 반환 콘텐츠가 `type:event-popup` JSON인지 확인(§14.4). 활동 오퍼 타입/내용·mbox 이름 점검 |
+| event-popup 팝업이 안 뜸 | 반환 콘텐츠가 `type:event-popup` JSON인지 확인(§14.4·**부록 C.3.1**). 활동 오퍼 타입/내용·mbox 이름 점검 |
+| top/bottom 띠배너가 placeholder만 보임 | bootstrap mbox(`target-ready-mbox`) Activity·`type: top-banner`/`bottom-banner` JSON 확인(**부록 C.3.2**) |
 | 웹 빌드가 Adobe 네이티브 때문에 깨짐 | `*.native.ts`에 import가 새어 들어갔는지 확인(base `*.ts`는 no-op이어야 함) |
 | 네이티브 변경이 앱에 반영 안 됨 | OTA가 아니라 **EAS 새 빌드** 필요 |
 
@@ -760,10 +761,258 @@ ECID/`tntId`는 **임의로 만들어 넣는 값이 아니다.** Adobe가 발급
 
 > 본 프로젝트 기준: 추천/AB 흐름이 `thirdPartyId = recipient_id`로 이미 동작하므로, 네이티브를 서버사이드로 돌릴 때 같은 `thirdPartyId`만 일관되게 넘기면 같은 프로필로 묶인다. A4T·ECID 연속성이 필요할 때만 ECID 주입(하이브리드)을 추가한다.
 
+## 부록 C. JSON 오퍼 타입별 적용 가이드 (팝업·띠배너·캐러셀·기타)
+
+Adobe Target **Form-based Experience** 활동에서 오퍼 콘텐츠를 **JSON**으로 내려주면, 앱이 `content`를 파싱해 화면에 반영한다.  
+웹은 백엔드 `POST /api/target/offers`(또는 profile-test) 응답의 `{ offers: [{ content }] }` 형태, 네이티브는 Mobile SDK가 돌려주는 **단일 content 문자열/객체**를 각각 파서가 처리한다.
+
+### C.1 공통 규칙
+
+| 항목 | 설명 |
+|------|------|
+| **content 형태** | 객체 `{ … }` 또는 JSON **문자열**. 문자열이 한 번 더 JSON으로 감싸진 **이중 문자열**도 파서가 1단계 더 파싱한다. |
+| **구분 키** | 대부분 `type` 필드로 UI를 고른다. `type`이 없으면 **캐러셀 오퍼**(§C.4) 후보로 본다. |
+| **웹 파서** | `targetOfferParser.ts` → `parseAdobeTargetOffersPayload(data)` — `offers[]` 전체를 한 번에 훑는다. |
+| **네이티브 단일 파서** | `parseAdobeTargetEventPopupContent(content)` — SDK가 준 **한 덩어리** content에서 `event-popup`만 추출(XT 테스트). |
+| **중복 type** | 같은 `type`(예: `event-popup` 2개)이 여러 개 오면 **배열에서 먼저 나온 1개만** 사용한다. |
+| **mbox ↔ Activity** | 오퍼가 나오려면 Adobe UI에서 해당 **mbox 이름**에 Activity가 게시·매칭되어 있어야 한다. |
+
+```mermaid
+flowchart TB
+  subgraph WEB[웹]
+    B["TargetPageBootstrap<br/>bootstrap mbox 1회"] --> P["parseAdobeTargetOffersPayload"]
+    P --> CTX["targetContext<br/>(carousel·popup·top·bottom)"]
+    CTX --> UI["main / _layout / profile-test"]
+  end
+  subgraph NATIVE[네이티브]
+    XT["/xttest offer mbox"] --> EP["parseAdobeTargetEventPopupContent"]
+    AB["/abtest global mbox"] --> IMG["JSON imageUrl 추출"]
+    REC["/recommendation rec mbox"] --> RECP["parseRecommendations"]
+  end
+```
+
+### C.2 페이지·mbox·적용 기능 매트릭스
+
+| 오퍼 구분 | `type` (또는 계약) | 적용 UI | 노출 범위(페이지) | 트리거·mbox | 연동 경로 |
+|-----------|-------------------|---------|-------------------|-------------|-----------|
+| **이벤트 팝업** | `event-popup` | `EventPopup` 모달 | **웹** `/main`, `/profile-test`(Re-fetch) · **네이티브** `/xttest` | 웹: `bootstrap_mbox_name`(`target-ready-mbox`) 또는 profile-test 응답 · 네이티브: `offer_sdk_mbox_name`(`target-msdk-mbox`) | 웹 §14.4 · 네이티브 XT |
+| **상단 띠배너** | `top-banner` | `TopBanner` → `StripBanner` | **웹 전역** — `AppHeader` 바로 아래, 모든 Stack 화면 공통 | 웹 bootstrap mbox(`target-ready-mbox`) | `_layout.tsx` |
+| **하단 띠배너** | `bottom-banner` | `BottomBanner` → `StripBanner` | **웹 전역** — `AppFooter` 바로 위 | 웹 bootstrap mbox | `_layout.tsx` |
+| **캐러셀 제어** | *(없음)* `buttonText` / `autoPlayMs` | `ImageCarousel` — "다음" 버튼 문구·자동 재생(ms) | **웹** `/main` | 웹 bootstrap mbox | `main.tsx` → Context |
+| **A/B 이미지** | *(없음)* `imageUrl` | `AbTestScreen` — 좌(기본) / 우(오퍼 URL) 비교 | **네이티브** `/abtest` | `global_sdk_mbox_name`(`target-global-msdk-mbox`) | 네이티브 only |
+| **추천 목록** | Design JSON (`items` 등) | `RecommendationTestPanel`(웹) / `RecommendationScreen`(네이티브) | **웹** `/recommendation-test` · **네이티브** `/recommendation` | 웹: `recs_mbox_name`(`target-recs-mbox`) · 네이티브: `rec_sdk_mbox_name`(`target-rec-msdk-mbox`) | §15 · `recommendationData.ts` |
+
+> **띠배너·팝업·캐러셀(웹 3종)** 은 한 번의 bootstrap offers 응답에 **서로 다른 `type`의 오퍼가 여러 개** 올 수 있다. 파서가 type별로 각 1개씩 Context에 넣고, `_layout`/`main`이 동시에 소비한다.  
+> **네이티브 띠배너·전역 팝업은 현재 미연결** — 네이티브는 §14.3 테스트 화면(XT/A·B/추천) 중심이며, `event-popup`은 XT에서만 동작한다.
+
+### C.3 JSON 샘플 양식 (Adobe 오퍼 콘텐츠)
+
+Activity 편집기 **Form-based Experience → JSON** 필드에 아래 형태로 넣는다. (실제 필드는 활동마다 다를 수 있음.)
+
+#### C.3.1 `event-popup` — 이벤트 팝업
+
+```json
+{
+  "type": "event-popup",
+  "title": "3월 프로모션",
+  "body": "지금 가입하면 월 5,000원 할인",
+  "buttonText": "확인"
+}
+```
+
+| 필드 | 필수 | 설명 |
+|------|------|------|
+| `type` | ✅ | 반드시 `"event-popup"` |
+| `title` | 권장 | 모달 제목 |
+| `body` | 권장 | 본문 |
+| `buttonText` | 선택 | 닫기/확인 버튼 라벨(없으면 기본 문구) |
+
+- **웹:** bootstrap 또는 profile-test Re-fetch 후 `EventPopup` 표시. 닫기 전까지 모달, `dismiss`로 숨김.
+- **네이티브:** `/xttest`에서 "오퍼 가져오기" → 동일 `EventPopup` 컴포넌트.
+
+#### C.3.2 `top-banner` / `bottom-banner` — LGU+ 스타일 띠배너
+
+**상단 (`top-banner`)** — 기본 배경 마젠타 `#E6007E`, 흰색 텍스트:
+
+```json
+{
+  "type": "top-banner",
+  "title": "U+ 멤버십 혜택",
+  "body": "이번 달 데이터 2배",
+  "ctaText": "자세히",
+  "ctaUrl": "https://example.com/promo",
+  "backgroundColor": "#E6007E",
+  "textColor": "#FFFFFF"
+}
+```
+
+**하단 (`bottom-banner`)** — 기본 밝은 배경, CTA는 마젠타 강조:
+
+```json
+{
+  "type": "bottom-banner",
+  "title": "앱 전용 쿠폰",
+  "body": "오늘까지 사용 가능",
+  "ctaText": "받기",
+  "ctaUrl": "https://example.com/coupon",
+  "backgroundColor": "#FFFFFF",
+  "textColor": "#1A1A2E"
+}
+```
+
+| 필드 | 필수 | 설명 |
+|------|------|------|
+| `type` | ✅ | `"top-banner"` 또는 `"bottom-banner"` |
+| `title` | ✅ | 1줄 메인 문구(없으면 "상/하단 띠배너 위치" placeholder) |
+| `body` | 선택 | 부제(2번째 줄, 1줄 말줄임) |
+| `ctaText` | 선택 | 우측 CTA 라벨 |
+| `ctaUrl` | 선택 | CTA 탭 시 `Linking.openURL` |
+| `backgroundColor` | 선택 | 띠 배경색(hex) |
+| `textColor` | 선택 | 제목·본문·닫기(X) 색 |
+
+- 사용자가 **닫기(X)** 를 누르면 **해당 세션 동안만** 숨김(로컬 state). Target 오퍼 자체는 유지.
+- **웹 전역** `_layout`: `AppHeader` → `TopBanner` → 화면 → `BottomBanner` → `AppFooter`.
+
+#### C.3.3 캐러셀 — `buttonText` / `autoPlayMs` (`type` 없음)
+
+메인 `/main` 이미지 캐러셀의 **"다음" 버튼 문구**와 **자동 슬라이드 간격**만 바꾼다. `type` 필드는 **넣지 않는다**.
+
+```json
+{
+  "buttonText": "▶ 다음 요금제",
+  "autoPlayMs": 4000
+}
+```
+
+| 필드 | 필수 | 설명 |
+|------|------|------|
+| `buttonText` | 선택 | "다음 이미지" 버튼 라벨(기본: `▶ 다음 이미지`) |
+| `autoPlayMs` | 선택 | 자동 재생 주기(ms). 양의 숫자만 유효 |
+
+- `offers[]`에서 `event-popup` / `top-banner` / `bottom-banner`가 **아닌** 항목 중, `buttonText` 또는 `autoPlayMs`가 있는 **첫 번째** 항목을 캐러셀 오퍼로 쓴다.
+
+#### C.3.4 A/B 이미지 — `imageUrl` (네이티브, `type` 없음)
+
+`/abtest` 전용. **global mbox** 진입 시 1회 자동 호출. 전용 `type` 없이 **`imageUrl` 하나**만 계약:
+
+```json
+{
+  "imageUrl": "https://cdn.example.com/ab/variant-b.png"
+}
+```
+
+- 화면 **왼쪽**: 앱 기본 이미지(`default.png`) · **오른쪽**: 오퍼 `imageUrl`.
+- 파서 없이 `JSON.parse` → `imageUrl` 문자열만 추출(`AbTestScreen`).
+
+#### C.3.5 추천 — Design JSON (`items` / `recommendations`)
+
+Recommendations **Design 템플릿** 출력 형태. `type` 필드 대신 **`items` 배열**(또는 `recommendations`) 구조:
+
+```json
+{
+  "meta": {
+    "algorithm": "Item-Based",
+    "keyName": "Galaxy S24"
+  },
+  "items": [
+    { "entityId": "42", "name": "갤럭시 버즈", "categoryId": "sb", "stCode": "01" },
+    { "entityId": "38", "name": "갤럭시 케이스", "categoryId": "sf", "stCode": "02" }
+  ]
+}
+```
+
+- **웹** `/recommendation-test`: 백엔드가 `recommendations` 배열로 정규화해 반환 → 패널 표시.
+- **네이티브** `/recommendation`: SDK content 문자열 → `parseRecommendations()` — `[items]` · `{ items }` · `{ content: { items } }` · `{ recommendations }` 등 **여러 형태 허용**. 미해결 토큰(`$entity5.id` 등)·빈 슬롯은 필터.
+
+> Design·카탈로그·Activity 세팅은 `docs/adobe/03_RECOMMANDATION.md` 참고.
+
+### C.4 웹 bootstrap 한 번에 여러 오퍼 받기 (예시)
+
+`backend/env/config.adobe.json`의 **`bootstrap_mbox_name`**(기본 `target-ready-mbox`)에 Activity를 매핑하고, Experience에 **JSON 오퍼를 type별로 여러 개** 두면(또는 여러 Activity가 같은 mbox에 매칭되면) 응답 `offers[]`에 항목이 여러 개 올 수 있다.
+
+**백엔드 응답 예 (`POST /api/target/offers`, bootstrap):**
+
+```jsonc
+{
+  "mbox": "target-ready-mbox",
+  "offers": [
+    {
+      "source": "mbox",
+      "type": "json",
+      "content": {
+        "type": "top-banner",
+        "title": "U+ 멤버십 혜택",
+        "ctaText": "자세히",
+        "ctaUrl": "https://example.com"
+      }
+    },
+    {
+      "source": "mbox",
+      "type": "json",
+      "content": {
+        "type": "bottom-banner",
+        "title": "앱 전용 쿠폰"
+      }
+    },
+    {
+      "source": "mbox",
+      "type": "json",
+      "content": {
+        "type": "event-popup",
+        "title": "환영합니다",
+        "body": "첫 방문 고객 혜택",
+        "buttonText": "확인"
+      }
+    },
+    {
+      "source": "mbox",
+      "type": "json",
+      "content": {
+        "buttonText": "▶ 다음 요금제",
+        "autoPlayMs": 5000
+      }
+    }
+  ],
+  "tntId": "…",
+  "target_cookie": { "name": "mbox", "value": "…", "maxAge": 63072000 }
+}
+```
+
+**앱 동작 순서 (웹):**
+
+1. `_layout` 마운트 → `TargetPageBootstrap`이 DOM ready 후 bootstrap offers 1회 fetch.
+2. `parseAdobeTargetOffersPayload` → Context에 carousel / eventPopup / topBanner / bottomBanner 저장.
+3. `_layout`의 `TopBanner`·`BottomBanner`, `/main`의 `ImageCarousel`·`EventPopup`이 각각 소비.
+
+### C.5 구현 파일 빠른 참조
+
+| 기능 | 파서 / 유틸 | UI 컴포넌트 | 설정(mbox) |
+|------|-------------|-------------|------------|
+| 전체 JSON 분기 | `targetOfferParser.ts` | — | — |
+| bootstrap fetch | `TargetPageBootstrap.tsx` | — | `config.adobe.json` → `bootstrap_mbox_name` |
+| Context 상태 | `targetContext.tsx` | — | — |
+| event-popup | `parseAdobeTargetEventPopupContent` | `EventPopup.tsx` | — |
+| top/bottom 띠배너 | `_toBannerOffer` | `TopBanner` / `BottomBanner` / `StripBanner` | bootstrap |
+| 캐러셀 | carousel 분기 | `targetImageCarousel.tsx` | bootstrap |
+| profile-test 팝업 | `parseAdobeTargetOffersPayload` | `ProfileTestPanel` + `EventPopup` | `offer_mbox_name` |
+| A/B imageUrl | `AbTestScreen` inline | `AbTestScreen.tsx` | `global_sdk_mbox_name` |
+| 추천 items | `parseRecommendations` | `RecommendationScreen` / `RecommendationTestPanel` | rec mbox |
+
+### C.6 점검·FAQ (JSON 오퍼)
+
+| 증상 | 확인 |
+|------|------|
+| 팝업만 안 뜸 | content에 `"type":"event-popup"` 있는지, title/body JSON 유효한지 |
+| 띠배너가 placeholder만 보임 | bootstrap mbox Activity 게시·`type` 오타(`top-banner`/`bottom-banner`) |
+| 캐러셀 버튼이 안 바뀜 | 다른 type 오퍼만 있고 `buttonText`/`autoPlayMs` 없음, 또는 carousel보다 앞선 항목이 이미 carousel로 잡힘 |
+| A/B 오른쪽 이미지 없음 | global mbox 오퍼 JSON에 `imageUrl`(https) 있는지, 네이티브 빌드인지 |
+| 추천 JSON 파싱 빈 배열 | Design 출력 형태·`items` 키·미해결 Velocity 토큰 — §15.5 backup |
+
 ## 20. 문서 이력
 
 | 버전 | 일자 | 요약 |
 |------|------|------|
+| **3.5** | 2026-06-19 | **부록 C(JSON 오퍼 타입별 적용)** 추가 — event-popup·top/bottom-banner·캐러셀·A/B imageUrl·추천 Design JSON 샘플, 페이지/mbox 매트릭스, bootstrap 다중 오퍼 예시, 구현 파일·FAQ |
 | **3.4** | 2026-06-05 | **부록 B(네이티브 서버사이드/하이브리드 연동)** 추가 — 앱→백엔드(Python/Java SDK)→Delivery API 구조, [A]/[B] 비교, ECID(`marketing_cloud_visitor_id`) 스티칭·하이브리드 정의, **식별자 발급 주체(thirdPartyId=임의지정 / tntId·ECID=받아서 재사용) 원칙(B.3)**, 사용 시나리오별 권장 |
 | **3.3** | 2026-06-04 | **SDK 객체 레퍼런스(§14.5)** 추가 — `@adobe/react-native-aeptarget`의 `Target`·`TargetParameters`·`TargetRequestObject`·`TargetProduct`·`TargetOrder` 역할·생성자·공식 문서 링크. 추천 전용 mbox(`target-rec-msdk-mbox`) 분리 반영(§14.2~3·§15) |
 | **3.2** | 2026-06-04 | **네이티브 추천(Recommendations) 완전 가이드(§15)** 신규 — 구성요소·데이터 적재→학습→조회 흐름도·Target UI 세팅 순서·**Backup/Default 동작(§15.5)**·가드레일(250자 등)·구현 매핑. 테스트 화면 3종(§14.3 XT/A·B/추천 SDK)·`mobile_env` 설정(§14.1~2)·푸터 두 줄 반영. 섹션 번호 15~19→16~20. FAQ에 추천 항목 추가 |
