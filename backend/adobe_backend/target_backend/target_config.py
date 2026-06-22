@@ -9,7 +9,7 @@
 
 [Endpoints/Classes/Functions]
 =======================
-- AdobeTargetSettings: client, organization_id, property_token, timeout, offer_mbox_name, recs_mbox_name, bootstrap_mbox_name
+- AdobeTargetSettings: client, organization_id, property_token, timeout, offer_mbox_name, recs_mbox_name, bootstrap_mbox_name, banner_mbox_names
 - AdobeTargetConfigError
 
 [Dependencies]
@@ -39,6 +39,7 @@ class AdobeTargetSettings:
     offer_mbox_name: str
     recs_mbox_name: str
     bootstrap_mbox_name: str
+    banner_mbox_names: tuple[str, ...]  # 배너 전용 mbox 목록(부트스트랩 요청에 동봉). 빈 튜플이면 미사용
 
 
 def _config_path() -> Path:
@@ -57,6 +58,26 @@ def _str(block: dict[str, Any], key: str, *subs: str) -> str:
 def _int(block: dict[str, Any], key: str, default: int, *subs: str) -> int:
     val = _str(block, key, *subs)
     return int(val) if val else default
+
+
+def _str_list(block: dict[str, Any], key: str, *subs: str) -> tuple[str, ...]:
+    """sub 블록 우선으로 문자열 리스트를 읽어 공백·중복 제거 후 튜플로. 리스트가 아니면 빈 튜플."""
+    raw: Any = None
+    for s in subs:
+        sub = block.get(s)
+        if isinstance(sub, dict) and key in sub and sub[key] is not None:
+            raw = sub[key]
+            break
+    if raw is None:
+        raw = block.get(key)
+    if not isinstance(raw, list):
+        return ()
+    names: list[str] = []
+    for item in raw:
+        name = str(item).strip()
+        if name and name not in names:
+            names.append(name)
+    return tuple(names)
 
 
 def _assert_ascii(settings: AdobeTargetSettings) -> None:
@@ -91,6 +112,7 @@ def _load() -> AdobeTargetSettings:
         recs_mbox_name=_str(raw, "recs_mbox_name", "mboxes") or "target-recs-mbox",
         bootstrap_mbox_name=_str(raw, "bootstrap_mbox_name", "mboxes")
         or "target-ready-mbox",
+        banner_mbox_names=_str_list(raw, "banner_mbox_names", "mboxes"),
     )
     _assert_ascii(s)
     return s

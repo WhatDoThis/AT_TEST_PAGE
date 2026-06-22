@@ -8,6 +8,7 @@
   "mboxes": {
     "offer_mbox_name": "target-global-mbox",
     "recs_mbox_name": "target-recs-mbox",
-    "bootstrap_mbox_name": "target-ready-mbox"
+    "bootstrap_mbox_name": "target-ready-mbox",
+    "banner_mbox_names": ["target-tbanner-mbox", "target-bbanner-mbox"]
   }
 }

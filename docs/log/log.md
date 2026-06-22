@@ -2,6 +2,8 @@
 
 ## Log Index
 
+163. 2026-06-22 배너 전용 mbox 분리(B안) — config mboxes.banner_mbox_names(리스트) 추가, 부트스트랩 offers 요청에 bootstrap_mbox + 배너 mbox들을 한 요청에 동봉(_run_delivery 다중 mbox화), 배너별 독립 활동으로 location 충돌 해소
+162. 2026-06-22 띠배너 파서 배열 content 지원 — 단일 mbox(부트스트랩) 한 활동으로 상단+하단 띠배너 동시 처리(같은 mbox에 활동 2개 시 충돌로 1개만 서빙되는 문제 해결), 단일 객체 하위호환
 161. 2026-06-22 띠배너 CTA 새창/현재창 선택 — 오퍼에 ctaTarget("_self"/"_blank") 추가, 열기 로직을 openBannerCta 공용함수로 분리(웹: 현재창 location.assign / 새창 window.open noopener, 네이티브: Linking), TopBanner/BottomBanner 중복 제거
 160. 2026-06-22 띠배너 endAt 마케터 친화 입력 — useCountdown 에 _normalizeEndAt 추가("2026-06-22"→그날 23:59:59 / "YYYY-MM-DD HH:mm" 허용, 타임존 생략 시 KST(+09:00)), 풀 ISO 하위호환·Hermes/V8 공백형식·날짜만 UTC 어긋남 해소
 159. 2026-06-22 띠배너 카운트다운(마감 타이머) 추가 — 기존 top/bottom-banner 계약 재사용(endAt/expiredTitle만 확장), 공용 useCountdown 훅 신설, TopBanner/BottomBanner 진행중 남은시간·만료문구 노출(endAt 없으면 하위호환)
@@ -165,6 +167,23 @@
 12. 2026-04-27 docs/main AT_TEST_PAGE PRD v1.0 작성
 
 ## Log Body
+
+163. 2026-06-22 배너 전용 mbox 분리(B안)
+Purpose: 한 mbox에 활동 2개를 걸면 location을 선점한 1개만 서빙되는 충돌을 근본 제거. 배너를 target-ready-mbox에서 떼어내 배너 전용 mbox(각자 독립 활동)로 분리하고, 부트스트랩 offers 1요청에 함께 싣는다(추가 왕복 없음). 기존 _run_delivery/offers_from_execute/프런트 파서 재활용.
+Changes:
+- config: `mboxes.banner_mbox_names`(문자열 리스트) 추가 — 배너 mbox를 자유롭게 추가(예: target-tbanner-mbox, target-bbanner-mbox). 미설정 시 기존과 동일 동작.
+- target_config: AdobeTargetSettings.banner_mbox_names(tuple) 추가, `_str_list` 헬퍼(공백·중복 제거)로 파싱.
+- target_adobe_router: `_run_delivery`가 단일 mbox→`list[MboxRequest]` 수신(ExecuteRequest.mboxes=mboxes). profile_test/recommendation_test 호출부는 `[mbox]`로 유지. `_resolve_offers_mbox_names` 신설 — bootstrap이고 본문 mbox 미지정 시 primary 뒤에 배너 mbox 동봉(index 0..n). 응답에 `mboxes` 목록 포함.
+- 프런트 변경 없음: 파서가 mbox 구분 없이 type(top/bottom-banner)으로 라우팅하므로 배너 mbox 응답을 그대로 수용.
+Changed files: backend/env/config.adobe.json, backend/env/config.adobe.example.json, backend/adobe_backend/target_backend/target_config.py, backend/adobe_backend/target_backend/target_adobe_router.py
+
+162. 2026-06-22 띠배너 파서 배열 content 지원
+Purpose: 같은 mbox(부트스트랩 `target-ready-mbox`)에 활동을 2개(상단용·하단용) 걸면 Adobe Target이 location을 선점한 1개 활동만 서빙해 하단 띠배너가 응답에 빠지는 문제 해결. 라이브 응답 3회 직접 확인 결과 옵션이 top-banner 1개만 반환됨을 검증.
+Changes:
+- 파서 `parseAdobeTargetOffersPayload`: offers[] 각 항목 content가 배열이면 원소를 개별 후보로 펼쳐 처리(활동 하나로 상단+하단 동시 전달). 단일 객체는 [객체]로 그대로 처리(하위호환).
+- 헬퍼 분리: `_parseContentValue`(객체/배열/문자열→파싱), `_coerceOfferContentList`(항목→후보 객체 목록), `_coerceContentValue`(단일 객체화·배열 제외, 네이티브 event-popup 경로 유지).
+- 권장 운영: 하단 띠배너 전용 활동을 별도로 두지 말고, 부트스트랩 mbox를 소유한 XT 활동 1개에서 experience별로 `[상단배너, 하단배너]` 배열 오퍼를 내려줄 것.
+Changed files: frontend/adobe_frontend/target_frontend/utils/targetOfferParser.ts
 
 161. 2026-06-22 띠배너 CTA 새창/현재창 선택
 Purpose: 띠배너 CTA 클릭 시 새창/현재창을 오퍼에서 고를 수 있게 한다. 기존엔 Linking.openURL 이라 웹에서 항상 새 탭으로 열렸음.

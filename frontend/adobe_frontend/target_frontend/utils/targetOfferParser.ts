@@ -1,8 +1,9 @@
 /**
  * adobe_frontend.target_frontend.utils.targetOfferParser (Adobe Target 오퍼 파서)
  * ================================================================================
- * 서버 프록시 응답의 `offers` 배열에서 캐러셀·이벤트 팝업용 필드를 추출한다.
+ * 서버 프록시 응답의 `offers` 배열에서 캐러셀·이벤트 팝업·상/하단 띠배너 필드를 추출한다.
  * (`POST /api/target/offers`·`POST /api/target/profile-test` 등 동일 shape 의 `offers` 에 적용)
+ * 한 오퍼 content 가 배열이면 각 원소를 개별 후보로 펼쳐, 활동 하나로 여러 배너(상단+하단)를 동시에 처리한다.
  *
  * [Main Functions]
  * ===========
@@ -75,42 +76,41 @@ export function parseAdobeTargetOffersPayload(data: unknown): {
   let bottomBanner: AdobeTargetBannerOffer | null = null;
 
   for (const item of offers) {
-    const candidate = _coerceOfferContent(item);
-    if (!candidate) {
-      continue;
-    }
+    // 한 오퍼 content 가 단일 객체면 [객체], 배열이면 각 원소를 후보로 펼친다.
+    // (단일 mbox 활동 하나로 상단+하단 띠배너를 동시에 내려줄 때 배열 content 를 쓴다)
+    for (const candidate of _coerceOfferContentList(item)) {
+      const offerType = candidate.type;
+      if (offerType === "event-popup") {
+        if (eventPopup === null) {
+          eventPopup = {
+            title: _toOptionalTrimmedString(candidate.title),
+            body: _toOptionalTrimmedString(candidate.body),
+            buttonText: _toOptionalTrimmedString(candidate.buttonText),
+          };
+        }
+        continue;
+      }
+      if (offerType === "top-banner") {
+        if (topBanner === null) {
+          topBanner = _toBannerOffer(candidate);
+        }
+        continue;
+      }
+      if (offerType === "bottom-banner") {
+        if (bottomBanner === null) {
+          bottomBanner = _toBannerOffer(candidate);
+        }
+        continue;
+      }
 
-    const offerType = candidate.type;
-    if (offerType === "event-popup") {
-      if (eventPopup === null) {
-        eventPopup = {
-          title: _toOptionalTrimmedString(candidate.title),
-          body: _toOptionalTrimmedString(candidate.body),
-          buttonText: _toOptionalTrimmedString(candidate.buttonText),
-        };
+      if (carousel !== null) {
+        continue;
       }
-      continue;
-    }
-    if (offerType === "top-banner") {
-      if (topBanner === null) {
-        topBanner = _toBannerOffer(candidate);
+      const buttonText = _toNonEmptyString(candidate.buttonText);
+      const autoPlayMs = _toPositiveNumber(candidate.autoPlayMs);
+      if (buttonText !== undefined || autoPlayMs !== undefined) {
+        carousel = { buttonText, autoPlayMs };
       }
-      continue;
-    }
-    if (offerType === "bottom-banner") {
-      if (bottomBanner === null) {
-        bottomBanner = _toBannerOffer(candidate);
-      }
-      continue;
-    }
-
-    if (carousel !== null) {
-      continue;
-    }
-    const buttonText = _toNonEmptyString(candidate.buttonText);
-    const autoPlayMs = _toPositiveNumber(candidate.autoPlayMs);
-    if (buttonText !== undefined || autoPlayMs !== undefined) {
-      carousel = { buttonText, autoPlayMs };
     }
   }
 
@@ -187,7 +187,7 @@ export function getAdobeTargetOfferRawEntryForLocation(
   return null;
 }
 
-// offers[] 항목(`{ content }`)에서 content 값을 꺼내 객체화.
+// offers[] 항목(`{ content }`)에서 content 값을 꺼내 단일 객체화(배열이면 null).
 function _coerceOfferContent(item: unknown): Record<string, unknown> | null {
   if (!item || typeof item !== "object") {
     return null;
@@ -195,11 +195,30 @@ function _coerceOfferContent(item: unknown): Record<string, unknown> | null {
   return _coerceContentValue((item as { content?: unknown }).content);
 }
 
-// 콘텐츠 "값"을 객체화한다(객체면 그대로, 문자열이면 JSON 파싱·이중 문자열까지 1단계 더 파싱).
-// _coerceOfferContent(웹 offers 항목) 와 parseAdobeTargetEventPopupContent(네이티브 단일 콘텐츠) 의 공통 코어.
-function _coerceContentValue(content: unknown): Record<string, unknown> | null {
+// offers[] 항목 하나를 후보 객체 목록으로 펼친다.
+// content 가 단일 객체면 [객체], 배열이면 객체 원소만, 그 외(문자열은 파싱 후 동일 규칙)면 [].
+// 활동 하나로 상단+하단 띠배너를 함께 내려주는 배열 content 를 지원한다.
+function _coerceOfferContentList(item: unknown): Record<string, unknown>[] {
+  if (!item || typeof item !== "object") {
+    return [];
+  }
+  const parsed = _parseContentValue((item as { content?: unknown }).content);
+  if (Array.isArray(parsed)) {
+    return parsed.filter(
+      (v): v is Record<string, unknown> =>
+        !!v && typeof v === "object" && !Array.isArray(v),
+    );
+  }
+  if (parsed && typeof parsed === "object") {
+    return [parsed as Record<string, unknown>];
+  }
+  return [];
+}
+
+// 콘텐츠 "값"을 파싱만 한다(객체·배열은 그대로, 문자열이면 JSON 파싱·이중 문자열까지 1단계 더 파싱).
+function _parseContentValue(content: unknown): unknown {
   if (content && typeof content === "object") {
-    return content as Record<string, unknown>;
+    return content;
   }
   if (typeof content !== "string") {
     return null;
@@ -217,7 +236,13 @@ function _coerceContentValue(content: unknown): Record<string, unknown> | null {
       return null;
     }
   }
-  if (parsed && typeof parsed === "object") {
+  return parsed ?? null;
+}
+
+// 콘텐츠 "값"을 단일 객체화한다(배열은 제외). 네이티브 단일 콘텐츠(event-popup) 경로 공용.
+function _coerceContentValue(content: unknown): Record<string, unknown> | null {
+  const parsed = _parseContentValue(content);
+  if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
     return parsed as Record<string, unknown>;
   }
   return null;

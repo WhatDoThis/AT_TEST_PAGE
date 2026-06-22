@@ -11,7 +11,8 @@ recommendation-test 는 thirdPartyId·선택 customerIds(recipient_id)·MboxRequ
 - _get_offers_sync / get_offers_endpoint
 - _profile_test_sync / profile_test_endpoint
 - _recommendation_test_sync / recommendation_test_endpoint (recommendations·recommendations_meta 파싱)
-- _sdk_opts / _run_delivery / _id_and_cookies / _handle_error / _resolve_offer_mbox_name
+- _sdk_opts / _run_delivery(다중 mbox) / _id_and_cookies / _handle_error
+- _resolve_offer_mbox_name / _resolve_offers_mbox_names(부트스트랩 시 배너 전용 mbox 동봉)
 
 [Endpoints/Classes/Functions]
 =======================
@@ -84,17 +85,20 @@ def _sdk_opts(cookie: Optional[str], hint: Optional[str], session: Optional[str]
 def _run_delivery(
     label: str,
     delivery_id: Any,
-    mbox: MboxRequest,
+    mboxes: list[MboxRequest],
     *,
     cookie: Optional[str] = None,
     hint: Optional[str] = None,
     session: Optional[str] = None,
 ) -> Optional[dict]:
-    """DeliveryRequest 조립 → 요청 로깅 → SDK get_offers → 응답 로깅. (offers·profile·recs 공통 경로)"""
+    """DeliveryRequest 조립 → 요청 로깅 → SDK get_offers → 응답 로깅. (offers·profile·recs 공통 경로)
+
+    mboxes 는 1개 이상. 부트스트랩 offers 는 bootstrap_mbox + 배너 mbox 들을 한 요청에 함께 싣는다.
+    """
     request = DeliveryRequest(
         id=delivery_id,
         context=Context(channel=ChannelType.WEB),
-        execute=ExecuteRequest(mboxes=[mbox]),
+        execute=ExecuteRequest(mboxes=mboxes),
         _property=ModelProperty(token=get_property_token()),
     )
     at_debug_log_request(logger, label, request)
@@ -194,7 +198,7 @@ class OffersRequest(_TargetVisitorRequest):
 
 
 def _resolve_offer_mbox_name(body: OffersRequest) -> str:
-    """offers mbox 이름 단일 소스 결정: 본문 지정값 > bootstrap_mbox_name > offer_mbox_name."""
+    """offers 기본(primary) mbox 이름 결정: 본문 지정값 > bootstrap_mbox_name > offer_mbox_name."""
     explicit = (body.mbox_name or "").strip()
     if explicit:
         return explicit
@@ -202,20 +206,35 @@ def _resolve_offer_mbox_name(body: OffersRequest) -> str:
     return settings.bootstrap_mbox_name if body.bootstrap else settings.offer_mbox_name
 
 
+def _resolve_offers_mbox_names(body: OffersRequest, primary_name: str) -> list[str]:
+    """offers 요청에 실을 mbox 이름 목록.
+
+    bootstrap 이고 본문에 mbox 를 직접 지정하지 않은 경우에만 배너 전용 mbox(banner_mbox_names)를
+    primary mbox 뒤에 동봉한다. 배너는 각자 전용 mbox = 각자 독립 활동이라 location 충돌이 없다.
+    """
+    names = [primary_name]
+    explicit = (body.mbox_name or "").strip()
+    if body.bootstrap and not explicit:
+        for banner in get_adobe_target_settings().banner_mbox_names:
+            if banner and banner not in names:
+                names.append(banner)
+    return names
+
+
 def _get_offers_sync(body: OffersRequest) -> Dict[str, Any]:
     delivery_id = build_delivery_id(body.tnt_id, body.third_party_id)
-    mbox_name = _resolve_offer_mbox_name(body)
+    primary_name = _resolve_offer_mbox_name(body)
     # page_url 은 요청 바디로만 수신하며, DeliveryRequest·Context 구성에는 연결되지 않는다.
 
-    mbox = MboxRequest(
-        name=mbox_name,
-        index=0,
-        parameters=body.params or None,
-    )
+    mbox_names = _resolve_offers_mbox_names(body, primary_name)
+    mboxes = [
+        MboxRequest(name=name, index=i, parameters=body.params or None)
+        for i, name in enumerate(mbox_names)
+    ]
     response = _run_delivery(
         "offers",
         delivery_id,
-        mbox,
+        mboxes,
         cookie=body.target_cookie,
         hint=body.target_location_hint,
         session=body.session_id,
@@ -223,7 +242,8 @@ def _get_offers_sync(body: OffersRequest) -> Dict[str, Any]:
 
     resp = response.get("response") if response else None
     result: Dict[str, Any] = {
-        "mbox": mbox_name,
+        "mbox": primary_name,
+        "mboxes": mbox_names,
         "offers": offers_from_execute(resp) if resp else [],
         **_id_and_cookies(response, (body.third_party_id or "").strip() or None),
     }
@@ -260,7 +280,7 @@ def _profile_test_sync(body: ProfileTestRequest) -> Dict[str, Any]:
     response = _run_delivery(
         "profile_test",
         delivery_id,
-        mbox,
+        [mbox],
         cookie=body.target_cookie,
         hint=body.target_location_hint,
         session=body.session_id,
@@ -353,7 +373,7 @@ def _recommendation_test_sync(body: RecommendationTestRequest) -> Dict[str, Any]
         return _run_delivery(
             "recommendation_test",
             delivery_id,
-            mbox,
+            [mbox],
             cookie=body.target_cookie,
             hint=body.target_location_hint,
         )
