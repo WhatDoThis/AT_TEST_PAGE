@@ -17,7 +17,7 @@
  * [Dependencies]
  * =========
  * - react-native (View, StyleSheet)
- * - @/context/AdobeTargetContext (useAdobeTargetBottomBanner)
+ * - @/context/AdobeTargetContext (useAdobeTargetBottomBanner, useAdobeTargetBannersReady)
  * - ./StripBanner
  * - ./useCountdown
  * - ./openBannerCta
@@ -25,7 +25,10 @@
 
 import React, { useState } from "react";
 import { StyleSheet, View } from "react-native";
-import { useAdobeTargetBottomBanner } from "@/context/AdobeTargetContext";
+import {
+  useAdobeTargetBannersReady,
+  useAdobeTargetBottomBanner,
+} from "@/context/AdobeTargetContext";
 import StripBanner from "./StripBanner";
 import { useCountdown } from "./useCountdown";
 import { openBannerCta } from "./openBannerCta";
@@ -39,10 +42,12 @@ const ACCENT = "#E6007E";
 // 1. 하단 띠배너: Target 하단 배너 오퍼 + 카운트다운을 읽어 푸터 위에 StripBanner 로 그린다. 닫으면 세션 동안 숨김.
 export default function BottomBanner(): React.ReactElement | null {
   const offer = useAdobeTargetBottomBanner();
+  const ready = useAdobeTargetBannersReady();
   const { label, active, expired } = useCountdown(offer?.endAt);
   const [closed, setClosed] = useState(false);
 
-  if (closed) {
+  // 부트스트랩 완료 전엔 렌더 안 함 → 기본문구→오퍼 깜빡임 방지. 닫으면 세션 동안 숨김.
+  if (!ready || closed) {
     return null;
   }
 

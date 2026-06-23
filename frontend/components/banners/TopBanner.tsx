@@ -16,14 +16,17 @@
  *
  * [Dependencies]
  * =========
- * - @/context/AdobeTargetContext (useAdobeTargetTopBanner)
+ * - @/context/AdobeTargetContext (useAdobeTargetTopBanner, useAdobeTargetBannersReady)
  * - ./StripBanner
  * - ./useCountdown
  * - ./openBannerCta
  */
 
 import React, { useState } from "react";
-import { useAdobeTargetTopBanner } from "@/context/AdobeTargetContext";
+import {
+  useAdobeTargetBannersReady,
+  useAdobeTargetTopBanner,
+} from "@/context/AdobeTargetContext";
 import StripBanner from "./StripBanner";
 import { useCountdown } from "./useCountdown";
 import { openBannerCta } from "./openBannerCta";
@@ -36,10 +39,12 @@ const DEFAULT_TEXT = "#FFFFFF";
 // 1. 상단 띠배너: Target 상단 배너 오퍼 + 카운트다운을 읽어 StripBanner 로 그린다. 닫으면 세션 동안 숨김.
 export default function TopBanner(): React.ReactElement | null {
   const offer = useAdobeTargetTopBanner();
+  const ready = useAdobeTargetBannersReady();
   const { label, active, expired } = useCountdown(offer?.endAt);
   const [closed, setClosed] = useState(false);
 
-  if (closed) {
+  // 부트스트랩 완료 전엔 렌더 안 함 → 기본문구→오퍼 깜빡임 방지. 닫으면 세션 동안 숨김.
+  if (!ready || closed) {
     return null;
   }
 

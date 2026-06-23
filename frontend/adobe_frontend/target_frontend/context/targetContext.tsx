@@ -11,6 +11,7 @@
  * - useAdobeTargetEventPopup / useAdobeTargetSetEventPopupOffer
  * - useAdobeTargetTopBanner / useAdobeTargetSetTopBanner
  * - useAdobeTargetBottomBanner / useAdobeTargetSetBottomBanner
+ * - useAdobeTargetBannersReady / useAdobeTargetSetBannersReady (FOUC 방지: 부트스트랩 완료 전 배너 미렌더)
  * - useAdobeTargetRefreshOffers
  *
  * [Endpoints/Classes/Functions]
@@ -53,6 +54,9 @@ interface AdobeTargetContextValue {
   setTopBannerOffer: (offer: AdobeTargetBannerOffer | null) => void;
   bottomBannerOffer: AdobeTargetBannerOffer | null;
   setBottomBannerOffer: (offer: AdobeTargetBannerOffer | null) => void;
+  // 띠배너 부트스트랩 완료 여부. 완료 전엔 배너를 렌더하지 않아 기본문구→오퍼 깜빡임(FOUC)을 막는다.
+  bannersReady: boolean;
+  setBannersReady: (ready: boolean) => void;
   refreshOffers: () => Promise<void>;
 }
 
@@ -69,6 +73,7 @@ export function AdobeTargetProvider({ children }: { children: ReactNode }) {
     useState<AdobeTargetBannerOffer | null>(null);
   const [bottomBannerOffer, setBottomBannerOffer] =
     useState<AdobeTargetBannerOffer | null>(null);
+  const [bannersReady, setBannersReady] = useState(false);
 
   const refreshOffers = useCallback(async () => {
     try {
@@ -88,6 +93,8 @@ export function AdobeTargetProvider({ children }: { children: ReactNode }) {
       setBottomBannerOffer(bottomBanner);
     } catch (err) {
       console.warn("[AT] refreshOffers fail:", err);
+    } finally {
+      setBannersReady(true);
     }
   }, []);
 
@@ -101,9 +108,18 @@ export function AdobeTargetProvider({ children }: { children: ReactNode }) {
       setTopBannerOffer,
       bottomBannerOffer,
       setBottomBannerOffer,
+      bannersReady,
+      setBannersReady,
       refreshOffers,
     }),
-    [offer, eventPopupOffer, topBannerOffer, bottomBannerOffer, refreshOffers],
+    [
+      offer,
+      eventPopupOffer,
+      topBannerOffer,
+      bottomBannerOffer,
+      bannersReady,
+      refreshOffers,
+    ],
   );
   return (
     <AdobeTargetContext.Provider value={value}>
@@ -179,4 +195,16 @@ export function useAdobeTargetSetBottomBanner(): (
 export function useAdobeTargetRefreshOffers(): () => Promise<void> {
   const ctx = useContext(AdobeTargetContext);
   return ctx?.refreshOffers ?? _noopRefreshOffers;
+}
+
+// 11. 띠배너 부트스트랩 완료 여부 읽기(Provider 밖이면 true 로 간주해 숨김 방지)
+export function useAdobeTargetBannersReady(): boolean {
+  const ctx = useContext(AdobeTargetContext);
+  return ctx?.bannersReady ?? true;
+}
+
+// 12. 띠배너 부트스트랩 완료 표시(웹 bootstrap·네이티브 즉시 호출)
+export function useAdobeTargetSetBannersReady(): (ready: boolean) => void {
+  const ctx = useContext(AdobeTargetContext);
+  return ctx?.setBannersReady ?? (() => {});
 }

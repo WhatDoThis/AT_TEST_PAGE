@@ -24,6 +24,7 @@
 import { useEffect } from "react";
 import { Platform } from "react-native";
 import {
+  useAdobeTargetSetBannersReady,
   useAdobeTargetSetBottomBanner,
   useAdobeTargetSetEventPopupOffer,
   useAdobeTargetSetOffer,
@@ -53,9 +54,12 @@ export function TargetPageBootstrap() {
   const setEventPopupOffer = useAdobeTargetSetEventPopupOffer();
   const setTopBannerOffer = useAdobeTargetSetTopBanner();
   const setBottomBannerOffer = useAdobeTargetSetBottomBanner();
+  const setBannersReady = useAdobeTargetSetBannersReady();
 
   useEffect(() => {
+    // 네이티브/SSR 등 부트스트랩이 없는 경로는 즉시 ready 처리(기본 문구 노출 유지).
     if (Platform.OS !== "web" || typeof document === "undefined") {
+      setBannersReady(true);
       return;
     }
     let cancelled = false;
@@ -79,12 +83,24 @@ export function TargetPageBootstrap() {
           setTopBannerOffer(topBanner);
           setBottomBannerOffer(bottomBanner);
         })
-        .catch((err) => console.warn("[AT] TargetPageBootstrap fetch fail:", err));
+        .catch((err) => console.warn("[AT] TargetPageBootstrap fetch fail:", err))
+        // 성공·실패 무관하게 부트스트랩이 끝나면 배너 렌더를 허용한다(완료 전 깜빡임 방지).
+        .finally(() => {
+          if (!cancelled) {
+            setBannersReady(true);
+          }
+        });
     });
     return () => {
       cancelled = true;
     };
-  }, [setOffer, setEventPopupOffer, setTopBannerOffer, setBottomBannerOffer]);
+  }, [
+    setOffer,
+    setEventPopupOffer,
+    setTopBannerOffer,
+    setBottomBannerOffer,
+    setBannersReady,
+  ]);
 
   return null;
 }

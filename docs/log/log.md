@@ -2,6 +2,7 @@
 
 ## Log Index
 
+164. 2026-06-23 띠배너 FOUC 제거 — Context에 bannersReady 플래그 추가, 부트스트랩 완료 전 Top/BottomBanner 미렌더(기본문구→오퍼 깜빡임 방지), 네이티브/실패 시 즉시 ready로 기존 동작 유지
 163. 2026-06-22 배너 전용 mbox 분리(B안) — config mboxes.banner_mbox_names(리스트) 추가, 부트스트랩 offers 요청에 bootstrap_mbox + 배너 mbox들을 한 요청에 동봉(_run_delivery 다중 mbox화), 배너별 독립 활동으로 location 충돌 해소
 162. 2026-06-22 띠배너 파서 배열 content 지원 — 단일 mbox(부트스트랩) 한 활동으로 상단+하단 띠배너 동시 처리(같은 mbox에 활동 2개 시 충돌로 1개만 서빙되는 문제 해결), 단일 객체 하위호환
 161. 2026-06-22 띠배너 CTA 새창/현재창 선택 — 오퍼에 ctaTarget("_self"/"_blank") 추가, 열기 로직을 openBannerCta 공용함수로 분리(웹: 현재창 location.assign / 새창 window.open noopener, 네이티브: Linking), TopBanner/BottomBanner 중복 제거
@@ -167,6 +168,15 @@
 12. 2026-04-27 docs/main AT_TEST_PAGE PRD v1.0 작성
 
 ## Log Body
+
+164. 2026-06-23 띠배너 FOUC(기본문구→오퍼 깜빡임) 제거
+Purpose: 페이지 첫 로드 시 배너가 기본 문구로 떴다가 비동기 부트스트랩 응답 도착 후 오퍼로 바뀌는 깜빡임을 제거.
+Changes:
+- targetContext: `bannersReady`(boolean) 상태·setter 추가. `useAdobeTargetBannersReady`/`useAdobeTargetSetBannersReady` 훅 신설. refreshOffers finally에서 ready=true.
+- TargetPageBootstrap: 웹은 offers 응답(성공·실패 무관) `.finally`에서 ready=true, 네이티브/SSR 등 부트스트랩 없는 경로는 즉시 ready=true(기존 기본문구 노출 유지).
+- TopBanner/BottomBanner: `!ready`면 렌더하지 않음(`!ready || closed`). 완료 후에만 오퍼/기본값 확정 렌더.
+- 트레이드오프: 완료 전 미렌더라 배너가 약간 늦게 나타나며 1회 레이아웃 시프트 가능(잘못된 문구 깜빡임은 사라짐).
+Changed files: frontend/adobe_frontend/target_frontend/context/targetContext.tsx, frontend/adobe_frontend/target_frontend/app/TargetPageBootstrap.tsx, frontend/components/banners/TopBanner.tsx, frontend/components/banners/BottomBanner.tsx
 
 163. 2026-06-22 배너 전용 mbox 분리(B안)
 Purpose: 한 mbox에 활동 2개를 걸면 location을 선점한 1개만 서빙되는 충돌을 근본 제거. 배너를 target-ready-mbox에서 떼어내 배너 전용 mbox(각자 독립 활동)로 분리하고, 부트스트랩 offers 1요청에 함께 싣는다(추가 왕복 없음). 기존 _run_delivery/offers_from_execute/프런트 파서 재활용.
