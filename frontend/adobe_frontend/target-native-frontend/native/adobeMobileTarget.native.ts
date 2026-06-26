@@ -12,6 +12,7 @@
  * - isAdobeMobileTargetSupported: 네이티브에서 항상 true
  * - initAdobeMobileTarget: appId로 MobileCore 초기화(1회) + Property 토큰 주입(선택)
  * - retrieveTargetContent: 단일 mbox 콘텐츠 조회(콜백 → Promise 래핑)
+ * - retrieveTargetContents: 여러 mbox 콘텐츠 일괄 조회(배너 mbox 동시 수신)
  * - getTargetIds: tntId/thirdPartyId/sessionId 조회
  * - resetTargetExperience: Target tntId 초기화 + ECID 등 전체 ID 재발급(새 방문자로 A/B 재추첨)
  * - setTargetVisitor: 추천 데이터용 방문자 구분(reset 후 thirdPartyId 설정)
@@ -23,6 +24,7 @@
  * - isAdobeMobileTargetSupported(): boolean
  * - initAdobeMobileTarget(appId, propertyToken?): Promise<boolean>
  * - retrieveTargetContent(mboxName, defaultContent, mboxParameters?): Promise<string>
+ * - retrieveTargetContents(mboxNames, defaultContent?, mboxParameters?): Promise<{ name, content }[]>
  * - getTargetIds(): Promise<TargetIds>
  * - resetTargetExperience(): void
  * - setTargetVisitor(thirdPartyId): void
@@ -114,6 +116,47 @@ export function retrieveTargetContent(
     } catch (error) {
       console.warn("[adobeMobileTarget] retrieveTargetContent 예외:", String(error));
       resolve(defaultContent);
+    }
+  });
+}
+
+// 3-1. 여러 mbox 콘텐츠 일괄 조회 — 한 번의 retrieveLocationContent 로 배너 mbox 들을 동시에 받는다.
+//      각 요청은 자기 콜백으로 결과를 채우고, 모두 도착하면 resolve 한다(웹 bootstrap 다중 mbox 와 동일 개념).
+export function retrieveTargetContents(
+  mboxNames: string[],
+  defaultContent: string = "",
+  mboxParameters?: Record<string, string>
+): Promise<{ name: string; content: string }[]> {
+  const names = (mboxNames ?? []).filter((n) => n && n.trim().length > 0);
+  if (names.length === 0) {
+    return Promise.resolve([]);
+  }
+  return new Promise((resolve) => {
+    try {
+      const parameters = new TargetParameters(mboxParameters ?? {});
+      const results: { name: string; content: string }[] = [];
+      let remaining = names.length;
+      const requests = names.map(
+        (name) =>
+          new TargetRequestObject(name, parameters, defaultContent, (error, content) => {
+            if (error) {
+              console.warn(
+                "[adobeMobileTarget] retrieveTargetContents 콜백 오류:",
+                name,
+                String(error)
+              );
+            }
+            results.push({ name, content: content ?? defaultContent });
+            remaining -= 1;
+            if (remaining === 0) {
+              resolve(results);
+            }
+          })
+      );
+      Target.retrieveLocationContent(requests, parameters);
+    } catch (error) {
+      console.warn("[adobeMobileTarget] retrieveTargetContents 예외:", String(error));
+      resolve([]);
     }
   });
 }

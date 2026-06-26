@@ -10,7 +10,8 @@
     "adobe_sdk_mboxes": {
       "offer_sdk_mbox_name": "target-msdk-mbox",
       "global_sdk_mbox_name": "target-global-msdk-mbox",
-      "rec_sdk_mbox_name": "target-rec-msdk-mbox"
+      "rec_sdk_mbox_name": "target-rec-msdk-mbox",
+      "banner_sdk_mbox_names": ["target-tbanner-msdk-mbox", "target-bbanner-msdk-mbox"]
     }
   },
   "app_title": "AT_TEST_PAGE",

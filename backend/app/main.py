@@ -20,7 +20,8 @@ CORS·라우터·수명 주기를 구성하고 uvicorn에서 app 객체로 노�
 [Dependencies]
 =========
 - fastapi, uvicorn(실행기)
-- app.routers.coupons, app.database.dispose_engine
+- app.routers.coupons, app.routers.telecom
+- app.database.dispose_engine, app.telecom_db.dispose_telecom_engine
 - adobe_backend.target_backend.target_main (register_target_routes만 사용)
 """
 
@@ -34,7 +35,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
 from app.database import dispose_engine
-from app.routers import coupons
+from app.routers import coupons, telecom
+from app.telecom_db import dispose_telecom_engine
 
 # ════════════════════════════════════════════════════════════════════════════════
 # [BRIDGE · Adobe] 구분선 — 위: 앱 코어 라우터·DB / 아래: 어도비 패키지 진입만 임포트
@@ -52,6 +54,7 @@ from adobe_backend.target_backend import target_main as _adobe_target_main
 async def lifespan(app: FastAPI):
     yield
     await dispose_engine()
+    await dispose_telecom_engine()
 
 
 app = FastAPI(title="AT_TEST_PAGE API", lifespan=lifespan)
@@ -76,6 +79,7 @@ if os.getenv("APP_ENV", "dev") == "dev":
 app.add_middleware(CORSMiddleware, **_cors_kw)
 
 app.include_router(coupons.router, prefix="/api", tags=["coupons"])
+app.include_router(telecom.router, prefix="/api", tags=["telecom"])
 
 # ════════════════════════════════════════════════════════════════════════════════
 # [BRIDGE · Adobe] 라우터 마운트 — 앱 코어(coupons)와 별도로 어도비 패키지에 위임

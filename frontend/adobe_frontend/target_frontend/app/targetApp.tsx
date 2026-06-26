@@ -11,7 +11,7 @@
  *
  * [Main Functions]
  * ===========
- * - TargetAppProvider: AdobeTargetProvider 래핑 + 세션 저장소 hydrate + 네이티브 SDK 초기화 + Assurance 자동 세션
+ * - TargetAppProvider: AdobeTargetProvider + VisitorProvider(로그인 식별자) 래핑 + 세션 저장소 hydrate + 네이티브 SDK 초기화 + Assurance 자동 세션
  *
  * [Endpoints/Classes/Functions]
  * =======================
@@ -29,6 +29,7 @@
 import { useEffect, type ReactNode } from "react";
 import { config } from "../../../utils/loadConfig";
 import { AdobeTargetProvider } from "../context/targetContext";
+import { VisitorProvider } from "../context/visitorContext";
 import {
   initAdobeMobileTarget,
   startAssuranceSession,
@@ -54,5 +55,10 @@ export function TargetAppProvider({ children }: { children: ReactNode }) {
     })();
   }, []);
 
-  return <AdobeTargetProvider>{children}</AdobeTargetProvider>;
+  // VisitorProvider 는 refreshOffers 를 쓰므로 AdobeTargetProvider 안쪽에 둔다.
+  return (
+    <AdobeTargetProvider>
+      <VisitorProvider>{children}</VisitorProvider>
+    </AdobeTargetProvider>
+  );
 }

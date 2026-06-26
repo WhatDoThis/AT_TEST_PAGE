@@ -2,7 +2,8 @@
  * adobe_frontend.target_frontend.context.targetContext (Adobe Target 오퍼 전역 컨텍스트)
  * ================================================================================
  * 서버 SDK 프록시(`POST /api/target/offers`)로 받은 오퍼를 수동으로 Context에 반영한다.
- * 초기 값은 웹 `TargetPageBootstrap`(bootstrap mbox)이 채우고, `refreshOffers`는 동일 bootstrap mbox 로 재조회한다.
+ * 초기 값은 웹 `TargetPageBootstrap`(bootstrap mbox)이 채우고, `refreshOffers`는 플랫폼별로 재조회한다
+ * (웹=프록시 bootstrap mbox / 네이티브=Mobile SDK 배너 mbox). 로그인 식별자 변경 후 호출해 개인화를 갱신한다.
  *
  * [Main Functions]
  * ===========
@@ -37,6 +38,9 @@ import React, {
   useState,
   type ReactNode,
 } from "react";
+import { Platform } from "react-native";
+import { config } from "@/utils/loadConfig";
+import { retrieveTargetContents } from "@adobe-native/native/adobeMobileTarget";
 import { fetchAdobeTargetOffersResponseDeduped } from "../utils/targetOffersFetch";
 import {
   parseAdobeTargetOffersPayload,
@@ -76,6 +80,26 @@ export function AdobeTargetProvider({ children }: { children: ReactNode }) {
   const [bannersReady, setBannersReady] = useState(false);
 
   const refreshOffers = useCallback(async () => {
+    // [네이티브] 프록시가 아닌 Mobile SDK 로 배너 mbox 를 재조회한다(로그인 식별자 변경 반영).
+    if (Platform.OS !== "web") {
+      try {
+        const bannerMboxes =
+          config.mobile_env?.adobe_sdk_mboxes?.banner_sdk_mbox_names ?? [];
+        const items = await retrieveTargetContents(bannerMboxes);
+        const offers = items.map((it) => ({ content: it.content }));
+        const { topBanner, bottomBanner } = parseAdobeTargetOffersPayload({
+          offers,
+        });
+        setTopBannerOffer(topBanner);
+        setBottomBannerOffer(bottomBanner);
+      } catch (err) {
+        console.warn("[AT] refreshOffers(native) fail:", err);
+      } finally {
+        setBannersReady(true);
+      }
+      return;
+    }
+    // [웹] bootstrap mbox(+배너 mbox) 로 프록시 재조회.
     try {
       const { ok, status, data } = await fetchAdobeTargetOffersResponseDeduped({
         bootstrap: true,

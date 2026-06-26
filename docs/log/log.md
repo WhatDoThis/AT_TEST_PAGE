@@ -2,6 +2,9 @@
 
 ## Log Index
 
+167. 2026-06-26 회선 선택 로그인(방문자 식별자 주입) 구현 — 헤더 우측 visitor 라벨+로그인 버튼, 로그인 모달에 telecom_test_lines 넓은 테이블(단일 선택). 선택 회선ID(line_id)를 Target 식별자(웹 thirdPartyId/네이티브 setThirdPartyId)로 주입→refreshOffers로 배너·팝업 즉시 개인화. VisitorContext(+브리지)·LoginModal·VisitorMenu 신설, refreshOffers 플랫폼 분기, AppHeader 우측 위젯 배치
+166. 2026-06-26 통신사 테스트 DB(lgu_target_test) 연결·회선 조회 API — 별도 DB/유저(lgu)·telecom_test_lines(회선 그레인) 신규. 백엔드 2번째 비동기 엔진(telecom_db.py) 추가, config telecom_db 파싱, GET /api/telecom/lines·/{line_id}(약정 D-day·단말 사용개월 파생) 라우터, main 라우터 등록·lifespan 정리
+165. 2026-06-26 네이티브 띠배너 연동 — 네이티브 전용 배너 mbox(msdk) 분리·앱 진입 시 Mobile SDK 일괄 조회→웹과 동일 파서/Context/컴포넌트로 표시. config.mobile_env.adobe_sdk_mboxes.banner_sdk_mbox_names 추가, retrieveTargetContents(배치) 신설, TargetPageBootstrap 웹/네이티브 통합
 164. 2026-06-23 띠배너 FOUC 제거 — Context에 bannersReady 플래그 추가, 부트스트랩 완료 전 Top/BottomBanner 미렌더(기본문구→오퍼 깜빡임 방지), 네이티브/실패 시 즉시 ready로 기존 동작 유지
 163. 2026-06-22 배너 전용 mbox 분리(B안) — config mboxes.banner_mbox_names(리스트) 추가, 부트스트랩 offers 요청에 bootstrap_mbox + 배너 mbox들을 한 요청에 동봉(_run_delivery 다중 mbox화), 배너별 독립 활동으로 location 충돌 해소
 162. 2026-06-22 띠배너 파서 배열 content 지원 — 단일 mbox(부트스트랩) 한 활동으로 상단+하단 띠배너 동시 처리(같은 mbox에 활동 2개 시 충돌로 1개만 서빙되는 문제 해결), 단일 객체 하위호환
@@ -168,6 +171,38 @@
 12. 2026-04-27 docs/main AT_TEST_PAGE PRD v1.0 작성
 
 ## Log Body
+
+167. 2026-06-26 회선 선택 로그인(방문자 식별자 주입) 구현
+Purpose: 테스트 웹앱에 "로그인" 개념을 도입. 통신사 회선(telecom_test_lines) 1건을 선택해 로그인하면 그 회선ID(line_id)가 Adobe Target 식별자로 적용되어, 회선별로 어떤 띠배너/팝업이 나가는지 즉시 확인할 수 있게 함. 고객사 실제 환경에서 회원ID를 thirdPartyId 로 쓰는 흐름을 그대로 모사.
+Changes:
+- VisitorContext(visitorContext.tsx) 신설 + 브리지(@/context/VisitorContext): 로그인 회선 상태(sessionStore 복원) + login/logout. 웹=thirdPartyId 세션키 주입/제거(tnt·쿠키·세션 초기화로 익명/타회선 혼선 방지), 네이티브=setTargetVisitor(resetExperience+setThirdPartyId)/resetTargetExperience. 로그인/로그아웃 후 refreshOffers 호출.
+- targetContext.refreshOffers 를 플랫폼 분기: 웹=프록시 bootstrap mbox, 네이티브=Mobile SDK 배너 mbox 재조회(식별자 변경 반영). targetApp 에 VisitorProvider 래핑(AdobeTargetProvider 안쪽).
+- LoginModal(components/login): GET /api/telecom/lines 조회 → 넓은 테이블(가로 스크롤, 13컬럼: 회선ID·고객명·등급·요금제·망·월요금·약정만료+D-day·단말·데이터%·결합·연령·해지위험·수신동의), 단일 행 선택(재클릭 시 교체), 우측 상단 취소/로그인.
+- VisitorMenu(components/login): 헤더 우측. 비로그인=visitor+로그인 버튼, 로그인=회선ID·고객명+로그아웃 버튼. AppHeader 를 절대 중앙 타이틀 + 우측 위젯 레이아웃으로 변경.
+- telecomLinesApi(components/login): 회선 목록 fetch + TelecomLine 타입.
+Changed files: frontend/adobe_frontend/target_frontend/context/visitorContext.tsx, frontend/context/VisitorContext.tsx, frontend/adobe_frontend/target_frontend/context/targetContext.tsx, frontend/adobe_frontend/target_frontend/app/targetApp.tsx, frontend/components/login/{telecomLinesApi.ts,LoginModal.tsx,VisitorMenu.tsx}, frontend/components/AppHeader.tsx
+
+166. 2026-06-26 통신사 테스트 DB(lgu_target_test) 연결·회선 조회 API
+Purpose: 추천 테스트용 recipient_id 데이터와 분리해, 통신사(디바이스/회선 중심) 마케팅을 시연할 별도 DB를 신규 연결. 회선ID(line_id)를 Adobe Target 식별자(CustomerId/thirdPartyId) 키로 쓰는 회선 그레인 테스트 데이터(~30행) 조회 API 추가.
+Changes:
+- DB: 동일 서버에 유저 `lgu`·DB `lgu_target_test`·테이블 `telecom_test_lines`(식별자 line_id/customer_id + 요금제·약정만료·단말·데이터사용률·등급·결합·연령대·해지위험·수신동의 등) 신설, 합성 30행 적재.
+- config: `telecom_db` 블록(dev/prd.example) 추가. config.py에 `_parse_db_block` + `Settings.telecom_db`(Optional) 파싱.
+- telecom_db.py 신규: 추천용 database.py(ibank_test_data)와 분리된 2번째 비동기 엔진/세션 + `TelecomTestLine` ORM(조회 전용) + 목록/단건 Select + dispose.
+- schemas.py: `TelecomLineOut`(약정 D-day·단말 사용개월 파생 포함)·`TelecomLinesResponse` 추가.
+- routers/telecom.py 신규: `GET /api/telecom/lines`(customer_id·customer_grade 선택 필터)·`GET /api/telecom/lines/{line_id}`(단건, 404 처리). today 기준 파생값 계산.
+- main.py: telecom 라우터 prefix=/api 등록, lifespan에서 `dispose_telecom_engine` 호출.
+Changed files: backend/app/config.py, backend/app/telecom_db.py, backend/app/schemas.py, backend/app/routers/telecom.py, backend/app/main.py, backend/env/config.dev.json, backend/env/config.prd.example.json
+
+165. 2026-06-26 네이티브(Mobile SDK) 띠배너 연동
+Purpose: 웹 전용이던 띠배너 오퍼를 네이티브에도 적용. 웹/모바일 SDK 구현 차이에 맞추되, 채널별로 다른 이벤트 운용이 가능하도록 네이티브 전용 배너 mbox(별도 활동)로 분리. 오퍼 JSON 계약·파서·Context·컴포넌트는 웹과 공유.
+Changes:
+- config: `mobile_env.adobe_sdk_mboxes.banner_sdk_mbox_names`(리스트) 추가 — dev/prd 및 example 2종. 값 `target-tbanner-msdk-mbox`/`target-bbanner-msdk-mbox`.
+- loadConfig: `AdobeSdkMboxesConfig.banner_sdk_mbox_names?: string[]` 타입 추가.
+- adobeMobileTarget(native/.ts): `retrieveTargetContents(mboxNames, default?, params?)` 신설 — 단일 retrieveLocationContent 로 배너 mbox 일괄 조회(웹 base 는 [] 반환 no-op).
+- TargetPageBootstrap: 웹/네이티브 통합. 네이티브는 SDK로 배너 mbox 조회→콘텐츠를 `{offers:[{content}]}` 로 감싸 기존 parseAdobeTargetOffersPayload 재사용→상/하단 배너 Context 반영→ready. 웹 경로(프록시)·FOUC 가드 유지.
+- 표시 컴포넌트(TopBanner/BottomBanner)는 이미 _layout 공용이라 네이티브에서도 그대로 렌더(코드 변경 없음).
+- 운영: 네이티브 전용 mbox에 별도 Target 활동 생성 필요(오퍼 JSON은 웹과 동일 형식). Property 토큰은 init 시 이미 주입.
+Changed files: frontend/utils/loadConfig.ts, frontend/env/config.{dev,prd}.json, frontend/env/config.{dev,prd}.example.json, frontend/adobe_frontend/target-native-frontend/native/adobeMobileTarget.ts, frontend/adobe_frontend/target-native-frontend/native/adobeMobileTarget.native.ts, frontend/adobe_frontend/target_frontend/app/TargetPageBootstrap.tsx
 
 164. 2026-06-23 띠배너 FOUC(기본문구→오퍼 깜빡임) 제거
 Purpose: 페이지 첫 로드 시 배너가 기본 문구로 떴다가 비동기 부트스트랩 응답 도착 후 오퍼로 바뀌는 깜빡임을 제거.

@@ -12,6 +12,7 @@
  * - isAdobeMobileTargetSupported: 현재 플랫폼에서 네이티브 SDK 사용 가능 여부(웹=false)
  * - initAdobeMobileTarget: SDK 초기화(웹=no-op)
  * - retrieveTargetContent: mbox 콘텐츠 조회(웹=defaultContent 반환)
+ * - retrieveTargetContents: 여러 mbox 일괄 조회(웹=[] 반환)
  * - getTargetIds: 방문자 식별자 조회(웹=null)
  * - resetTargetExperience: 방문자 식별자 초기화(웹=no-op)
  * - setTargetVisitor: 추천 데이터용 방문자 구분(웹=no-op)
@@ -23,6 +24,7 @@
  * - isAdobeMobileTargetSupported(): boolean
  * - initAdobeMobileTarget(appId, propertyToken?): Promise<boolean>
  * - retrieveTargetContent(mboxName, defaultContent, mboxParameters?): Promise<string>
+ * - retrieveTargetContents(mboxNames, defaultContent?, mboxParameters?): Promise<{ name, content }[]>
  * - getTargetIds(): Promise<TargetIds>
  * - resetTargetExperience(): void
  * - setTargetVisitor(thirdPartyId): void
@@ -56,6 +58,15 @@ export async function retrieveTargetContent(
   _mboxParameters?: Record<string, string>
 ): Promise<string> {
   return defaultContent;
+}
+
+// 3-1. 여러 mbox 콘텐츠 일괄 조회 — 웹은 SDK 미사용(프록시 경로 사용)이라 빈 결과 반환
+export async function retrieveTargetContents(
+  _mboxNames: string[],
+  _defaultContent: string = "",
+  _mboxParameters?: Record<string, string>
+): Promise<{ name: string; content: string }[]> {
+  return [];
 }
 
 // 4. 방문자 식별자 조회 — 웹은 값 없음

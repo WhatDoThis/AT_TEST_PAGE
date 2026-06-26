@@ -40,6 +40,11 @@ export interface AdobeSdkMboxesConfig {
   global_sdk_mbox_name?: string;
   /** 추천(Recommendations) 전용 mbox. XT 활동과 location 이 겹치지 않도록 추천 화면만 사용. */
   rec_sdk_mbox_name?: string;
+  /**
+   * 네이티브 띠배너 전용 mbox 목록(앱 진입 시 일괄 조회 → 상/하단 배너).
+   * 웹 백엔드의 banner_mbox_names 와는 별개 활동(채널별로 다른 이벤트 운용 가능). 오퍼 JSON 계약은 동일.
+   */
+  banner_sdk_mbox_names?: string[];
 }
 
 /** 모바일(네이티브 SDK) 전용 환경값 묶음. web/공용 값과 명확히 구분하기 위해 별도 블록으로 분리한다. */

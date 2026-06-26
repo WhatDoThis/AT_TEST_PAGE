@@ -1,7 +1,7 @@
 """
 backend.app.schemas (Pydantic 응답 모델)
 ================================================================================
-쿠폰 목록 API의 행(시각·수신자·캠페인·워크플로)·페이지네이션·최상위 응답 스키마를 정의한다.
+쿠폰 목록 API와 통신사 회선 조회 API의 응답·페이지네이션 스키마를 정의한다.
 
 [Main Functions]
 ===========
@@ -10,6 +10,7 @@ backend.app.schemas (Pydantic 응답 모델)
 [Endpoints/Classes/Functions]
 =======================
 - CouponRowOut, PaginationOut, CouponsListResponse
+- TelecomLineOut, TelecomLinesResponse
 
 [Dependencies]
 =========
@@ -18,7 +19,7 @@ backend.app.schemas (Pydantic 응답 모델)
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -47,3 +48,35 @@ class PaginationOut(BaseModel):
 class CouponsListResponse(BaseModel):
     data: List[CouponRowOut]
     pagination: PaginationOut
+
+
+# 3. [회선] 통신사 회선 1행(고객 카드 표시 + Target 식별자 line_id) + 서버 파생값
+class TelecomLineOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    line_id: str = ""
+    customer_id: str = ""
+    customer_name: str = ""
+    customer_grade: str = ""
+    bundle_yn: str = ""
+    phone_no: str = ""
+    plan_name: str = ""
+    network_type: str = ""
+    monthly_fee: int = 0
+    contract_type: str = ""
+    contract_end_date: Optional[date] = None
+    device_model: str = ""
+    device_purchase_date: Optional[date] = None
+    data_usage_pct: int = 0
+    age_group: str = ""
+    join_date: Optional[date] = None
+    churn_risk: str = ""
+    marketing_consent_yn: str = ""
+    # 서버에서 today 기준으로 계산하는 파생값(저장 안 함)
+    contract_d_day: Optional[int] = None
+    device_age_months: Optional[int] = None
+
+
+class TelecomLinesResponse(BaseModel):
+    data: List[TelecomLineOut]
+    total_count: int = Field(ge=0)

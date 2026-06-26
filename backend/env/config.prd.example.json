@@ -7,5 +7,12 @@
     "name": "ibank_test_data",
     "user": "ibankbi",
     "password": ""
+  },
+  "telecom_db": {
+    "host": "127.0.0.1",
+    "port": 5432,
+    "name": "lgu_target_test",
+    "user": "lgu",
+    "password": ""
   }
 }
