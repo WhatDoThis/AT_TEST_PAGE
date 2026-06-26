@@ -2,6 +2,7 @@
 
 ## Log Index
 
+169. 2026-06-26 EAS Android 빌드 "Bundle JavaScript" 실패 수정 — loadConfig 가 env/config.{dev,prd}.json 을 정적 import 하는데 두 파일이 .gitignore 제외라 EAS(git 업로드)에서 누락→번들 실패. frontend/.easignore 추가로 config 파일 업로드 포함(빌드 머신에 실제 파일 존재 필요). 로컬 프로덕션 export 로 코드 정상 확인
 168. 2026-06-26 docs 전체 정합(01 PRD v1.3·02 프론트·03 백엔드 telecom·04 v3.6 회선로그인/배너mbox/FOUC)·README — 최근 코드(165~167) 기준 개발문서 동기화
 167. 2026-06-26 회선 선택 로그인(방문자 식별자 주입) 구현 — 헤더 우측 visitor 라벨+로그인 버튼, 로그인 모달에 telecom_test_lines 넓은 테이블(단일 선택). 선택 회선ID(line_id)를 Target 식별자(웹 thirdPartyId/네이티브 setThirdPartyId)로 주입→refreshOffers로 배너·팝업 즉시 개인화. VisitorContext(+브리지)·LoginModal·VisitorMenu 신설, refreshOffers 플랫폼 분기, AppHeader 우측 위젯 배치
 166. 2026-06-26 통신사 테스트 DB(lgu_target_test) 연결·회선 조회 API — 별도 DB/유저(lgu)·telecom_test_lines(회선 그레인) 신규. 백엔드 2번째 비동기 엔진(telecom_db.py) 추가, config telecom_db 파싱, GET /api/telecom/lines·/{line_id}(약정 D-day·단말 사용개월 파생) 라우터, main 라우터 등록·lifespan 정리
@@ -172,6 +173,14 @@
 12. 2026-04-27 docs/main AT_TEST_PAGE PRD v1.0 작성
 
 ## Log Body
+
+169. 2026-06-26 EAS Android 빌드 "Bundle JavaScript" 실패 수정
+Purpose: EAS Android 빌드가 "Bundle JavaScript" 단계에서 실패. loadConfig.ts 가 env/config.dev.json·config.prd.json 을 정적 import 하는데, 두 파일은 .gitignore 제외(민감정보)라 git 기반 EAS 업로드 아카이브에 없어 Metro 가 모듈을 해석하지 못함. 로컬 `expo export --platform android` 는 파일이 있어 정상 번들되어 코드 문제는 아님을 확인.
+Changes:
+- frontend/.easignore 신설: .easignore 존재 시 EAS 가 .gitignore 대신 이를 사용 → env/config.*.json 을 제외하지 않아 업로드 포함. node_modules·.expo·dist·ios·android 등 산출물만 제외.
+- 전제: eas build 실행 머신에 frontend/env/config.{dev,prd}.json 이 실제 존재해야 함(.easignore 는 "git 제외됐어도 로컬에 있으면 업로드"만 보장). 리눅스 서버 빌드 시 example 에서 복사·값 입력 필요.
+- docs: 02 §6.2·04 §16/§17/§19(v3.7)·README EAS 안내 동기화
+Changed files: frontend/.easignore, docs/main/02_AT_TEST_PAGE_FRONTEND_GUIDE.md, docs/main/04_AT_TEST_PAGE_ADOBE_TARGET_INTEGRATION.md, README.md, docs/log/log.md
 
 168. 2026-06-26 docs 전체 정합(01~04·README) — 최근 코드 기준 개발문서 동기화
 

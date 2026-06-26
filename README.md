@@ -17,6 +17,7 @@ Expo(React Native + Expo Router) **웹·Android** 단일 코드베이스와 **Fa
 |------|------|
 | `frontend/` | Expo 앱 (`app/`, `components/`, `adobe_frontend/target_frontend/`, `package.json`) |
 | `frontend/env/` | `config.{dev,prd}.example.json` → 로컬 JSON (**Git 제외**), `loadConfig.ts`가 `__DEV__`로 선택 |
+| `frontend/.easignore` | EAS 업로드 제외 — **env config JSON은 포함**(번들 필수, [`04` §16](./docs/main/04_AT_TEST_PAGE_ADOBE_TARGET_INTEGRATION.md)) |
 | `backend/` | FastAPI (`app/`), `adobe_backend/target_backend/` — Target `POST /api/target/*` |
 | `backend/env/` | `config.{dev,prd}.json`(`APP_ENV`, **`telecom_db`**), `config.adobe.json`(Git 제외) |
 | `backend/requirements.txt` | 백엔드 Python 패키지 |
@@ -39,6 +40,7 @@ npm run web
 ```
 
 - **설정 분기**: `frontend/env/config.{dev,prd}.example.json`을 복사해 실제 JSON 작성 후 `loadConfig.ts`가 `__DEV__`로 선택.
+- **Android(EAS)**: `frontend/.easignore`로 Git 제외 config JSON을 빌드 아카이브에 포함. `eas build` 전 빌드 머신에 `config.{dev,prd}.json` 존재 필요 — [`04` §16](./docs/main/04_AT_TEST_PAGE_ADOBE_TARGET_INTEGRATION.md).
 - **라우트**: `/main`, `/profile-test`, `/recommendation-test`, `/scroll-test`, 네이티브 `/xttest`·`/abtest`·`/recommendation` — [`02`](./docs/main/02_AT_TEST_PAGE_FRONTEND_GUIDE.md) 참고.
 - **회선 로그인**: 헤더 로그인 → `GET /api/telecom/lines` → `line_id`를 Target `thirdPartyId`로 주입.
 - **웹 프로덕션 번들**: `npm run export:web` → 산출물 `frontend/dist/` ([`02` 가이드](./docs/main/02_AT_TEST_PAGE_FRONTEND_GUIDE.md)와 동일).

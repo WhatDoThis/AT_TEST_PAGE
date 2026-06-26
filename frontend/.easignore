@@ -1,0 +1,22 @@
+# EAS Build 업로드 제외 목록.
+# .easignore 가 있으면 EAS 는 .gitignore 대신 이 파일을 사용한다.
+# 핵심: loadConfig.ts 가 env/config.{dev,prd}.json 을 "정적 import" 하므로
+#       이 파일들은 반드시 업로드돼야 한다(.gitignore 에는 제외돼 있어 EAS 에서 누락 → 번들 실패).
+#       따라서 여기서는 env/config.*.json 을 의도적으로 제외하지 않는다.
+
+# 빌드 산출물·캐시·의존성(클라우드에서 재생성/설치)
+node_modules/
+.expo/
+dist/
+web-build/
+.easbundlecheck/
+
+# 네이티브 프로젝트(매니지드 워크플로 — EAS prebuild 가 재생성)
+ios/
+android/
+
+# 기타
+.DS_Store
+*.tsbuildinfo
+.metro-health-check*
+npm-debug.*

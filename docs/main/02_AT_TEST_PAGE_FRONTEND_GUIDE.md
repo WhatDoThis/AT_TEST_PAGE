@@ -42,6 +42,7 @@ frontend/
 │  ├─ _layout.tsx          # AppHeader, Top/BottomBanner, TargetAppProvider, TargetPageBootstrap, AppFooter
 │  ├─ index.tsx, main.tsx, profile-test.tsx, recommendation-test.tsx
 │  ├─ scroll-test.tsx, xttest.tsx, abtest.tsx, recommendation.tsx
+├─ .easignore              # EAS 업로드 제외 목록(env/config.*.json 은 포함 유지)
 ├─ components/
 │  ├─ AppHeader.tsx        # 앱 타이틀 + VisitorMenu(로그인)
 │  ├─ AppFooter.tsx        # 7탭 푸터(2줄)
@@ -128,9 +129,16 @@ frontend/
 ### 6.1 프론트 env JSON
 
 - `frontend/env/config.{dev,prd}.example.json` 복사 → `config.{dev,prd}.json` (**Git 제외**).
-- `loadConfig.ts`가 `__DEV__`로 선택. **웹 mbox 이름은 프론트에 두지 않음**(백엔드 `config.adobe.json`).
+- `loadConfig.ts`가 **정적 import**로 위 JSON을 읽고 `__DEV__`로 dev/prd를 선택. **웹 mbox 이름은 프론트에 두지 않음**(백엔드 `config.adobe.json`).
 
-### 6.2 주요 키
+### 6.2 EAS 빌드와 `frontend/.easignore`
+
+- `.easignore`가 있으면 EAS는 `.gitignore` 대신 이 파일로 업로드 대상을 정한다.
+- `config.{dev,prd}.json`은 Git 제외지만 Metro 번들에 **필수**이므로 `.easignore`에서 **제외하지 않는다**(로컬에 파일이 있으면 아카이브에 포함).
+- `node_modules`·`.expo`·`dist`·`ios`·`android` 등 산출물만 제외.
+- **전제**: `eas build` 실행 머신에 `frontend/env/config.{dev,prd}.json`이 실제 존재해야 한다(리눅스 CI면 example 복사 후 값 입력). 상세는 `04` §16·§19.
+
+### 6.3 주요 키
 
 | 키 | 사용처 |
 |----|--------|

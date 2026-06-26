@@ -667,8 +667,11 @@ flowchart TB
 
 네이티브 모듈이 추가됐으므로 **OTA 업데이트가 아니라 새 빌드**가 필요하다(리눅스 기준).
 
+**`frontend/.easignore`:** `loadConfig.ts`가 `env/config.{dev,prd}.json`을 정적 import 하는데, 두 파일은 Git 제외(민감정보)라 기본 `.gitignore`만 쓰면 EAS 아카이브에 없어 **"Bundle JavaScript"** 단계가 실패할 수 있다. `.easignore`는 `node_modules`·`.expo`·`ios`/`android` 등만 제외하고 **config JSON은 업로드에 포함**한다. 빌드 머신(로컬 또는 CI)에 해당 파일이 실제로 있어야 한다.
+
 ```bash
 git pull                                   # 변경사항 반영
+# frontend/env/config.{dev,prd}.json 존재 확인(example 복사·값 입력)
 eas build -p android --profile preview     # APK 빌드
 # 설치 후: 앱 실행 → 하단 "추천 SDK" 탭 → ① 추천 데이터 보내기(잠시 누적) → ② 추천 가져오기
 # 디버깅: Assurance 는 전역 자동 세션(환경변수). 실기기에서 PIN 입력해 실시간 이벤트 확인
@@ -685,6 +688,7 @@ eas build -p android --profile preview     # APK 빌드
 | `backend/env/config.adobe.json` | 웹 | `administration` + `mboxes`(offer/recs/bootstrap/**banner_mbox_names**) | **제외**. `config.adobe.example.json` 복사 |
 | `backend/env/config.{dev,prd}.json` | 백엔드 | `cors_origins`, `db.*`, **`telecom_db.*`** | 포함(dev는 로컬 비밀 제외 권장) |
 | `frontend/env/config.{dev,prd}.json` | 네이티브 | **`mobile_env`**(`adobe_mobile_app_id`·`adobe_target_property_token`·Assurance·**`adobe_sdk_mboxes`**: offer/global/rec/**banner_sdk_mbox_names**)·`api_url` | **제외**. example 복사 |
+| `frontend/.easignore` | EAS | 업로드 제외 목록 — **config JSON은 제외하지 않음**(§16) | 포함 |
 
 - CORS: `app/main.py`가 `GET/POST/OPTIONS`, `allow_private_network`, dev에서 localhost·127.0.0.1·`[::1]` 임의 포트 정규식을 처리(상세는 `03` §3.4).
 
@@ -704,7 +708,7 @@ eas build -p android --profile preview     # APK 빌드
 **네이티브(모바일 SDK)**
 
 8. Tags 모바일 속성에 확장 설치 + Environment File ID 확보.
-9. `frontend/env/config.{dev,prd}.example.json` 복사 → `config.{dev,prd}.json` 작성(git 제외). `mobile_env.adobe_mobile_app_id`(운영은 production File ID)·`adobe_target_property_token`·Assurance 세션 값 입력.
+9. `frontend/env/config.{dev,prd}.example.json` 복사 → `config.{dev,prd}.json` 작성(git 제외). `mobile_env.adobe_mobile_app_id`(운영은 production File ID)·`adobe_target_property_token`·Assurance 세션 값 입력. **EAS 빌드 전** 해당 파일이 빌드 머신에 존재하는지 확인(`frontend/.easignore` — §16).
 10. Adobe 패키지 import는 **`*.native.ts`에만** — 웹 base `*.ts`는 no-op 유지(웹 번들 오염 금지).
 11. 네이티브 변경 후에는 **EAS 새 빌드**(OTA 불가).
 
@@ -724,6 +728,7 @@ eas build -p android --profile preview     # APK 빌드
 | 띠배너가 잠깐 placeholder 후 바뀜(FOUC) | 정상 수정됨 — `bannersReady` 전 미렌더. bootstrap 실패 시 placeholder 유지 |
 | 회선 로그인 후 오퍼가 안 바뀜 | `line_id`가 Target `thirdPartyId`로 들어갔는지·Audience가 `line_id`/profile 기준인지·`refreshOffers` 호출 여부(§6.3) |
 | 웹 빌드가 Adobe 네이티브 때문에 깨짐 | `*.native.ts`에 import가 새어 들어갔는지 확인(base `*.ts`는 no-op이어야 함) |
+| EAS "Bundle JavaScript" 실패 | `config.{dev,prd}.json`이 아카이브에 없음 — `frontend/.easignore`로 config 포함·빌드 머신에 파일 존재 여부 확인(§16) |
 | 네이티브 변경이 앱에 반영 안 됨 | OTA가 아니라 **EAS 새 빌드** 필요 |
 
 ## 부록 B. 네이티브 백엔드(서버사이드) 연동 — Python/Java SDK & 하이브리드
@@ -1054,6 +1059,7 @@ Recommendations **Design 템플릿** 출력 형태. `type` 필드 대신 **`item
 
 | 버전 | 일자 | 요약 |
 |------|------|------|
+| **3.7** | 2026-06-26 | **EAS `.easignore`**(§16) — Git 제외 `config.{dev,prd}.json`을 Metro 번들·EAS 업로드에 포함, FAQ·§17·§18·`02` §6.2 동기화 |
 | **3.6** | 2026-06-26 | **회선 로그인(§6.3)**·`telecom_db`/lines API·`banner_mbox_names`(웹 다중 mbox)·`banner_sdk_mbox_names`(네이티브 배너)·`bannersReady` FOUC·띠배너 `endAt`/`ctaTarget` — 부록 C·§17·FAQ·01~03 가이드 동기화 |
 | **3.5** | 2026-06-19 | **부록 C(JSON 오퍼 타입별 적용)** 추가 — event-popup·top/bottom-banner·캐러셀·A/B imageUrl·추천 Design JSON 샘플, 페이지/mbox 매트릭스, bootstrap 다중 오퍼 예시, 구현 파일·FAQ |
 | **3.4** | 2026-06-05 | **부록 B(네이티브 서버사이드/하이브리드 연동)** 추가 — 앱→백엔드(Python/Java SDK)→Delivery API 구조, [A]/[B] 비교, ECID(`marketing_cloud_visitor_id`) 스티칭·하이브리드 정의, **식별자 발급 주체(thirdPartyId=임의지정 / tntId·ECID=받아서 재사용) 원칙(B.3)**, 사용 시나리오별 권장 |
