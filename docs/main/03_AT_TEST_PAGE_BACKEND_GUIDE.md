@@ -20,7 +20,8 @@
 ### 1.2 역할
 
 - 쿠폰 목록·CSV API.
-- Adobe Target Delivery 호출을 위한 **`POST /api/target/*`** 프록시 3종(동기 SDK는 `asyncio.to_thread`).
+- **통신사 테스트 회선** 조회 API(`telecom_test_lines`, 별도 DB).
+- Adobe Target Delivery **`POST /api/target/*`** 프록시 3종(동기 SDK는 `asyncio.to_thread`).
 
 ---
 
@@ -29,20 +30,20 @@
 ```text
 backend/
 ├─ env/
-│  ├─ config.dev.json / config.prd.json   # APP_ENV로 선택 — api_port, cors_origins, db.*
-│  ├─ config.adobe.json                     # Target 자격(Git 제외) — target_config 전용
+│  ├─ config.dev.json / config.prd.json   # api_port, cors_origins, db.*, telecom_db.*
+│  ├─ config.adobe.json                     # Target 자격(Git 제외)
 │  └─ config.adobe.example.json
 ├─ app/
-│  ├─ main.py              # CORS, coupons 라우터, register_target_routes(app)
-│  ├─ config.py
-│  ├─ database.py
-│  ├─ schemas.py
-│  └─ routers/coupons.py
+│  ├─ main.py              # CORS, coupons·telecom 라우터, register_target_routes
+│  ├─ config.py            # db + telecom_db 설정 파싱
+│  ├─ database.py          # 쿠폰 DB(비동기)
+│  ├─ telecom_db.py        # 통신사 테스트 DB(비동기, 2번째 엔진)
+│  ├─ schemas.py           # 쿠폰 + TelecomLineOut 등
+│  └─ routers/
+│     ├─ coupons.py
+│     └─ telecom.py        # GET /api/telecom/lines
 ├─ adobe_backend/target_backend/
-│  ├─ target_main.py       # register_target_routes — router prefix `/api`
-│  ├─ target_adobe_router.py   # offers, profile-test, recommendation-test
-│  ├─ target_client.py, target_config.py, target_delivery_utils.py, target_debug_utils.py
-│  └─ …
+│  └─ target_adobe_router.py   # offers(다중 mbox bootstrap), profile-test, recommendation-test
 └─ requirements.txt
 ```
 
@@ -55,12 +56,14 @@ backend/
 - `APP_ENV=dev` → `backend/env/config.dev.json`
 - `APP_ENV=prd` → `backend/env/config.prd.json`
 
-주요 키: `api_port`, `cors_origins`, `db.host`·`db.port`·`db.name`·`db.user`·`db.password`. 운영 비밀은 `config.prd.example.json` 템플릿을 복사해 채운다.
+주요 키: `api_port`, `cors_origins`, **`db.*`**(쿠폰), **`telecom_db.*`**(회선 테스트 DB). 운영 비밀은 example 복사 후 채운다.
+
+속성 참고 CSV: `docs/files/telecom_attributes.csv`.
 
 ### 3.2 Adobe 설정 (`config.adobe.json`)
 
 - `APP_ENV`와 **무관하게** `target_config.get_adobe_target_settings()`가 이 파일만 읽는다.
-- 키: `client`, `organization_id`, `property_token`, `timeout`, `mboxes.offer_mbox_name`, **`mboxes.recs_mbox_name`**(추천 전용; 생략 시 기본 `target-recs-mbox`) 등. 자격 필드 값은 ASCII 검증.
+- 키: `client`, `organization_id`, `property_token`, `timeout`, `mboxes.offer_mbox_name`, **`mboxes.recs_mbox_name`**, **`mboxes.bootstrap_mbox_name`**, **`mboxes.banner_mbox_names`**(배열 — bootstrap offers 시 primary mbox 뒤에 동봉).
 
 ### 3.3 실행 예시 (PowerShell)
 
@@ -78,22 +81,41 @@ uvicorn app.main:app --host 0.0.0.0 --port 8010 --reload
 
 ---
 
-## 4. 쿠폰 API
+## 4. 통신사 회선 API
+
+`app/telecom_db.py`가 **`telecom_db`** 설정으로 별도 PostgreSQL(`lgu_target_test.telecom_test_lines`)에 연결한다. 쿠폰 DB와 엔진·풀을 분리한다.
 
 ### 4.1 목록
+
+`GET /api/telecom/lines`
+
+- 선택 쿼리: `customer_id`, `customer_grade`(필터).
+- 응답: `lines[]` — `line_id`, 고객·요금제·단말·약정·파생 필드(약정 D-day, 단말 사용 개월 등).
+
+### 4.2 단건
+
+`GET /api/telecom/lines/{line_id}`
+
+- `line_id`는 프론트 회선 로그인 시 Adobe Target **`thirdPartyId`** 로 사용된다.
+
+---
+
+## 5. 쿠폰 API
+
+### 5.1 목록
 
 `GET /api/coupons`
 
 - 파라미터: `page`, `page_size`, `cursor_created`, `cursor_id`, `direction`(`next`|`prev`|`last`).
 - 응답: `data[]`, `pagination`(page, total_count, total_pages, next_cursor, prev_cursor 등).
 
-### 4.2 CSV
+### 5.2 CSV
 
 `GET /api/coupons/csv`
 
 - 목록과 동일 필터. UTF-8 BOM 포함.
 
-### 4.3 정렬·페이징·total_count
+### 5.3 정렬·페이징·total_count
 
 - 정렬: `created DESC, id DESC`.
 - OFFSET + KEYSET + `last` 지원.
@@ -101,26 +123,26 @@ uvicorn app.main:app --host 0.0.0.0 --port 8010 --reload
 
 ---
 
-## 5. Adobe Target HTTP 프록시
+## 6. Adobe Target HTTP 프록시
 
 `adobe_backend.target_backend.target_main.register_target_routes(app)` 이 **`prefix=/api`** 인 `APIRouter`를 붙인다. 구현은 **`target_adobe_router.py`** 한 파일에 주석으로 구역 나눔(offers / profile-test / recommendation-test).
 
-### 5.1 SDK·식별자 (요약)
+### 6.1 SDK·식별자 (요약)
 
 - Delivery JSON의 방문자 객체 키는 **`id`** 이고, 그 안에 `tntId`, `thirdPartyId` 등이 온다.
 - Python `delivery_api_client`에서는 이 객체 타입이 **`VisitorId`** 라는 이름으로 생성된다(OpenAPI 제너레이터). 코드에서는 `DeliveryRequest(..., id=VisitorId(...))` 형태로 조립하고, HTTP로 나갈 때는 SDK가 명세대로 직렬화한다.
 
-### 5.2 엔드포인트 요약
+### 6.2 엔드포인트 요약
 
 | 메서드·경로 | 용도 |
 |-------------|------|
-| `POST /api/target/offers` | 기본 오퍼 조회. `mbox_name` 생략 시 `config.adobe.json`의 `offer_mbox_name`. `params` → mbox **`parameters`**. |
+| `POST /api/target/offers` | 오퍼 조회. `bootstrap:true` 시 `bootstrap_mbox_name` + **`banner_mbox_names`** 를 **한 Delivery 요청**에 실음. `params` → mbox `parameters`. 응답에 `mboxes[]` 포함. |
 | `POST /api/target/profile-test` | 동일 기본 mbox로 **`profile_parameters`** 만 실어 프로필·Audience 검증. 응답에 `offers`, `response_tokens` 등. |
 | `POST /api/target/recommendation-test` | **`mboxes.recs_mbox_name`**. `parameters`에 **`entity.id`** 및 **`entity.categoryId`**(없거나 **`ss`**이면 **빈 문자열**). **`Product`**·**`Order`**·**`price`**. `recipient_id`→`thirdPartyId`; 값이 있으면 Delivery `id`에 **`customerIds`**(`integration_code`: `recipient_id`)·실패 시 해당 없이 1회 재시도. 응답에 `recommendations` 등. |
 
 공통 응답 필드: `tntId`, `thirdPartyId`, `target_cookie`, `target_location_hint_cookie` 등은 `_id_and_cookies`로 정리해 프론트가 다음 호출에 재사용할 수 있다.
 
-### 5.3 오류
+### 6.3 오류
 
 - 설정 오류·URL 파싱: **400**.
 - Adobe API 예외: 상태에 따라 **400** 또는 **502** 및 본문 요약.
@@ -128,7 +150,7 @@ uvicorn app.main:app --host 0.0.0.0 --port 8010 --reload
 
 ---
 
-## 6. 에러·운영
+## 7. 에러·운영
 
 - DB 오류: `503` 등 앱 정책에 따름.
 - cursor 절반만 오면 `400`.
@@ -136,8 +158,9 @@ uvicorn app.main:app --host 0.0.0.0 --port 8010 --reload
 
 ---
 
-## 7. 고객 안내 포인트
+## 8. 고객 안내 포인트
 
 - 쿠폰 API는 조회 전용이다.
-- Target 자격은 **`backend/env/config.adobe.json`** 에만 두고 앱 DB 설정과 섞지 않는다.
-- 동일 라우터 파일에서 세 엔드포인트가 공유 헬퍼(`build_delivery_id`, `offers_from_execute`, `_sdk_opts`, `_id_and_cookies`)를 쓴다.
+- 회선 API는 테스트 DB 전용이며 Target `thirdPartyId` 데모에 쓴다.
+- Target 자격은 **`backend/env/config.adobe.json`** 에만 둔다.
+- bootstrap offers는 **다중 mbox** 한 번에 호출한다(배너 location 충돌 방지).

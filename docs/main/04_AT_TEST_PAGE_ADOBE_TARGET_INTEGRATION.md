@@ -261,16 +261,18 @@ flowchart TB
 | `components/ImageCarousel.tsx` | `adobe_frontend/.../targetImageCarousel.tsx` |
 | `components/EventPopup.tsx` | `adobe_frontend/.../EventPopup.tsx` |
 | `context/AdobeTargetContext.tsx` | `adobe_frontend/.../context/targetContext.tsx` |
+| `context/VisitorContext.tsx` | `adobe_frontend/.../context/visitorContext.tsx` |
 
 ### 6.2 주요 파일과 책임
 
 | 경로 | 역할 |
 |------|------|
-| `app/_layout.tsx` | `TargetAppProvider` + `TargetPageBootstrap` + `AppHeader` + **TopBanner/BottomBanner** + `Stack` + `AppFooter` |
+| `app/_layout.tsx` | `TargetAppProvider` + `VisitorProvider` + `TargetPageBootstrap` + `AppHeader` + **TopBanner/BottomBanner** + `Stack` + `AppFooter` |
 | `app/main.tsx` | Context 소비, `EventPopup` |
-| `app/profile-test.tsx` / `recommendation-test.tsx` | 각 테스트 패널 |
-| `adobe_frontend/.../app/TargetPageBootstrap.tsx` | **웹 첫 로드**: bootstrap mbox offers → Context |
-| `adobe_frontend/.../context/targetContext.tsx` | 오퍼·event-popup, `refreshOffers()` |
+| `components/login/*` | 회선 로그인 모달·`GET /api/telecom/lines` |
+| `adobe_frontend/.../app/TargetPageBootstrap.tsx` | **웹**: bootstrap+배너 mbox `POST /api/target/offers` / **네이티브**: `banner_sdk_mbox_names` SDK 일괄 조회 |
+| `adobe_frontend/.../context/targetContext.tsx` | 오퍼·배너·`bannersReady`, `refreshOffers()` |
+| `adobe_frontend/.../context/visitorContext.tsx` | 회선 로그인 → `thirdPartyId` 주입·로그아웃 시 reset |
 | `adobe_frontend/.../utils/targetOffersFetch.ts` | `POST /api/target/offers`(역할 offer/bootstrap별 dedupe) |
 | `adobe_frontend/.../utils/targetProfileTest.ts` | `POST /api/target/profile-test` |
 | `adobe_frontend/.../utils/targetRecommendationTest.ts` | `POST /api/target/recommendation-test` |
@@ -279,7 +281,35 @@ flowchart TB
 | `adobe_frontend/.../utils/sessionStore.ts` | **웹/네이티브 범용 저장소**(§12) |
 | `adobe_frontend/.../utils/targetOfferParser.ts` | JSON 오퍼 파싱(`event-popup`·`top-banner`·`bottom-banner`·캐러셀) — **부록 C** |
 
-> **`event-popup` 오퍼 예:** `{ type, title, body, buttonText }`. 메인은 Context 경유, 프로필 테스트는 재요청 후 파서로 감지해 동일한 `EventPopup`으로 표시한다.
+> JSON 오퍼 샘플·mbox 매트릭스: **부록 C**. 회선 로그인: **§6.3**.
+
+### 6.3 회선 로그인(방문자 식별자 주입)
+
+데모용 **회선 선택 로그인**으로 Target Audience를 검증한다(운영 인증 아님).
+
+```mermaid
+sequenceDiagram
+  participant U as 사용자
+  participant H as AppHeader/LoginModal
+  participant API as GET /api/telecom/lines
+  participant V as VisitorContext
+  participant T as Target(웹 fetch / 네이티브 SDK)
+
+  U->>H: 로그인 → 회선 선택
+  H->>API: lines 목록
+  API-->>H: line_id, 고객·요금제 등
+  H->>V: login(line_id)
+  V->>T: thirdPartyId = line_id
+  V->>T: refreshOffers()
+  T-->>U: 개인화된 배너·팝업·캐러셀
+```
+
+| 항목 | 내용 |
+|------|------|
+| **데이터** | `lgu_target_test.telecom_test_lines` — API `03` §4, 속성 `docs/files/telecom_attributes.csv` |
+| **식별자** | 선택 **`line_id`** → 웹 `AT_THIRD_PARTY_ID` / 네이티브 `Target.setThirdPartyId` |
+| **재조회** | `refreshOffers()` — 웹 bootstrap fetch 재실행, 네이티브 배너 mbox 재조회 |
+| **로그아웃** | 세션 키 제거 + (네이티브) `resetExperience` → 익명 상태 |
 
 ## 7. HTTP 계약 요약 (예시)
 
@@ -652,9 +682,9 @@ eas build -p android --profile preview     # APK 빌드
 
 | 파일 | 길 | 용도 | Git |
 |------|----|------|-----|
-| `backend/env/config.adobe.json` | 웹 | `administration`(client·org·property_token·timeout) + `mboxes`(offer/recs/bootstrap) | **제외**(자격). `config.adobe.example.json` 복사해 작성 |
-| `backend/env/config.{dev,prd}.json` | 웹 | `cors_origins` 등(쿠폰 API와 공유) | 포함 |
-| `frontend/env/config.{dev,prd}.json` | 네이티브 | **`mobile_env`**(`adobe_mobile_app_id`·`adobe_target_property_token`·`assurance_session_url`·`assurance_session_pin`·**`adobe_sdk_mboxes`**: `offer_sdk_mbox_name`=XT `target-msdk-mbox`·`global_sdk_mbox_name`=A·B `target-global-msdk-mbox`·`rec_sdk_mbox_name`=추천 `target-rec-msdk-mbox`)·api_url 등. 웹 mbox 이름은 프론트에 두지 않고 백엔드 `config.adobe.json` 을 단일 소스로 사용 | **제외**(민감: appId·property token·Assurance). `config.{dev,prd}.example.json` 복사해 작성 |
+| `backend/env/config.adobe.json` | 웹 | `administration` + `mboxes`(offer/recs/bootstrap/**banner_mbox_names**) | **제외**. `config.adobe.example.json` 복사 |
+| `backend/env/config.{dev,prd}.json` | 백엔드 | `cors_origins`, `db.*`, **`telecom_db.*`** | 포함(dev는 로컬 비밀 제외 권장) |
+| `frontend/env/config.{dev,prd}.json` | 네이티브 | **`mobile_env`**(`adobe_mobile_app_id`·`adobe_target_property_token`·Assurance·**`adobe_sdk_mboxes`**: offer/global/rec/**banner_sdk_mbox_names**)·`api_url` | **제외**. example 복사 |
 
 - CORS: `app/main.py`가 `GET/POST/OPTIONS`, `allow_private_network`, dev에서 localhost·127.0.0.1·`[::1]` 임의 포트 정규식을 처리(상세는 `03` §3.4).
 
@@ -662,7 +692,8 @@ eas build -p android --profile preview     # APK 빌드
 
 **웹(서버 프록시)**
 
-1. `backend/env/config.adobe.example.json` 복사 → `config.adobe.json` 작성(`administration`·`mboxes`, ASCII).
+1. `backend/env/config.adobe.example.json` 복사 → `config.adobe.json` 작성(`administration`·`mboxes`·**`banner_mbox_names`**, ASCII).
+2. `backend/env/config.*.json`에 **`telecom_db`** 작성(회선 API).
 2. `register_target_routes(app)` 호출 + CORS(`POST`·`OPTIONS`, 필요 시 `allow_private_network`).
 3. 동기 SDK 호출은 **`asyncio.to_thread`** 유지.
 4. 프론트 fetch 베이스 URL은 `api_url`/`api_base_url`(`frontend/env`).
@@ -689,7 +720,9 @@ eas build -p android --profile preview     # APK 빌드
 | 추천 결과에 `$entity5.id` 같은 토큰 표시 | 추천이 디자인 슬롯보다 적을 때의 미해결 토큰 — 앱이 걸러내며(§15.1) backup 설정으로 슬롯을 채울 수 있음 |
 | Tags의 Profile 확장이 앱에서 동작 안 함 | RN에 `@adobe/react-native-aepuserprofile` 미설치라 UserProfile 미등록(§10.1). Target 서버측 프로필과는 무관 — 필요 시 설치 후 EAS 새 빌드 |
 | event-popup 팝업이 안 뜸 | 반환 콘텐츠가 `type:event-popup` JSON인지 확인(§14.4·**부록 C.3.1**). 활동 오퍼 타입/내용·mbox 이름 점검 |
-| top/bottom 띠배너가 placeholder만 보임 | bootstrap mbox(`target-ready-mbox`) Activity·`type: top-banner`/`bottom-banner` JSON 확인(**부록 C.3.2**) |
+| top/bottom 띠배너가 placeholder만 보임 | **웹**: `banner_mbox_names` Activity 또는 bootstrap 내 `type` JSON 확인. **네이티브**: `banner_sdk_mbox_names`·Activity 게시(부록 C.3.2) |
+| 띠배너가 잠깐 placeholder 후 바뀜(FOUC) | 정상 수정됨 — `bannersReady` 전 미렌더. bootstrap 실패 시 placeholder 유지 |
+| 회선 로그인 후 오퍼가 안 바뀜 | `line_id`가 Target `thirdPartyId`로 들어갔는지·Audience가 `line_id`/profile 기준인지·`refreshOffers` 호출 여부(§6.3) |
 | 웹 빌드가 Adobe 네이티브 때문에 깨짐 | `*.native.ts`에 import가 새어 들어갔는지 확인(base `*.ts`는 no-op이어야 함) |
 | 네이티브 변경이 앱에 반영 안 됨 | OTA가 아니라 **EAS 새 빌드** 필요 |
 
@@ -780,11 +813,13 @@ Adobe Target **Form-based Experience** 활동에서 오퍼 콘텐츠를 **JSON**
 ```mermaid
 flowchart TB
   subgraph WEB[웹]
-    B["TargetPageBootstrap<br/>bootstrap mbox 1회"] --> P["parseAdobeTargetOffersPayload"]
-    P --> CTX["targetContext<br/>(carousel·popup·top·bottom)"]
+    B["TargetPageBootstrap<br/>bootstrap + banner_mbox_names"] --> P["parseAdobeTargetOffersPayload"]
+    P --> CTX["targetContext<br/>(carousel·popup·top·bottom·bannersReady)"]
     CTX --> UI["main / _layout / profile-test"]
   end
   subgraph NATIVE[네이티브]
+    NB["TargetPageBootstrap<br/>banner_sdk_mbox_names"] --> P2["parseAdobeTargetOffersPayload"]
+    P2 --> CTX2["동일 Top/BottomBanner"]
     XT["/xttest offer mbox"] --> EP["parseAdobeTargetEventPopupContent"]
     AB["/abtest global mbox"] --> IMG["JSON imageUrl 추출"]
     REC["/recommendation rec mbox"] --> RECP["parseRecommendations"]
@@ -796,14 +831,15 @@ flowchart TB
 | 오퍼 구분 | `type` (또는 계약) | 적용 UI | 노출 범위(페이지) | 트리거·mbox | 연동 경로 |
 |-----------|-------------------|---------|-------------------|-------------|-----------|
 | **이벤트 팝업** | `event-popup` | `EventPopup` 모달 | **웹** `/main`, `/profile-test`(Re-fetch) · **네이티브** `/xttest` | 웹: `bootstrap_mbox_name`(`target-ready-mbox`) 또는 profile-test 응답 · 네이티브: `offer_sdk_mbox_name`(`target-msdk-mbox`) | 웹 §14.4 · 네이티브 XT |
-| **상단 띠배너** | `top-banner` | `TopBanner` → `StripBanner` | **웹 전역** — `AppHeader` 바로 아래, 모든 Stack 화면 공통 | 웹 bootstrap mbox(`target-ready-mbox`) | `_layout.tsx` |
-| **하단 띠배너** | `bottom-banner` | `BottomBanner` → `StripBanner` | **웹 전역** — `AppFooter` 바로 위 | 웹 bootstrap mbox | `_layout.tsx` |
+| **상단 띠배너** | `top-banner` | `TopBanner` → `StripBanner` | **웹·네이티브 전역** — `AppHeader` 아래 | 웹: `bootstrap_mbox` + **`banner_mbox_names`** 각 1 Activity 권장 · 네이티브: **`banner_sdk_mbox_names[0]`** 등 | `_layout.tsx` |
+| **하단 띠배너** | `bottom-banner` | `BottomBanner` → `StripBanner` | **웹·네이티브 전역** — `AppFooter` 위 | 동일 | `_layout.tsx` |
 | **캐러셀 제어** | *(없음)* `buttonText` / `autoPlayMs` | `ImageCarousel` — "다음" 버튼 문구·자동 재생(ms) | **웹** `/main` | 웹 bootstrap mbox | `main.tsx` → Context |
 | **A/B 이미지** | *(없음)* `imageUrl` | `AbTestScreen` — 좌(기본) / 우(오퍼 URL) 비교 | **네이티브** `/abtest` | `global_sdk_mbox_name`(`target-global-msdk-mbox`) | 네이티브 only |
 | **추천 목록** | Design JSON (`items` 등) | `RecommendationTestPanel`(웹) / `RecommendationScreen`(네이티브) | **웹** `/recommendation-test` · **네이티브** `/recommendation` | 웹: `recs_mbox_name`(`target-recs-mbox`) · 네이티브: `rec_sdk_mbox_name`(`target-rec-msdk-mbox`) | §15 · `recommendationData.ts` |
 
-> **띠배너·팝업·캐러셀(웹 3종)** 은 한 번의 bootstrap offers 응답에 **서로 다른 `type`의 오퍼가 여러 개** 올 수 있다. 파서가 type별로 각 1개씩 Context에 넣고, `_layout`/`main`이 동시에 소비한다.  
-> **네이티브 띠배너·전역 팝업은 현재 미연결** — 네이티브는 §14.3 테스트 화면(XT/A·B/추천) 중심이며, `event-popup`은 XT에서만 동작한다.
+> **웹**: bootstrap 1회 Delivery에 `bootstrap_mbox_name` + `banner_mbox_names[]`를 **동시 요청**해 location 충돌을 피한다.  
+> **네이티브**: `TargetPageBootstrap`이 `banner_sdk_mbox_names`를 SDK로 일괄 조회해 **동일 파서·동일 Top/BottomBanner**로 표시한다. `bannersReady` 전에는 배너를 그리지 않는다(FOUC 방지).  
+> **회선 로그인** 후 `thirdPartyId=line_id`로 Audience 매칭이 바뀌면 `refreshOffers`로 배너·팝업이 갱신된다(§6.3).
 
 ### C.3 JSON 샘플 양식 (Adobe 오퍼 콘텐츠)
 
@@ -841,8 +877,11 @@ Activity 편집기 **Form-based Experience → JSON** 필드에 아래 형태로
   "body": "이번 달 데이터 2배",
   "ctaText": "자세히",
   "ctaUrl": "https://example.com/promo",
+  "ctaTarget": "_blank",
   "backgroundColor": "#E6007E",
-  "textColor": "#FFFFFF"
+  "textColor": "#FFFFFF",
+  "endAt": "2026-06-30",
+  "expiredTitle": "프로모션이 종료되었습니다"
 }
 ```
 
@@ -866,9 +905,12 @@ Activity 편집기 **Form-based Experience → JSON** 필드에 아래 형태로
 | `title` | ✅ | 1줄 메인 문구(없으면 "상/하단 띠배너 위치" placeholder) |
 | `body` | 선택 | 부제(2번째 줄, 1줄 말줄임) |
 | `ctaText` | 선택 | 우측 CTA 라벨 |
-| `ctaUrl` | 선택 | CTA 탭 시 `Linking.openURL` |
+| `ctaUrl` | 선택 | CTA 탭 시 URL 열기 |
+| `ctaTarget` | 선택 | 웹만: `"_self"`(현재창) / `"_blank"`(새창, 기본). 네이티브는 외부 브라우저 |
 | `backgroundColor` | 선택 | 띠 배경색(hex) |
 | `textColor` | 선택 | 제목·본문·닫기(X) 색 |
+| `endAt` | 선택 | 마감 시각(마케터 친화: `YYYY-MM-DD` 또는 `YYYY-MM-DD HH:mm`, KST 기본). 진행 중 본문에 **남은시간** 표시 |
+| `expiredTitle` | 선택 | `endAt` 만료 후 제목 교체 문구 |
 
 - 사용자가 **닫기(X)** 를 누르면 **해당 세션 동안만** 숨김(로컬 state). Target 오퍼 자체는 유지.
 - **웹 전역** `_layout`: `AppHeader` → `TopBanner` → 화면 → `BottomBanner` → `AppFooter`.
@@ -1012,6 +1054,7 @@ Recommendations **Design 템플릿** 출력 형태. `type` 필드 대신 **`item
 
 | 버전 | 일자 | 요약 |
 |------|------|------|
+| **3.6** | 2026-06-26 | **회선 로그인(§6.3)**·`telecom_db`/lines API·`banner_mbox_names`(웹 다중 mbox)·`banner_sdk_mbox_names`(네이티브 배너)·`bannersReady` FOUC·띠배너 `endAt`/`ctaTarget` — 부록 C·§17·FAQ·01~03 가이드 동기화 |
 | **3.5** | 2026-06-19 | **부록 C(JSON 오퍼 타입별 적용)** 추가 — event-popup·top/bottom-banner·캐러셀·A/B imageUrl·추천 Design JSON 샘플, 페이지/mbox 매트릭스, bootstrap 다중 오퍼 예시, 구현 파일·FAQ |
 | **3.4** | 2026-06-05 | **부록 B(네이티브 서버사이드/하이브리드 연동)** 추가 — 앱→백엔드(Python/Java SDK)→Delivery API 구조, [A]/[B] 비교, ECID(`marketing_cloud_visitor_id`) 스티칭·하이브리드 정의, **식별자 발급 주체(thirdPartyId=임의지정 / tntId·ECID=받아서 재사용) 원칙(B.3)**, 사용 시나리오별 권장 |
 | **3.3** | 2026-06-04 | **SDK 객체 레퍼런스(§14.5)** 추가 — `@adobe/react-native-aeptarget`의 `Target`·`TargetParameters`·`TargetRequestObject`·`TargetProduct`·`TargetOrder` 역할·생성자·공식 문서 링크. 추천 전용 mbox(`target-rec-msdk-mbox`) 분리 반영(§14.2~3·§15) |

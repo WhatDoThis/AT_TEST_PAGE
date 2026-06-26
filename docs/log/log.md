@@ -2,6 +2,7 @@
 
 ## Log Index
 
+168. 2026-06-26 docs 전체 정합(01 PRD v1.3·02 프론트·03 백엔드 telecom·04 v3.6 회선로그인/배너mbox/FOUC)·README — 최근 코드(165~167) 기준 개발문서 동기화
 167. 2026-06-26 회선 선택 로그인(방문자 식별자 주입) 구현 — 헤더 우측 visitor 라벨+로그인 버튼, 로그인 모달에 telecom_test_lines 넓은 테이블(단일 선택). 선택 회선ID(line_id)를 Target 식별자(웹 thirdPartyId/네이티브 setThirdPartyId)로 주입→refreshOffers로 배너·팝업 즉시 개인화. VisitorContext(+브리지)·LoginModal·VisitorMenu 신설, refreshOffers 플랫폼 분기, AppHeader 우측 위젯 배치
 166. 2026-06-26 통신사 테스트 DB(lgu_target_test) 연결·회선 조회 API — 별도 DB/유저(lgu)·telecom_test_lines(회선 그레인) 신규. 백엔드 2번째 비동기 엔진(telecom_db.py) 추가, config telecom_db 파싱, GET /api/telecom/lines·/{line_id}(약정 D-day·단말 사용개월 파생) 라우터, main 라우터 등록·lifespan 정리
 165. 2026-06-26 네이티브 띠배너 연동 — 네이티브 전용 배너 mbox(msdk) 분리·앱 진입 시 Mobile SDK 일괄 조회→웹과 동일 파서/Context/컴포넌트로 표시. config.mobile_env.adobe_sdk_mboxes.banner_sdk_mbox_names 추가, retrieveTargetContents(배치) 신설, TargetPageBootstrap 웹/네이티브 통합
@@ -171,6 +172,20 @@
 12. 2026-04-27 docs/main AT_TEST_PAGE PRD v1.0 작성
 
 ## Log Body
+
+168. 2026-06-26 docs 전체 정합(01~04·README) — 최근 코드 기준 개발문서 동기화
+
+Purpose: "업데이트" 시 코드만 커밋하고 docs/main 이 뒤처진 문제를 해결. 165~167(네이티브 배너·telecom API·회선 로그인)·163~164(배너 mbox·FOUC)·띠배너 확장(endAt/ctaTarget)을 개발문서에 반영.
+
+Changes:
+
+- `docs/main/01` PRD v1.3: 아키텍처·라우트·회선 로그인·띠배너·수용 기준 갱신
+- `docs/main/02`: 라우트 8종·_layout·login/banners·VisitorContext·mobile_env 키
+- `docs/main/03`: telecom_db·`/api/telecom/lines`·`banner_mbox_names`·다중 mbox bootstrap
+- `docs/main/04` v3.6: §6.3 회선 로그인·§17 설정·부록 C(네이티브 배너·banner mbox)·FAQ
+- `README.md`: env example·telecom·라우트 요약
+
+Changed files: docs/main/01_AT_TEST_PAGE_PRD.md, docs/main/02_AT_TEST_PAGE_FRONTEND_GUIDE.md, docs/main/03_AT_TEST_PAGE_BACKEND_GUIDE.md, docs/main/04_AT_TEST_PAGE_ADOBE_TARGET_INTEGRATION.md, README.md, docs/log/log.md
 
 167. 2026-06-26 회선 선택 로그인(방문자 식별자 주입) 구현
 Purpose: 테스트 웹앱에 "로그인" 개념을 도입. 통신사 회선(telecom_test_lines) 1건을 선택해 로그인하면 그 회선ID(line_id)가 Adobe Target 식별자로 적용되어, 회선별로 어떤 띠배너/팝업이 나가는지 즉시 확인할 수 있게 함. 고객사 실제 환경에서 회원ID를 thirdPartyId 로 쓰는 흐름을 그대로 모사.

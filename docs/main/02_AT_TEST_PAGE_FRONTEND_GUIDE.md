@@ -15,18 +15,22 @@
 | 프레임워크 | Expo (React Native + Expo Router) |
 | 대상 | Web, Android |
 | 언어 | TypeScript/TSX |
-| 라우팅 | `app/` 파일 기반 (`index`, `profile-test`, `recommendation-test`) |
+| 라우팅 | `app/` 파일 기반 — 아래 §1.2 표 참고 |
 
 ### 1.2 라우트와 화면
 
 | 경로 | 파일 | 내용 |
 |------|------|------|
-| `/` | `app/index.tsx` | `/main` 으로 리다이렉트 |
-| `/main` | `app/main.tsx` | 캐러셀·토글·갤러리·쿠폰(웹)·Target Context·`EventPopup` |
-| `/profile-test` | `app/profile-test.tsx` | `ProfileTestPanel` — profile 검증 |
-| `/recommendation-test` | `app/recommendation-test.tsx` | `RecommendationTestPanel` — Recs 검증 |
+| `/` | `app/index.tsx` | `/main` 리다이렉트 |
+| `/main` | `app/main.tsx` | 캐러셀·토글·갤러리·쿠폰(웹)·`EventPopup` |
+| `/profile-test` | `app/profile-test.tsx` | `ProfileTestPanel` |
+| `/recommendation-test` | `app/recommendation-test.tsx` | `RecommendationTestPanel` |
+| `/scroll-test` | `app/scroll-test.tsx` | 스크롤 이벤트 테스트(1~500) |
+| `/xttest` | `app/xttest.tsx` | 네이티브 XT·event-popup (`XtTestScreen`) |
+| `/abtest` | `app/abtest.tsx` | 네이티브 A/B 이미지 (`AbTestScreen`) |
+| `/recommendation` | `app/recommendation.tsx` | 네이티브 추천 SDK (`RecommendationScreen`) |
 
-모든 화면은 `app/_layout.tsx`에서 **`Stack` + 하단 `AppFooter`** 로 감싸져, 푸터에서 위 세 경로로 `router.replace` 이동한다.
+`app/_layout.tsx`에서 **`AppHeader`(로그인) → `TopBanner` → `Stack` → `BottomBanner` → `AppFooter`** 순으로 전역 배치. 푸터는 탭 **7개·2줄(4+3)**.
 
 ---
 
@@ -35,60 +39,48 @@
 ```text
 frontend/
 ├─ app/
-│  ├─ _layout.tsx          # Stack, TargetAppProvider, TargetPageBootstrap, AppFooter
-│  ├─ index.tsx            # 메인
-│  ├─ profile-test.tsx
-│  └─ recommendation-test.tsx
+│  ├─ _layout.tsx          # AppHeader, Top/BottomBanner, TargetAppProvider, TargetPageBootstrap, AppFooter
+│  ├─ index.tsx, main.tsx, profile-test.tsx, recommendation-test.tsx
+│  ├─ scroll-test.tsx, xttest.tsx, abtest.tsx, recommendation.tsx
 ├─ components/
-│  ├─ AppFooter.tsx        # 메인 / 프로필 테스트 / 추천 테스트 전역 푸터
-│  ├─ ImageCarousel.tsx    # → adobe_frontend … targetImageCarousel 브리지
-│  ├─ ImageGallery.tsx
-│  ├─ ToggleButton.tsx
-│  ├─ CouponTable.tsx
-│  ├─ EventPopup.tsx       # → adobe EventPopup 브리지
-│  └─ …
+│  ├─ AppHeader.tsx        # 앱 타이틀 + VisitorMenu(로그인)
+│  ├─ AppFooter.tsx        # 7탭 푸터(2줄)
+│  ├─ banners/             # StripBanner, TopBanner, BottomBanner, useCountdown, openBannerCta
+│  ├─ login/               # LoginModal, VisitorMenu, telecomLinesApi
+│  ├─ ImageCarousel.tsx    # → adobe targetImageCarousel 브리지
+│  ├─ CouponTable.tsx, EventPopup.tsx, …
 ├─ context/
-│  └─ AdobeTargetContext.tsx  # → adobe targetContext 브리지
-├─ utils/
-│  ├─ loadConfig.ts        # dev/prd JSON, api_url·adobe_mboxes(offer/bootstrap mbox) 등
-│  └─ imageMap.ts
-├─ adobe_frontend/target_frontend/
-│  ├─ app/targetApp.tsx           # TargetAppProvider
-│  ├─ app/TargetPageBootstrap.tsx # 웹 첫 로드: bootstrap mbox → POST /api/target/offers
-│  ├─ context/targetContext.tsx   # 오퍼·event-popup 상태, refreshOffers
-│  ├─ components/
-│  │  ├─ EventPopup.tsx
-│  │  ├─ ProfileTestPanel.tsx
-│  │  ├─ RecommendationTestPanel.tsx
-│  │  ├─ targetImageCarousel.tsx
-│  │  └─ …
-│  └─ utils/
-│     ├─ targetOffersFetch.ts      # POST /api/target/offers
-│     ├─ targetProfileTest.ts      # POST /api/target/profile-test
-│     ├─ targetRecommendationTest.ts  # POST /api/target/recommendation-test
-│     ├─ targetSession.ts          # AT_* (공통 오퍼), AT_RECS_* (추천 테스트 전용)
-│     ├─ targetOfferParser.ts      # event-popup·캐러셀 파싱
-│     └─ clickCookie.ts
+│  ├─ AdobeTargetContext.tsx   # → adobe targetContext 브리지
+│  └─ VisitorContext.tsx       # → adobe visitorContext 브리지
+├─ utils/loadConfig.ts     # dev/prd JSON, mobile_env
+├─ adobe_frontend/
+│  ├─ target_frontend/     # 웹 Target(Provider, Bootstrap, fetch, parser, 테스트 패널)
+│  └─ target-native-frontend/  # XtTestScreen, AbTestScreen, RecommendationScreen, adobeMobileTarget
 └─ assets/images/
 ```
 
-`tsconfig.json` 경로 별칭: `@/*` → `frontend/*`, `@adobe/*` → `frontend/adobe_frontend/target_frontend/*`.
+`tsconfig.json`: `@/*` → `frontend/*`, `@adobe/*` → `target_frontend/*`, `@adobe-native/*` → `target-native-frontend/*`.
 
 ---
 
-## 3. 루트 레이아웃·푸터
+## 3. 루트 레이아웃·헤더·배너·푸터
 
 ### 3.1 `app/_layout.tsx`
 
-- 최상위 `TargetAppProvider`로 앱 트리를 감싼다.
-- 웹에서 `TargetPageBootstrap`이 DOM 준비 후 **bootstrap mbox**(`frontend/env`의 `adobe_mboxes.bootstrap_mbox_name`, 기본 `target-ready-mbox`)로 `POST /api/target/offers`를 한 번 호출해 Context를 채운다.
-- `GestureHandlerRootView` 안에 `flex:1` 영역에 `Stack`, 그 아래 **`AppFooter`** 를 고정한다.
-- Stack `headerTitle`은 `config.app_title`.
+- `TargetAppProvider` → `VisitorProvider`(회선 로그인) → `RootLayoutInner`.
+- **`TargetPageBootstrap`**: 웹=bootstrap `POST /api/target/offers`(배너 mbox 동봉), 네이티브=`banner_sdk_mbox_names` SDK 일괄 조회 → 동일 파서·Context.
+- **`bannersReady`**: bootstrap/SDK 완료 전 `TopBanner`/`BottomBanner` 미렌더(placeholder 깜빡임 방지).
+- 레이아웃 순서: `AppHeader` → `TopBanner` → `Stack` → `BottomBanner` → `AppFooter`.
 
-### 3.2 `components/AppFooter.tsx`
+### 3.2 `components/AppHeader.tsx` · `login/`
 
-- `usePathname`으로 현재 탭 강조.
-- `router.replace("/")`, `"/profile-test"`, `"/recommendation-test"` — 동일 탭 재클릭 시 noop.
+- 좌측: `config.app_title`. 우측: **`VisitorMenu`** — 로그인 회선 라벨 또는 로그인 버튼.
+- **`LoginModal`**: `GET /api/telecom/lines` 테이블에서 회선 선택 → `VisitorContext.login` → `line_id`를 `thirdPartyId`로 주입·`refreshOffers`.
+
+### 3.3 `components/AppFooter.tsx`
+
+- 7탭·2줄, `useSafeAreaInsets`로 하단 inset 반영.
+- `router.replace`로 각 라우트 이동(동일 탭 재클릭 noop).
 
 ---
 
@@ -108,10 +100,10 @@ frontend/
 `targetOffersFetch.ts`, `targetProfileTest.ts`, `targetRecommendationTest.ts`는 공통으로  
 `config.api_base_url ?? config.api_url ?? "http://localhost:8010"` 을 쓴다.
 
-### 5.2 세션 저장소 (`targetSession.ts`)
+### 5.2 세션 저장소
 
-- **`AT_*` 키** (`at_tntId`, `at_thirdPartyId`, `at_target_cookie_value`, `at_location_hint`, `at_session_id`): 메인 오퍼·`getAdobeTargetVisitorPayload()`가 사용. `targetProfileTest`도 동일 키로 프로필 테스트와 offers 컨텍스트를 맞춘다.
-- **`AT_RECS_*` 키** (`AT_RECS_TNTID`, `AT_RECS_TARGET_COOKIE`, `AT_RECS_LOCATION_HINT`, `AT_RECS_RECIPIENT_ID`): 추천 테스트만 사용. offers·프로필과 저장소를 섞지 않는다.
+- **`sessionStore.ts`**: 웹=`sessionStorage`, 네이티브=메모리+`AsyncStorage`(앱 시작 시 hydrate).
+- **`targetSession.ts`**: `AT_*`(오퍼·프로필), `AT_RECS_*`(추천 테스트 전용), `at_login_line`(회선 로그인 표시 복원).
 
 ### 5.3 유틸 ↔ UI 짝
 
@@ -121,11 +113,13 @@ frontend/
 | `targetProfileTest.ts` | `ProfileTestPanel` |
 | `targetRecommendationTest.ts` | `RecommendationTestPanel` — 페이로드(`entity_id`·`entity_category_id` **`ss` 제외**·`price`·`recipient_id` 등), 성공 시 **`AT_RECS_*`** 에 tnt·쿠키·location_hint 반영, 오류 시 `detail` 파싱 |
 
-### 5.4 `event-popup` 모달
+| `targetOfferParser.ts` | `event-popup`·`top-banner`·`bottom-banner`·캐러셀·배열 content |
+| `visitorContext.tsx` | 회선 로그인 → `thirdPartyId` / `setThirdPartyId` → `refreshOffers` |
 
-- `targetOfferParser.parseAdobeTargetOffersPayload`가 오퍼 `content.type === "event-popup"`을 골라낸다.
-- 메인: Context에 올린 뒤 루트의 `EventPopup` 브리지로 표시.
-- 프로필 테스트: `ProfileTestPanel`이 Re-fetch 응답에서 동일 파서로 추출 후 **`adobe_frontend`의 `EventPopup`** 을 직접 렌더한다.
+### 5.4 `event-popup`·띠배너
+
+- JSON 오퍼 계약·샘플: `04` **부록 C**.
+- 띠배너: `endAt` 카운트다운·`expiredTitle`·`ctaTarget`(`_self`/`_blank`) 지원.
 
 ---
 
@@ -133,18 +127,18 @@ frontend/
 
 ### 6.1 프론트 env JSON
 
-- 개발: `frontend/env/config.dev.json`
-- 운영 번들: `frontend/env/config.prd.json`
+- `frontend/env/config.{dev,prd}.example.json` 복사 → `config.{dev,prd}.json` (**Git 제외**).
+- `loadConfig.ts`가 `__DEV__`로 선택. **웹 mbox 이름은 프론트에 두지 않음**(백엔드 `config.adobe.json`).
 
-`utils/loadConfig.ts`가 `__DEV__`로 파일을 고른다. **Adobe 자격은 이 JSON에 넣지 않는다** (백엔드 `config.adobe.json`만 사용).
-
-### 6.2 메인 설정 키
+### 6.2 주요 키
 
 | 키 | 사용처 |
 |----|--------|
-| `app_title` | Stack 헤더 |
+| `app_title` | `AppHeader` |
 | `images` | 캐러셀·갤러리 |
-| `api_url` / `api_base_url` | 쿠폰 API·Target `fetch` 베이스 |
+| `api_url` | 쿠폰·Target·`/api/telecom/lines` |
+| `mobile_env.adobe_mobile_app_id` 등 | 네이티브 SDK 초기화 |
+| `mobile_env.adobe_sdk_mboxes.*` | offer/global/rec/**banner_sdk_mbox_names** |
 
 ---
 
@@ -152,5 +146,6 @@ frontend/
 
 - 이미지·문구는 프론트 env JSON만으로 바꿀 수 있다.
 - 쿠폰 테이블은 keyset 페이징을 포함한다.
-- Target은 웹에서 전체 흐름이 가장 완전하다(프리로드·클릭·테스트 라우트).
-- 추천·프로필 화면은 운영 메인과 session 키를 일부 나눠, 실험이 메인 세션을 덮어쓰지 않도록 한다(`AT_RECS_*`).
+- Target 웹은 백엔드 프록시, Android는 Mobile SDK가 주 경로다.
+- 회선 로그인은 **데모용**이며 `line_id`→Target 개인화 검증에 쓴다.
+- 추천·프로필 화면은 `AT_RECS_*`로 메인 세션과 분리한다.

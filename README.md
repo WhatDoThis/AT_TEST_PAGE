@@ -16,11 +16,11 @@ Expo(React Native + Expo Router) **웹·Android** 단일 코드베이스와 **Fa
 | 경로 | 설명 |
 |------|------|
 | `frontend/` | Expo 앱 (`app/`, `components/`, `adobe_frontend/target_frontend/`, `package.json`) |
-| `frontend/env/` | `config.dev.json` / `config.prd.json` — `frontend/utils/loadConfig.ts`가 `__DEV__`로 선택 |
+| `frontend/env/` | `config.{dev,prd}.example.json` → 로컬 JSON (**Git 제외**), `loadConfig.ts`가 `__DEV__`로 선택 |
 | `backend/` | FastAPI (`app/`), `adobe_backend/target_backend/` — Target `POST /api/target/*` |
-| `backend/env/` | `config.dev.json` / `config.prd.json`(`APP_ENV`), `config.adobe.json`(Target 자격, Git 제외), `config.adobe.example.json` |
+| `backend/env/` | `config.{dev,prd}.json`(`APP_ENV`, **`telecom_db`**), `config.adobe.json`(Git 제외) |
 | `backend/requirements.txt` | 백엔드 Python 패키지 |
-| `docs/` | `docs/main/` PRD·가이드, `docs/log/` 작업 로그 |
+| `docs/` | `docs/main/` 가이드, `docs/adobe/`, `docs/files/`, `docs/log/` |
 | `deploy.sh` | 리눅스에서 웹 정적 산출물 서빙용 스크립트 |
 | [REQUIREMENTS.md](./REQUIREMENTS.md) | Node·Python 버전 등 공통 요구 사항 |
 
@@ -38,8 +38,9 @@ npm install --prefix frontend
 npm run web
 ```
 
-- **설정 분기**: `frontend/utils/loadConfig.ts`가 `__DEV__`로 `frontend/env/config.dev.json` / `config.prd.json`을 고른다.
-- **라우트**: `/`, `/profile-test`, `/recommendation-test` 등은 [`02_AT_TEST_PAGE_FRONTEND_GUIDE.md`](./docs/main/02_AT_TEST_PAGE_FRONTEND_GUIDE.md) 참고.
+- **설정 분기**: `frontend/env/config.{dev,prd}.example.json`을 복사해 실제 JSON 작성 후 `loadConfig.ts`가 `__DEV__`로 선택.
+- **라우트**: `/main`, `/profile-test`, `/recommendation-test`, `/scroll-test`, 네이티브 `/xttest`·`/abtest`·`/recommendation` — [`02`](./docs/main/02_AT_TEST_PAGE_FRONTEND_GUIDE.md) 참고.
+- **회선 로그인**: 헤더 로그인 → `GET /api/telecom/lines` → `line_id`를 Target `thirdPartyId`로 주입.
 - **웹 프로덕션 번들**: `npm run export:web` → 산출물 `frontend/dist/` ([`02` 가이드](./docs/main/02_AT_TEST_PAGE_FRONTEND_GUIDE.md)와 동일).
 
 ## 백엔드 (로컬)
@@ -58,14 +59,16 @@ $env:APP_ENV = "dev"
 uvicorn app.main:app --host 0.0.0.0 --port 8010 --reload
 ```
 
-- **`APP_ENV`**: `dev` → `backend/env/config.dev.json`, `prd` → `backend/env/config.prd.json` ([`03_AT_TEST_PAGE_BACKEND_GUIDE.md`](./docs/main/03_AT_TEST_PAGE_BACKEND_GUIDE.md)).
-- **`cors_origins`**: Expo 웹 출처(예: `http://localhost:8081`)를 넣어 `POST /api/target/*`가 CORS를 통과하도록 한다.
+- **`APP_ENV`**: `dev` / `prd` → `backend/env/config.{dev,prd}.json` ([`03`](./docs/main/03_AT_TEST_PAGE_BACKEND_GUIDE.md)).
+- **`telecom_db`**: 회선 테스트 DB(`lgu_target_test`) — example의 `telecom_db` 블록 참고.
+- **`cors_origins`**: Expo 웹 출처(예: `http://localhost:8081`) 포함.
 
 ## Adobe Target
 
 - **통합 설명**: [`04_AT_TEST_PAGE_ADOBE_TARGET_INTEGRATION.md`](./docs/main/04_AT_TEST_PAGE_ADOBE_TARGET_INTEGRATION.md).
 - **자격·mbox**: `backend/env/config.adobe.json` — 저장소에 올리지 않는다. `backend/env/config.adobe.example.json`을 복사해 채운다.
-- **프록시 엔드포인트**(요약): `POST /api/target/offers`, `POST /api/target/profile-test`, `POST /api/target/recommendation-test` — 구현·본문 필드는 04 문서 §6.
+- **프록시 엔드포인트**(요약): `POST /api/target/offers`, `profile-test`, `recommendation-test` — 04 §6·§7.
+- **회선 API**: `GET /api/telecom/lines`, `/lines/{line_id}` — 03 §4.
 - **Delivery 진단 로그**: 환경변수 `AT_DEBUG_DELIVERY=1`(또는 `true`/`yes`/`on`)일 때만 `target_debug_utils.py`가 요청/응답 상세를 `WARNING`으로 남긴다. 기본값은 로그 없음.
 
 ## 리눅스 배포 (웹 정적)
