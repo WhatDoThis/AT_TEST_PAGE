@@ -1,0 +1,46 @@
+# EAS Build 업로드 제외 목록 (저장소 루트 = EAS archive 루트).
+# EAS 는 .easignore 가 있으면 .gitignore 대신 이 파일을 사용한다.
+# 빌드는 frontend/ 앱이지만 EAS 는 git 루트 전체를 업로드(build/frontend 구조)하므로
+# 반드시 "저장소 루트"에 있어야 적용된다(frontend/.easignore 는 무시됨).
+#
+# 핵심: frontend/utils/loadConfig.ts 가 frontend/env/config.{dev,prd}.json 을
+#       "정적 import" 하므로 이 두 파일은 반드시 업로드돼야 한다.
+#       → 여기서 의도적으로 제외하지 않는다(.gitignore 에는 제외돼 있어 EAS 에서 누락 → 번들 실패).
+
+# VCS
+.git/
+
+# 백엔드 전체(앱 빌드에 불필요 + DB 비밀번호 등 민감정보 포함)
+backend/
+
+# 문서/스캐폴드(앱 빌드 불필요)
+docs/
+expo_scaffold/
+
+# 의존성·빌드 산출물(EAS 에서 재설치/재생성)
+node_modules/
+frontend/.expo/
+frontend/dist/
+frontend/web-build/
+frontend/ios/
+frontend/android/
+.kotlin/
+
+# 프론트 민감설정 중 빌드에 불필요한 것(loadConfig 가 import 하지 않음)
+frontend/env/config.adobe.json
+
+# 캐시·자격증명·기타
+.metro-health-check*
+*.tsbuildinfo
+.DS_Store
+*.pem
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+__pycache__/
+*.pyc
+npm-debug.*
+yarn-debug.*
+yarn-error.*

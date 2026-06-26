@@ -97,6 +97,13 @@ uvicorn app.main:app --host 0.0.0.0 --port 8010 --reload
 `GET /api/telecom/lines/{line_id}`
 
 - `line_id`는 프론트 회선 로그인 시 Adobe Target **`thirdPartyId`** 로 사용된다.
+- 없으면 **404** `line_not_found`.
+
+### 4.3 오류·DB 연결
+
+- DB 연결·쿼리 실패(`DBAPIError`, `SQLAlchemyError`, `OSError` — 인증 실패·권한 부족·네트워크 포함): **503** `database_unavailable`. 서버 로그에 `list_telecom_lines` / `get_telecom_line` 예외가 남는다.
+- **`telecom_db` 미설정**: 엔진 생성 시 `telecom_db_not_configured` — `config.*.json`에 `telecom_db` 블록 필요.
+- **운영 점검**: PostgreSQL에 `telecom_db.user`가 `lgu_target_test` DB·`telecom_test_lines` 테이블 **SELECT** 권한을 갖는지 확인(쿠폰 DB `db.*`와 사용자·DB를 분리하는 것이 일반적).
 
 ---
 
