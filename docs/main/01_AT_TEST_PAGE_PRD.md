@@ -99,8 +99,10 @@
 
 ### 4.4 회선 로그인(데모)
 
-- 헤더 우측 **로그인** → `GET /api/telecom/lines` 목록에서 회선 1건 선택.
-- 선택 `line_id`를 Target **`thirdPartyId`**(웹 세션 / 네이티브 `setThirdPartyId`)로 주입 후 `refreshOffers`로 오퍼·배너 즉시 재조회.
+- 헤더 우측 **로그인** → **방식 선택** 후 로그인.
+  - **테이블 선택**: `GET /api/telecom/lines` 목록에서 회선 1건 선택(테이블 진입 시에만 API 호출).
+  - **아이디 입력**: 회선ID `U000000001`~`U005122768` 직접 입력(API 없이 `line_id`만 주입).
+- 선택·입력된 `line_id`를 Target **`thirdPartyId`**(웹 세션 / 네이티브 `setThirdPartyId`)로 주입 후 `refreshOffers`로 오퍼·배너 즉시 재조회.
 - 속성 참고: `docs/files/telecom_attributes.csv`.
 
 ### 4.5 공통 내비게이션

@@ -1,21 +1,26 @@
 /**
- * components/login/LoginModal.tsx (회선 선택 로그인 모달)
+ * components/login/LoginModal.tsx (로그인 모달 — 방식 선택 → 테이블 선택 / 아이디 입력)
  * ================================================================================
- * telecom_test_lines 회선 목록을 넓은 테이블로 보여주고, 한 행을 선택(단일 선택)해 "로그인"하면
- * 그 회선ID(line_id)를 Adobe Target 식별자(thirdPartyId)로 주입한다(VisitorContext.login).
- * 테스트 취지: "이 회선으로 접속한 고객에게 어떤 띠배너/팝업이 적용되는지"를 식별자만 바꿔 즉시 확인.
+ * 로그인 버튼을 누르면 먼저 "로그인 방식 선택" 화면이 뜨고, 두 가지 방식 중 하나를 고른다.
+ * - [테이블 선택]: telecom_test_lines 목록을 테이블로 보여주고 한 행을 선택해 로그인(기존 방식).
+ * - [아이디 입력]: U000000001 ~ U005122768 범위의 회선ID를 직접 입력해 로그인.
+ * 어느 방식이든 선택/입력된 회선ID(line_id)를 Adobe Target 식별자(thirdPartyId)로 주입한다
+ * (VisitorContext.login). 취지: 식별자만 바꿔 적용 띠배너/팝업/오퍼를 즉시 확인.
  *
  * [Main Functions]
  * ===========
- * - LoginModal: 회선 목록 fetch → 테이블 렌더 → 행 선택 → 취소/로그인
+ * - LoginModal: 방식 선택(choice) → 테이블 선택(table) / 아이디 입력(input) 모드 전환·로그인
+ * - ChoiceCard: 두 가지 로그인 방식 버튼 카드
+ * - InputCard: 회선ID 직접 입력 폼(안내문구 + 검증 + 확인/취소)
  *
  * [Endpoints/Classes/Functions]
  * =======================
  * - LoginModal({ visible, onClose })
+ * - _normalizeCustomerId(raw): 입력 회선ID 정규화·범위검증(U000000001~U005122768)
  *
  * [Dependencies]
  * =========
- * - react-native (Modal, ScrollView, Pressable 등)
+ * - react-native (Modal, ScrollView, Pressable, TextInput 등)
  * - ./telecomLinesApi (fetchTelecomLines, TelecomLine)
  * - @/context/VisitorContext (useVisitorLogin)
  */
@@ -28,12 +33,44 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { useVisitorLogin } from "@/context/VisitorContext";
 import { fetchTelecomLines, type TelecomLine } from "./telecomLinesApi";
 
 const MAGENTA = "#E6007E";
+
+/** 아이디 직접 입력 시 허용 회선ID 범위(U + 9자리, 1 ~ 5122768). */
+const CUSTOMER_ID_MIN = 1;
+const CUSTOMER_ID_MAX = 5122768;
+const CUSTOMER_ID_MIN_LABEL = "U000000001";
+const CUSTOMER_ID_MAX_LABEL = "U005122768";
+
+type LoginMode = "choice" | "table" | "input";
+
+/** 입력 회선ID 검증·정규화 결과. ok=false면 사용자에게 보여줄 error 포함. */
+type NormalizeResult = { ok: true; id: string } | { ok: false; error: string };
+
+// 0. 입력값을 "U+9자리"로 정규화하고 허용 범위(1~5122768)인지 검증한다(U 접두사 생략·소문자 허용).
+function _normalizeCustomerId(raw: string): NormalizeResult {
+  const v = raw.trim().toUpperCase();
+  if (!v) {
+    return { ok: false, error: "아이디를 입력하세요." };
+  }
+  const m = v.match(/^U?(\d{1,9})$/);
+  if (!m) {
+    return { ok: false, error: `형식이 올바르지 않습니다. 예) ${CUSTOMER_ID_MIN_LABEL}` };
+  }
+  const num = Number.parseInt(m[1], 10);
+  if (num < CUSTOMER_ID_MIN || num > CUSTOMER_ID_MAX) {
+    return {
+      ok: false,
+      error: `${CUSTOMER_ID_MIN_LABEL} ~ ${CUSTOMER_ID_MAX_LABEL} 범위로 입력하세요.`,
+    };
+  }
+  return { ok: true, id: `U${String(num).padStart(9, "0")}` };
+}
 
 /** 테이블 컬럼 정의(라벨·폭·셀 텍스트 생성). 폭 합이 화면보다 넓으면 가로 스크롤. */
 interface Column {
@@ -124,7 +161,89 @@ function TableRow({
   );
 }
 
-// 3. [모달] 목록 조회 → 테이블 → 선택 → 취소/로그인. 로그인 시 line_id 를 식별자로 주입.
+// 3. [방식 선택] 테이블 선택 / 아이디 입력 중 하나를 고르는 첫 화면.
+function ChoiceCard({
+  onClose,
+  onPickTable,
+  onPickInput,
+}: {
+  onClose: () => void;
+  onPickTable: () => void;
+  onPickInput: () => void;
+}): React.ReactElement {
+  return (
+    <View style={s.card}>
+      <Text style={s.cardTitle}>로그인 방식 선택</Text>
+      <Text style={s.cardSubtitle}>로그인할 회선을 어떻게 지정할지 선택하세요.</Text>
+      <View style={s.choiceWrap}>
+        <Pressable onPress={onPickTable} style={[s.choiceBtn, s.choicePrimary]}>
+          <Text style={s.choicePrimaryTitle}>테이블 선택</Text>
+          <Text style={s.choicePrimaryDesc}>회선 목록 표에서 한 행을 골라 로그인</Text>
+        </Pressable>
+        <Pressable onPress={onPickInput} style={[s.choiceBtn, s.choiceSecondary]}>
+          <Text style={s.choiceSecondaryTitle}>아이디 입력</Text>
+          <Text style={s.choiceSecondaryDesc}>회선ID를 직접 입력해 로그인</Text>
+        </Pressable>
+      </View>
+      <Pressable onPress={onClose} style={s.cardCancel}>
+        <Text style={s.cardCancelText}>닫기</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+// 4. [아이디 입력] 허용 범위 안내 + 입력 + 검증 → 확인(로그인)/취소.
+function InputCard({
+  value,
+  error,
+  submitting,
+  onChangeText,
+  onConfirm,
+  onCancel,
+}: {
+  value: string;
+  error: string | null;
+  submitting: boolean;
+  onChangeText: (t: string) => void;
+  onConfirm: () => void;
+  onCancel: () => void;
+}): React.ReactElement {
+  return (
+    <View style={s.card}>
+      <Text style={s.cardTitle}>아이디 입력 로그인</Text>
+      <Text style={s.cardSubtitle}>
+        {CUSTOMER_ID_MIN_LABEL} ~ {CUSTOMER_ID_MAX_LABEL} 까지 입력할 수 있습니다.
+      </Text>
+      <TextInput
+        value={value}
+        onChangeText={onChangeText}
+        onSubmitEditing={onConfirm}
+        placeholder={CUSTOMER_ID_MIN_LABEL}
+        placeholderTextColor="#aaa"
+        autoCapitalize="characters"
+        autoCorrect={false}
+        editable={!submitting}
+        style={[s.input, !!error && s.inputError]}
+        returnKeyType="done"
+      />
+      {error ? <Text style={s.inputErrorText}>{error}</Text> : null}
+      <View style={s.cardActions}>
+        <Pressable onPress={onCancel} style={[s.btn, s.btnGhost]} disabled={submitting}>
+          <Text style={s.btnGhostText}>취소</Text>
+        </Pressable>
+        <Pressable
+          onPress={onConfirm}
+          disabled={submitting}
+          style={[s.btn, s.btnPrimary, submitting && s.btnDisabled]}
+        >
+          <Text style={s.btnPrimaryText}>{submitting ? "로그인 중..." : "확인"}</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+// 5. [모달] 방식 선택 → 테이블(목록 선택) / 입력(직접 입력) → 로그인 시 line_id 를 식별자로 주입.
 export default function LoginModal({
   visible,
   onClose,
@@ -133,16 +252,30 @@ export default function LoginModal({
   onClose: () => void;
 }): React.ReactElement {
   const login = useVisitorLogin();
+  const [mode, setMode] = useState<LoginMode>("choice");
   const [lines, setLines] = useState<TelecomLine[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<TelecomLine | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [inputId, setInputId] = useState("");
+  const [inputError, setInputError] = useState<string | null>(null);
 
+  // 모달이 열릴 때마다 방식 선택 화면으로 초기화한다(이전 상태 잔존 방지).
   useEffect(() => {
     if (!visible) {
       return;
     }
+    setMode("choice");
+    setSelected(null);
+    setError(null);
+    setInputId("");
+    setInputError(null);
+  }, [visible]);
+
+  // [테이블 선택] 선택 시점에만 회선 목록을 조회한다(방식 선택 화면에서는 호출하지 않음).
+  const enterTable = () => {
+    setMode("table");
     setSelected(null);
     setError(null);
     setLoading(true);
@@ -150,7 +283,7 @@ export default function LoginModal({
       .then(setLines)
       .catch((e) => setError(String(e?.message ?? e)))
       .finally(() => setLoading(false));
-  }, [visible]);
+  };
 
   const onLogin = async () => {
     if (!selected || submitting) {
@@ -169,6 +302,62 @@ export default function LoginModal({
       setSubmitting(false);
     }
   };
+
+  // [아이디 입력] 검증 통과 시 입력값을 line_id 로 그대로 로그인(thirdPartyId 주입).
+  const onInputConfirm = async () => {
+    if (submitting) {
+      return;
+    }
+    const result = _normalizeCustomerId(inputId);
+    if (!result.ok) {
+      setInputError(result.error);
+      return;
+    }
+    setInputError(null);
+    setSubmitting(true);
+    try {
+      await login({ lineId: result.id, customerName: "직접입력" });
+      onClose();
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (mode === "choice") {
+    return (
+      <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+        <View style={s.overlay}>
+          <ChoiceCard
+            onClose={onClose}
+            onPickTable={enterTable}
+            onPickInput={() => setMode("input")}
+          />
+        </View>
+      </Modal>
+    );
+  }
+
+  if (mode === "input") {
+    return (
+      <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+        <View style={s.overlay}>
+          <InputCard
+            value={inputId}
+            error={inputError}
+            submitting={submitting}
+            onChangeText={(t) => {
+              setInputId(t);
+              if (inputError) {
+                setInputError(null);
+              }
+            }}
+            onConfirm={onInputConfirm}
+            onCancel={onClose}
+          />
+        </View>
+      </Modal>
+    );
+  }
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -255,6 +444,40 @@ const s = StyleSheet.create({
     borderRadius: 12,
     overflow: "hidden",
   },
+  card: {
+    width: "94%",
+    maxWidth: 420,
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 20,
+  },
+  cardTitle: { fontSize: 18, fontWeight: "700", color: "#1A1A2E" },
+  cardSubtitle: { fontSize: 13, color: "#666", marginTop: 6, lineHeight: 18 },
+  choiceWrap: { marginTop: 18, gap: 12 },
+  choiceBtn: { borderRadius: 10, paddingHorizontal: 16, paddingVertical: 16 },
+  choicePrimary: { backgroundColor: MAGENTA },
+  choicePrimaryTitle: { color: "#fff", fontSize: 16, fontWeight: "700" },
+  choicePrimaryDesc: { color: "rgba(255,255,255,0.85)", fontSize: 12, marginTop: 4 },
+  choiceSecondary: { backgroundColor: "#f1f1f4", borderWidth: 1, borderColor: "#e2e2ea" },
+  choiceSecondaryTitle: { color: "#1A1A2E", fontSize: 16, fontWeight: "700" },
+  choiceSecondaryDesc: { color: "#666", fontSize: 12, marginTop: 4 },
+  cardCancel: { marginTop: 18, alignSelf: "center", paddingVertical: 8, paddingHorizontal: 12 },
+  cardCancelText: { color: "#888", fontSize: 13, fontWeight: "600" },
+  input: {
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: "#d6d6de",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    fontSize: 16,
+    color: "#1A1A2E",
+    backgroundColor: "#fafafd",
+    letterSpacing: 1,
+  },
+  inputError: { borderColor: "#c0392b" },
+  inputErrorText: { color: "#c0392b", fontSize: 12, marginTop: 8 },
+  cardActions: { flexDirection: "row", justifyContent: "flex-end", marginTop: 20 },
   panelHeader: {
     flexDirection: "row",
     alignItems: "center",

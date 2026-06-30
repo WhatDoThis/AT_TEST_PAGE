@@ -42,7 +42,7 @@ npm run web
 - **설정 분기**: `frontend/env/config.{dev,prd}.example.json`을 복사해 실제 JSON 작성 후 `loadConfig.ts`가 `__DEV__`로 선택.
 - **Android(EAS, 서버 빌드)**: 저장소 **루트** `/.easignore`로 Git 제외 `frontend/env/config.*.json`을 EAS 아카이브에 포함. `git pull` → `frontend/env/config.{dev,prd}.json` 존재 확인 → `cd frontend && eas build ...`. `frontend/.easignore`는 적용되지 않음 — [`04` §16](./docs/main/04_AT_TEST_PAGE_ADOBE_TARGET_INTEGRATION.md).
 - **라우트**: `/main`, `/profile-test`, `/recommendation-test`, `/scroll-test`, 네이티브 `/xttest`·`/abtest`·`/recommendation` — [`02`](./docs/main/02_AT_TEST_PAGE_FRONTEND_GUIDE.md) 참고.
-- **회선 로그인**: 헤더 로그인 → `GET /api/telecom/lines` → `line_id`를 Target `thirdPartyId`로 주입.
+- **회선 로그인**: 헤더 로그인 → **테이블 선택**(`GET /api/telecom/lines`) 또는 **아이디 입력**(`U000000001`~`U005122768`, API 불필요) → `line_id`를 Target `thirdPartyId`로 주입. 외부망(5G) 테스트 시 **HTTPS 443 인바운드** 필요 — [`03` §7.1](./docs/main/03_AT_TEST_PAGE_BACKEND_GUIDE.md).
 - **웹 프로덕션 번들**: `npm run export:web` → 산출물 `frontend/dist/` ([`02` 가이드](./docs/main/02_AT_TEST_PAGE_FRONTEND_GUIDE.md)와 동일).
 
 ## 백엔드 (로컬)

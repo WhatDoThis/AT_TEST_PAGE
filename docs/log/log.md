@@ -2,6 +2,7 @@
 
 ## Log Index
 
+171. 2026-06-30 로그인 모달 2단계화(방식 선택 → 테이블/아이디 입력)·배포 네트워크 문서(443 인바운드·네이티브 API 의존) — LoginModal choice/table/input·U000000001~U005122768 직접입력(API 불필요). docs 01~04·README·03 §7.1 동기화
 170. 2026-06-26 EAS 루트 .easignore 정정 + telecom API 503·DB 권한 문서화 — monorepo EAS는 git 루트 아카이브라 frontend/.easignore 무효→저장소 루트 /.easignore 신설(backend/docs 제외·frontend env config 포함)·frontend/.easignore 삭제. 서버 git pull 빌드 절차·check-ignore 검증. telecom 라우터 503(DBAPIError/SQLAlchemyError/OSError)은 기존 구현·03 §4.3 정리. telecom_db 사용자 DB SELECT 권한 운영 안내
 169. 2026-06-26 EAS Android 빌드 "Bundle JavaScript" 실패 수정 — loadConfig 가 env/config.{dev,prd}.json 을 정적 import 하는데 두 파일이 .gitignore 제외라 EAS(git 업로드)에서 누락→번들 실패. frontend/.easignore 추가로 config 파일 업로드 포함(빌드 머신에 실제 파일 존재 필요). 로컬 프로덕션 export 로 코드 정상 확인 *(이후 루트 .easignore 로 정정 — 170)*
 168. 2026-06-26 docs 전체 정합(01 PRD v1.3·02 프론트·03 백엔드 telecom·04 v3.6 회선로그인/배너mbox/FOUC)·README — 최근 코드(165~167) 기준 개발문서 동기화
@@ -174,6 +175,21 @@
 12. 2026-04-27 docs/main AT_TEST_PAGE PRD v1.0 작성
 
 ## Log Body
+
+171. 2026-06-30 로그인 모달 2단계화(방식 선택 → 테이블 선택 / 아이디 입력)
+
+Purpose: 로그인 버튼을 누르면 곧장 회선 테이블 모달이 뜨던 흐름을, 먼저 "로그인 방식 선택" 카드를 거치도록 2단계화. 테이블에서 행을 고르는 기존 방식과, 회선ID를 직접 입력하는 방식을 사용자가 선택할 수 있게 한다. 어느 쪽이든 결과 line_id가 Target thirdPartyId로 주입되는 동작은 동일.
+
+Changes:
+
+- `LoginModal`에 `mode` 상태머신(choice/table/input) 도입 — 모달 오픈 시 항상 choice로 초기화
+- `ChoiceCard`(테이블 선택/아이디 입력 버튼)·`InputCard`(안내문구 U000000001~U005122768 + 입력 + 확인/취소) 컴포넌트 추가
+- `_normalizeCustomerId`로 입력값 정규화·범위검증(U+9자리, 1~5122768), 통과 시 `login({ lineId, customerName: "직접입력" })` 호출, 취소 시 `onClose`
+- 회선 목록 fetch를 테이블 진입 시점(`enterTable`)에만 수행하도록 변경(방식 선택 화면에서는 불필요한 조회 안 함)
+- 카드/입력 UI 스타일 추가, 파일 상단 docstring 동기화
+- docs: 01 §4.4·02 §3.2·03 §7.1(443/nginx·네이티브 API 의존)·04 v3.9 §6.3·FAQ·README
+
+Changed files: frontend/components/login/LoginModal.tsx, docs/main/01_AT_TEST_PAGE_PRD.md, docs/main/02_AT_TEST_PAGE_FRONTEND_GUIDE.md, docs/main/03_AT_TEST_PAGE_BACKEND_GUIDE.md, docs/main/04_AT_TEST_PAGE_ADOBE_TARGET_INTEGRATION.md, README.md, docs/log/log.md
 
 170. 2026-06-26 EAS 루트 .easignore 정정 + telecom API 503·DB 권한 문서화
 

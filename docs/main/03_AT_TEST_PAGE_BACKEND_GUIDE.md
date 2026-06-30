@@ -163,6 +163,17 @@ uvicorn app.main:app --host 0.0.0.0 --port 8010 --reload
 - cursor 절반만 오면 `400`.
 - CORS: 명시 `cors_origins`와, **`APP_ENV=dev`**일 때 localhost 계열 **정규식 보조**·`allow_private_network`(위 §3.4).
 
+### 7.1 배포·네트워크(회선 API·앱 접근)
+
+클라이언트(핸드폰·브라우저)는 **PostgreSQL에 직접 연결하지 않는다.** `api_url`의 **HTTPS 443** → nginx → `127.0.0.1:8010` → `/api/telecom/lines` 순이다. **8010·3010 인바운드를 클라우드에 열지 않아도** nginx 뒤 구조면 정상이다.
+
+| 구간 | 점검 |
+|------|------|
+| **클라우드 인바운드 443** | 회사 IP 대역만 허용 시 **5G·외부망에서 API 전체 차단**. 회선 목록·웹 Target 프록시 모두 실패. 테스트 시 `0.0.0.0/0` 또는 필요 대역 추가. |
+| **nginx** | `/at-test-api/` → `127.0.0.1:8010/` (`backend/README.md`). `/at-test/` IP `allow`/`deny`는 프론트 정적용 — API `location`과 별개. |
+| **네이티브 앱** | 배너·팝업·A/B는 **Adobe SDK**(우리 443 불필요). **회선 테이블만** `at-test-api` 필요. **아이디 입력** 로그인은 API 없이 `thirdPartyId` 주입 가능. |
+| **5G 검증** | `https://<도메인>/at-test-api/api/telecom/lines` — JSON이면 API 경로 OK. |
+
 ---
 
 ## 8. 고객 안내 포인트

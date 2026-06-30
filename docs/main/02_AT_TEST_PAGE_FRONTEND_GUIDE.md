@@ -75,7 +75,10 @@ frontend/
 ### 3.2 `components/AppHeader.tsx` · `login/`
 
 - 좌측: `config.app_title`. 우측: **`VisitorMenu`** — 로그인 회선 라벨 또는 로그인 버튼.
-- **`LoginModal`**: `GET /api/telecom/lines` 테이블에서 회선 선택 → `VisitorContext.login` → `line_id`를 `thirdPartyId`로 주입·`refreshOffers`.
+- **`LoginModal`** (`mode`: `choice` → `table` | `input`):
+  - **방식 선택**: 테이블 선택 / 아이디 입력 카드.
+  - **테이블 선택**: `enterTable` 시 `GET /api/telecom/lines` → 행 선택 → `VisitorContext.login` → `thirdPartyId`·`refreshOffers`.
+  - **아이디 입력**: `U000000001`~`U005122768` 검증(`_normalizeCustomerId`) 후 API 없이 `line_id`로 동일 `login` 호출(5G 등 API 미도달 환경에서 Target 개인화 테스트용).
 
 ### 3.3 `components/AppFooter.tsx`
 

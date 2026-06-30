@@ -285,19 +285,24 @@ flowchart TB
 
 ### 6.3 회선 로그인(방문자 식별자 주입)
 
-데모용 **회선 선택 로그인**으로 Target Audience를 검증한다(운영 인증 아님).
+데모용 **회선 선택·아이디 입력 로그인**으로 Target Audience를 검증한다(운영 인증 아님).
 
 ```mermaid
 sequenceDiagram
   participant U as 사용자
-  participant H as AppHeader/LoginModal
+  participant H as LoginModal
   participant API as GET /api/telecom/lines
   participant V as VisitorContext
   participant T as Target(웹 fetch / 네이티브 SDK)
 
-  U->>H: 로그인 → 회선 선택
-  H->>API: lines 목록
-  API-->>H: line_id, 고객·요금제 등
+  U->>H: 로그인
+  alt 테이블 선택
+    H->>API: lines 목록(테이블 진입 시)
+    API-->>H: line_id, 고객·요금제 등
+    U->>H: 행 선택
+  else 아이디 입력
+    U->>H: U000000001~U005122768 입력
+  end
   H->>V: login(line_id)
   V->>T: thirdPartyId = line_id
   V->>T: refreshOffers()
@@ -306,10 +311,12 @@ sequenceDiagram
 
 | 항목 | 내용 |
 |------|------|
-| **데이터** | `lgu_target_test.telecom_test_lines` — API `03` §4, 속성 `docs/files/telecom_attributes.csv` |
-| **식별자** | 선택 **`line_id`** → 웹 `AT_THIRD_PARTY_ID` / 네이티브 `Target.setThirdPartyId` |
+| **UI** | `LoginModal` — `choice` → `table`(목록) \| `input`(직접 입력). 테이블은 진입 시에만 API 호출. |
+| **데이터** | 테이블: `lgu_target_test.telecom_test_lines` — API `03` §4. 입력: API 없이 `line_id`만 검증·주입. |
+| **식별자** | **`line_id`** → 웹 `AT_THIRD_PARTY_ID` / 네이티브 `Target.setThirdPartyId` |
 | **재조회** | `refreshOffers()` — 웹 bootstrap fetch 재실행, 네이티브 배너 mbox 재조회 |
 | **로그아웃** | 세션 키 제거 + (네이티브) `resetExperience` → 익명 상태 |
+| **네트워크** | 네이티브는 Target이 Adobe로 가므로 앱 UI·배너는 5G에서도 동작할 수 있음. **테이블 로그인만** `api_url`(443) 필요 — `03` §7.1. |
 
 ## 7. HTTP 계약 요약 (예시)
 
@@ -746,6 +753,7 @@ eas build -p android --profile preview
 | top/bottom 띠배너가 placeholder만 보임 | **웹**: `banner_mbox_names` Activity 또는 bootstrap 내 `type` JSON 확인. **네이티브**: `banner_sdk_mbox_names`·Activity 게시(부록 C.3.2) |
 | 띠배너가 잠깐 placeholder 후 바뀜(FOUC) | 정상 수정됨 — `bannersReady` 전 미렌더. bootstrap 실패 시 placeholder 유지 |
 | 회선 로그인 후 오퍼가 안 바뀜 | `line_id`가 Target `thirdPartyId`로 들어갔는지·Audience가 `line_id`/profile 기준인지·`refreshOffers` 호출 여부(§6.3) |
+| 회선 **테이블**만 안 됨(회사 WiFi OK·5G 실패) | **클라우드 인바운드 443**이 회사 대역만 허용인지 확인. 핸드폰은 DB/pg_hba가 아니라 `api_url`(443)→nginx→8010. 네이티브는 Adobe는 되고 API만 실패 가능(§6.3·`03` §7.1). **아이디 입력** 로그인은 API 없이 테스트 가능 |
 | 웹 빌드가 Adobe 네이티브 때문에 깨짐 | `*.native.ts`에 import가 새어 들어갔는지 확인(base `*.ts`는 no-op이어야 함) |
 | EAS "Bundle JavaScript" 실패 / `Unable to resolve module ../env/config.dev.json` | 아카이브에 config 없음 — **저장소 루트** `/.easignore` 사용(`frontend/.easignore` 무효)·빌드 머신에 `frontend/env/config.*.json` 존재·`git pull` 후 재빌드(§16) |
 | 회선 API 503 `database_unavailable` | `telecom_db` 연결·인증·`telecom_test_lines` SELECT 권한 — `03` §4.3 |
@@ -1079,6 +1087,7 @@ Recommendations **Design 템플릿** 출력 형태. `type` 필드 대신 **`item
 
 | 버전 | 일자 | 요약 |
 |------|------|------|
+| **3.9** | 2026-06-30 | **로그인 2단계**(§6.3 테이블/아이디 입력)·배포 네트워크 FAQ(443 인바운드·네이티브 API 의존)·`03` §7.1 |
 | **3.8** | 2026-06-26 | **루트 `/.easignore`**(§16) — monorepo EAS 아카이브 기준 정정(`frontend/.easignore` 무효), 서버 git pull 빌드·검증 절차, telecom API 503 FAQ·`03` §4.3 |
 | **3.7** | 2026-06-26 | EAS `.easignore`(§16) — Git 제외 `config.{dev,prd}.json`을 Metro 번들·EAS 업로드에 포함, FAQ·§17·§18·`02` §6.2 동기화 *(이후 루트 위치로 정정 → 3.8)* |
 | **3.6** | 2026-06-26 | **회선 로그인(§6.3)**·`telecom_db`/lines API·`banner_mbox_names`(웹 다중 mbox)·`banner_sdk_mbox_names`(네이티브 배너)·`bannersReady` FOUC·띠배너 `endAt`/`ctaTarget` — 부록 C·§17·FAQ·01~03 가이드 동기화 |
