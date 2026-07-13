@@ -2,6 +2,7 @@
 
 ## Log Index
 
+175. 2026-07-13 Adobe Tags 임베드 위치 정정(+html.tsx→public/index.html) — output:single 은 +html.tsx 를 무시하고 public/index.html 을 템플릿으로 씀(공식 문서 확인). dataLayer 초기화+Launch dev 스크립트를 public/index.html <head> 로 이동, 죽은 코드 +html.tsx 삭제. expo export -p web 로 dist/index.html 에 실제 주입 검증 완료. _satellite undefined(스크립트 미반영) 원인 해결
 174. 2026-07-13 Adobe Tags(Launch) dev 임베드 스크립트 연결 — +html.tsx 에서 dataLayer 초기화 직후 launch-...-development.min.js 를 async 로드(ADOBE_TAGS_SRC 상수). GA4 dataLayer mock 과 실제 Adobe Extension 감지를 end-to-end 로 검증 가능. docs/main/02 §8.1 갱신
 173. 2026-07-13 GA4 dataLayer mock 리뷰 반영 + 문서화 — 실제 U+ dataLayer 규격 대조로 개선: behavior_var 를 PC/Mobile×채널 프리셋으로 조합 주입(pushPageViewPreset)·pushNuxtRoute behaviorVar 인자화, gtm.click 간소화(DOM 참조 제외) 이벤트 추가, 인터랙션 이벤트 파일 분리(ga4Events_interaction). screen_id/content_group/site_type 는 근거 없어 미추가(주석 명시). docs/main/02 §8 GA4 섹션 신설
 172. 2026-07-13 GA4 dataLayer 모의(Mock) 구현 — /at-test/main 에 GA4/GTM 없이 window.dataLayer 초기화·push 테스트 환경 구축(Adobe Tags Google Data Layer Extension 연동용). +html.tsx 로 head 최상단 dataLayer 초기화(Adobe Tags 자리 주석 확보), ga4_frontend/ga4-test 전용 패키지(코어·이벤트·부트스트랩·테스트 패널) 신설, @ga4/* 별칭 추가, main 에 마운트
@@ -178,6 +179,20 @@
 12. 2026-04-27 docs/main AT_TEST_PAGE PRD v1.0 작성
 
 ## Log Body
+
+175. 2026-07-13 Adobe Tags 임베드 위치 정정(+html.tsx → public/index.html)
+
+Purpose: 배포 후 _satellite 가 undefined 이고 콘솔에 아무것도 안 나오는 문제 진단. 서빙 HTML 이 Expo 기본 템플릿(lang=en·스크립트 없음)이라 +html.tsx 가 반영 안 됨을 확인. 공식 문서상 web.output:"single" 은 +html.tsx 를 무시하고 public/index.html 을 템플릿으로 쓰기 때문(=근본 원인). +html.tsx 는 static/server 전용.
+
+Changes:
+
+- `npx expo customize public/index.html` 로 단일 출력용 템플릿 생성 후, <head> 에 dataLayer 초기화(`window.dataLayer = window.dataLayer || []`) + Adobe Tags(Launch) dev embed(async) 삽입(order: dataLayer→Adobe→나머지). 운영 시 production URL 교체 주석
+- 죽은 코드가 된 `app/+html.tsx` 삭제(single 빌드에서 미사용 — 혼동 유발)
+- `npx expo export -p web` 실행 → 생성된 dist/index.html 에 두 스크립트 + Expo 엔트리 스크립트가 모두 주입됨을 직접 확인(검증 완료)
+- docs/main/02: 디렉터리 구조(app/+html.tsx→public/index.html)·§8.1 재작성(+html.tsx 아님 경고·생성법·빌드 후 dist 재배포 필수 안내)
+- 조치 안내: git push 만으로는 서빙 페이지 안 바뀜 → 서버에서 expo export -p web 후 dist/ 재배포 필요
+
+Changed files: frontend/public/index.html(신규), frontend/app/+html.tsx(삭제), docs/main/02_AT_TEST_PAGE_FRONTEND_GUIDE.md, docs/log/log.md
 
 174. 2026-07-13 Adobe Tags(Launch) dev 임베드 스크립트 연결
 

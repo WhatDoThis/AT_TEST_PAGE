@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="%LANG_ISO_CODE%">
+  <head>
+    <meta charset="utf-8" />
+    <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+
+    <!-- 1) dataLayer 초기화 (가장 먼저 — Adobe Tags 임베드보다 반드시 위) -->
+    <script>window.dataLayer = window.dataLayer || [];</script>
+    <!-- 2) Adobe Tags(Launch) dev 임베드 — dataLayer 초기화 직후 async 로드. 운영 배포 시 production URL 로 교체 -->
+    <script src="https://assets.adobedtm.com/ce8d64c4e8e1/628ae2bdae74/launch-eff6fb8763ac-development.min.js" async></script>
+
+    <title>%WEB_TITLE%</title>
+    <!-- The `react-native-web` recommended style reset: https://necolas.github.io/react-native-web/docs/setup/#root-element -->
+    <style id="expo-reset">
+      /* These styles make the body full-height */
+      html,
+      body {
+        height: 100%;
+      }
+      /* These styles disable body scrolling if you are using <ScrollView> */
+      body {
+        overflow: hidden;
+      }
+      /* These styles make the root element full-height */
+      #root {
+        display: flex;
+        height: 100%;
+        flex: 1;
+      }
+    </style>
+  </head>
+
+  <body>
+    <!-- Use static rendering with Expo Router to support running without JavaScript. -->
+    <noscript>
+      You need to enable JavaScript to run this app.
+    </noscript>
+    <!-- The root element for your Expo app. -->
+    <div id="root"></div>
+  </body>
+</html>

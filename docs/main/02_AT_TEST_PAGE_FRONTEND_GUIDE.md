@@ -58,7 +58,7 @@ frontend/
 │  └─ target-native-frontend/  # XtTestScreen, AbTestScreen, RecommendationScreen, adobeMobileTarget
 ├─ ga4_frontend/
 │  └─ ga4-test/            # GA4 dataLayer 모의(코어·이벤트·부트스트랩·테스트 패널) — §8
-├─ app/+html.tsx           # (웹) 루트 HTML 셸 — dataLayer 초기화 + Adobe Tags 자리(§8)
+├─ public/index.html       # (웹, output:single 템플릿) dataLayer 초기화 + Adobe Tags embed(§8)
 └─ assets/images/
 ```
 
@@ -172,15 +172,18 @@ frontend/
 
 > **운영이 아니라 테스트 목적:** GA4/GTM 실 스크립트는 **로드하지 않는다**(순수 JS 배열). 단, Adobe Tags(Launch) **dev 임베드 스크립트는 실제로 로드**해 Extension 의 dataLayer 감지를 end-to-end 로 확인한다(검증은 브라우저 콘솔/Adobe Experience Platform Debugger 병행).
 
-### 8.1 로드 순서와 초기화 (`app/+html.tsx`)
+### 8.1 로드 순서와 초기화 (`public/index.html`)
 
-Expo Router 웹 루트 HTML 셸에서 순서를 강제한다.
+> ⚠️ **`+html.tsx` 아님.** 이 프로젝트는 `app.json` 의 `web.output: "single"`(SPA)이라 HTML 템플릿은 **`public/index.html`** 로 커스터마이즈한다(`+html.tsx` 는 `output: "static"/"server"` 전용이라 single 빌드에선 무시됨). 템플릿 생성: `npx expo customize public/index.html`. export 시 Expo 가 이 템플릿의 `%WEB_TITLE%`·엔트리 스크립트·favicon·`expo-reset` 을 채워 `dist/index.html` 을 만든다.
 
-1. **dataLayer 초기화**(가장 먼저): `window.dataLayer = window.dataLayer || [];` — HTML 파싱 즉시(React 마운트 이전) 동기 실행돼 빈 배열 생성.
-2. **Adobe Tags(Launch) dev 임베드**: `assets.adobedtm.com/.../launch-...-development.min.js` 를 `async` 로 로드(`ADOBE_TAGS_SRC` 상수). async 라도 위 인라인 스크립트가 먼저 동기 실행되므로 Launch 실행 시점엔 `window.dataLayer` 가 이미 존재한다. 운영 배포 시 production URL 로 교체.
-3. **스타일 리셋**(`ScrollViewStyleReset`).
+`public/index.html` 의 `<head>` 에서 순서를 강제한다.
+
+1. **dataLayer 초기화**(가장 먼저): `<script>window.dataLayer = window.dataLayer || [];</script>` — HTML 파싱 즉시(React 마운트 이전) 동기 실행돼 빈 배열 생성.
+2. **Adobe Tags(Launch) dev 임베드**: `assets.adobedtm.com/.../launch-...-development.min.js` 를 `async` 로 로드. async 라도 위 인라인 스크립트가 먼저 동기 실행되므로 Launch 실행 시점엔 `window.dataLayer` 가 이미 존재한다. 운영 배포 시 production URL 로 교체.
 
 즉 "배열 생성"은 페이지 로드 맨 앞(head), "초기 이벤트 push"는 앱 마운트 직후(§8.3)에 일어난다.
+
+> **반영 방법(중요):** 이 템플릿은 **빌드 시점에** `dist/index.html` 로 구워진다. 소스만 고치고 push 해도 서빙 페이지는 안 바뀐다 — 반드시 **`npx expo export -p web` 후 `dist/` 재배포**해야 하며, 그 후 `dist/index.html`(또는 소스 보기)에서 `adobedtm` 이 있는지 확인한다.
 
 ### 8.2 패키지 구조 (`ga4_frontend/ga4-test/`, 별칭 `@ga4/*`)
 
