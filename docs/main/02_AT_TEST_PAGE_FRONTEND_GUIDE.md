@@ -170,14 +170,14 @@ frontend/
 
 실제 GA4(gtag.js)·GTM 컨테이너 없이 `window.dataLayer` 배열을 생성·push 하는 테스트 환경. Adobe Data Collection(Tags)의 **Google Data Layer Extension** 이 이 dataLayer 를 읽어 Data Element/Rule 로 활용하는지 검증하는 용도다. 유플홈(U+) GA4 dataLayer 구조(`nuxtRoute`·`behavior_var` 등)를 모방한다.
 
-> **운영이 아니라 테스트 목적:** GA4/GTM 실 스크립트는 **로드하지 않는다**(순수 JS 배열). Adobe Tags(Launch) 임베드 스크립트도 필수 아님 — `+html.tsx`에 위치만 주석으로 잡아두고, 검증은 브라우저 콘솔/Adobe Experience Platform Debugger 로 한다. (embed 를 실제로 넣어야 하는 건 "Extension 이 dataLayer 를 집어가는지"의 end-to-end 검증뿐.)
+> **운영이 아니라 테스트 목적:** GA4/GTM 실 스크립트는 **로드하지 않는다**(순수 JS 배열). 단, Adobe Tags(Launch) **dev 임베드 스크립트는 실제로 로드**해 Extension 의 dataLayer 감지를 end-to-end 로 확인한다(검증은 브라우저 콘솔/Adobe Experience Platform Debugger 병행).
 
 ### 8.1 로드 순서와 초기화 (`app/+html.tsx`)
 
 Expo Router 웹 루트 HTML 셸에서 순서를 강제한다.
 
-1. **dataLayer 초기화**(가장 먼저): `window.dataLayer = window.dataLayer || [];` — HTML 파싱 즉시(React 마운트 이전) 빈 배열 생성.
-2. **Adobe Tags(Launch) 임베드 자리**: 주석으로 위치만 확보(실 스크립트는 추후).
+1. **dataLayer 초기화**(가장 먼저): `window.dataLayer = window.dataLayer || [];` — HTML 파싱 즉시(React 마운트 이전) 동기 실행돼 빈 배열 생성.
+2. **Adobe Tags(Launch) dev 임베드**: `assets.adobedtm.com/.../launch-...-development.min.js` 를 `async` 로 로드(`ADOBE_TAGS_SRC` 상수). async 라도 위 인라인 스크립트가 먼저 동기 실행되므로 Launch 실행 시점엔 `window.dataLayer` 가 이미 존재한다. 운영 배포 시 production URL 로 교체.
 3. **스타일 리셋**(`ScrollViewStyleReset`).
 
 즉 "배열 생성"은 페이지 로드 맨 앞(head), "초기 이벤트 push"는 앱 마운트 직후(§8.3)에 일어난다.

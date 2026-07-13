@@ -2,6 +2,7 @@
 
 ## Log Index
 
+174. 2026-07-13 Adobe Tags(Launch) dev 임베드 스크립트 연결 — +html.tsx 에서 dataLayer 초기화 직후 launch-...-development.min.js 를 async 로드(ADOBE_TAGS_SRC 상수). GA4 dataLayer mock 과 실제 Adobe Extension 감지를 end-to-end 로 검증 가능. docs/main/02 §8.1 갱신
 173. 2026-07-13 GA4 dataLayer mock 리뷰 반영 + 문서화 — 실제 U+ dataLayer 규격 대조로 개선: behavior_var 를 PC/Mobile×채널 프리셋으로 조합 주입(pushPageViewPreset)·pushNuxtRoute behaviorVar 인자화, gtm.click 간소화(DOM 참조 제외) 이벤트 추가, 인터랙션 이벤트 파일 분리(ga4Events_interaction). screen_id/content_group/site_type 는 근거 없어 미추가(주석 명시). docs/main/02 §8 GA4 섹션 신설
 172. 2026-07-13 GA4 dataLayer 모의(Mock) 구현 — /at-test/main 에 GA4/GTM 없이 window.dataLayer 초기화·push 테스트 환경 구축(Adobe Tags Google Data Layer Extension 연동용). +html.tsx 로 head 최상단 dataLayer 초기화(Adobe Tags 자리 주석 확보), ga4_frontend/ga4-test 전용 패키지(코어·이벤트·부트스트랩·테스트 패널) 신설, @ga4/* 별칭 추가, main 에 마운트
 171. 2026-06-30 로그인 모달 2단계화(방식 선택 → 테이블/아이디 입력)·배포 네트워크 문서(443 인바운드·네이티브 API 의존) — LoginModal choice/table/input·U000000001~U005122768 직접입력(API 불필요). docs 01~04·README·03 §7.1 동기화
@@ -177,6 +178,17 @@
 12. 2026-04-27 docs/main AT_TEST_PAGE PRD v1.0 작성
 
 ## Log Body
+
+174. 2026-07-13 Adobe Tags(Launch) dev 임베드 스크립트 연결
+
+Purpose: GA4 dataLayer mock 이 실제 Adobe Data Collection(Tags)의 Google Data Layer Extension 에 잡히는지 end-to-end 로 검증하기 위해, 그동안 자리만 잡아뒀던 Adobe Tags(Launch) dev 임베드 스크립트를 실제로 로드하도록 연결.
+
+Changes:
+
+- `app/+html.tsx`: 주석 자리를 실제 `<script src={ADOBE_TAGS_SRC} async />` 로 교체(dataLayer 초기화 인라인 스크립트 바로 아래). dev URL(launch-eff6fb8763ac-development.min.js)을 ADOBE_TAGS_SRC 상수로 분리(하드코딩 방지). async 라도 인라인 dataLayer 가 먼저 동기 실행되어 Launch 실행 시 window.dataLayer 존재 보장. docstring 동기화
+- docs/main/02 §8.1: Adobe Tags 임베드가 "자리 주석"에서 "실제 async 로드"로 바뀐 점·로드 순서·운영 시 production URL 교체 안내 반영
+
+Changed files: frontend/app/+html.tsx, docs/main/02_AT_TEST_PAGE_FRONTEND_GUIDE.md, docs/log/log.md
 
 173. 2026-07-13 GA4 dataLayer mock 리뷰 반영 + 문서화
 
