@@ -5,7 +5,8 @@
     "paths": {
       "@/*": ["./*"],
       "@adobe/*": ["./adobe_frontend/target_frontend/*"],
-      "@adobe-native/*": ["./adobe_frontend/target-native-frontend/*"]
+      "@adobe-native/*": ["./adobe_frontend/target-native-frontend/*"],
+      "@ga4/*": ["./ga4_frontend/ga4-test/*"]
     }
   },
   "include": [

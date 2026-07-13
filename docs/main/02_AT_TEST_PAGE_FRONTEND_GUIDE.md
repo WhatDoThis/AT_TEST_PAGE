@@ -56,10 +56,13 @@ frontend/
 ├─ adobe_frontend/
 │  ├─ target_frontend/     # 웹 Target(Provider, Bootstrap, fetch, parser, 테스트 패널)
 │  └─ target-native-frontend/  # XtTestScreen, AbTestScreen, RecommendationScreen, adobeMobileTarget
+├─ ga4_frontend/
+│  └─ ga4-test/            # GA4 dataLayer 모의(코어·이벤트·부트스트랩·테스트 패널) — §8
+├─ app/+html.tsx           # (웹) 루트 HTML 셸 — dataLayer 초기화 + Adobe Tags 자리(§8)
 └─ assets/images/
 ```
 
-`tsconfig.json`: `@/*` → `frontend/*`, `@adobe/*` → `target_frontend/*`, `@adobe-native/*` → `target-native-frontend/*`.
+`tsconfig.json`: `@/*` → `frontend/*`, `@adobe/*` → `target_frontend/*`, `@adobe-native/*` → `target-native-frontend/*`, `@ga4/*` → `ga4_frontend/ga4-test/*`.
 
 ---
 
@@ -160,3 +163,50 @@ frontend/
 - Target 웹은 백엔드 프록시, Android는 Mobile SDK가 주 경로다.
 - 회선 로그인은 **데모용**이며 `line_id`→Target 개인화 검증에 쓴다.
 - 추천·프로필 화면은 `AT_RECS_*`로 메인 세션과 분리한다.
+
+---
+
+## 8. GA4 dataLayer 모의(Mock) — Adobe Tags 연동 테스트용
+
+실제 GA4(gtag.js)·GTM 컨테이너 없이 `window.dataLayer` 배열을 생성·push 하는 테스트 환경. Adobe Data Collection(Tags)의 **Google Data Layer Extension** 이 이 dataLayer 를 읽어 Data Element/Rule 로 활용하는지 검증하는 용도다. 유플홈(U+) GA4 dataLayer 구조(`nuxtRoute`·`behavior_var` 등)를 모방한다.
+
+> **운영이 아니라 테스트 목적:** GA4/GTM 실 스크립트는 **로드하지 않는다**(순수 JS 배열). Adobe Tags(Launch) 임베드 스크립트도 필수 아님 — `+html.tsx`에 위치만 주석으로 잡아두고, 검증은 브라우저 콘솔/Adobe Experience Platform Debugger 로 한다. (embed 를 실제로 넣어야 하는 건 "Extension 이 dataLayer 를 집어가는지"의 end-to-end 검증뿐.)
+
+### 8.1 로드 순서와 초기화 (`app/+html.tsx`)
+
+Expo Router 웹 루트 HTML 셸에서 순서를 강제한다.
+
+1. **dataLayer 초기화**(가장 먼저): `window.dataLayer = window.dataLayer || [];` — HTML 파싱 즉시(React 마운트 이전) 빈 배열 생성.
+2. **Adobe Tags(Launch) 임베드 자리**: 주석으로 위치만 확보(실 스크립트는 추후).
+3. **스타일 리셋**(`ScrollViewStyleReset`).
+
+즉 "배열 생성"은 페이지 로드 맨 앞(head), "초기 이벤트 push"는 앱 마운트 직후(§8.3)에 일어난다.
+
+### 8.2 패키지 구조 (`ga4_frontend/ga4-test/`, 별칭 `@ga4/*`)
+
+| 파일 | 역할 |
+|------|------|
+| `ga4DataLayer.types.ts` | 스키마 타입(`Ga4DataLayerItem`·`Ga4BehaviorVar`·`Ga4NuxtRouteEvent`) |
+| `ga4DataLayer.ts` | 코어 — `ensureDataLayer`/`dataLayerPush`/`getDataLayer`/`nextUniqueEventId`/`isGa4Supported`(window 가드) |
+| `ga4Events.ts` | 부트스트랩(gtm.js·nuxtRoute·gtm.dom·gtm.load) + `behavior_var` 프리셋·`pushPageViewPreset` (인터랙션은 재-export) |
+| `ga4Events_interaction.ts` | 인터랙션(productClick·signUp·login·gtm.click·custom) |
+| `Ga4PageBootstrap.tsx` | 페이지 로드 자동 push(웹 1회 가드, 렌더 없음) |
+| `Ga4TestPanel.tsx` | 버튼(페이지뷰 프리셋·인터랙션) + 실시간 dataLayer 모니터(RN, 네이티브는 안내) |
+
+마운트: `app/main.tsx` 에 `<Ga4PageBootstrap />` + `<Ga4TestPanel />`.
+
+### 8.3 이벤트 설계 (실제 규격 모방 + mock 정직성)
+
+- **GTM 예약 필드는 자동 생성**: `gtm.start`=`Date.now()`, `gtm.uniqueEventId`=모듈 카운터(하드코딩·중복 gtm.js 재현 안 함). `event` 키는 모든 push 에 존재(Adobe Rule 감지 핵심).
+- **`behavior_var` 는 핵심 알맹이**로 그대로 유지하되, **실제 샘플에 존재하는 3개 필드만** 사용: `behavior_channel_type`·`behavior_host_type`·`site_category`(`"환경|채널|세그먼트"`). *(참고: 인수인계 문서에 `screen_id`/`content_group`/`site_type` 등 추가 필드가 확정되면 그때 반영한다 — 현재 저장소·문서엔 근거 없어 넣지 않음.)*
+- **오디언스 조건 테스트용 프리셋**: `pushPageViewPreset(pc_main|mobile_main|pc_test|mobile_test)` — 환경(PC/Mobile) × 채널을 다르게 주입해 `behavior_var` 조합을 바꾼다. 패널에 프리셋 페이지뷰 버튼으로 노출.
+- **`gtm.click` 간소화**: 실제의 `gtm.element`(DOM 참조) 대신 문자열 필드(`gtm.elementText`/`Classes`/`Id`)만 담아 재현.
+
+### 8.4 검증
+
+```bash
+cd frontend && npx expo start --web
+```
+
+- 콘솔에 `dataLayer` → `event:'nuxtRoute'` + `pageTitle`/`pageType`/`pageUrl`/`routeName`/`behavior_var` 확인.
+- `/at-test/main` 하단 "dataLayer 테스트 패널" 버튼 클릭 → 모니터에 새 객체 실시간 추가.

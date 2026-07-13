@@ -9,6 +9,7 @@
  * - 홈 화면 UI 조합
  * - 캐러셀·갤러리 인덱스 상태 공유
  * - (AT) event-popup 오퍼 시 EventPopup
+ * - (GA4 Mock) 페이지 로드 dataLayer 부트스트랩 + dataLayer 테스트 패널
  *
  * [Endpoints/Classes/Functions]
  * =======================
@@ -19,6 +20,7 @@
  * - react-native
  * - @/components/ImageCarousel, ToggleButton, ImageGallery, CouponTable, EventPopup
  * - @/context/AdobeTargetContext
+ * - @ga4/Ga4PageBootstrap, @ga4/Ga4TestPanel (GA4 dataLayer 모의)
  */
 
 import React, { useState } from "react";
@@ -29,6 +31,8 @@ import ImageGallery from "@/components/ImageGallery";
 import CouponTable from "@/components/CouponTable";
 import EventPopup from "@/components/EventPopup";
 import { useAdobeTargetEventPopup, useAdobeTargetOffer } from "@/context/AdobeTargetContext";
+import Ga4PageBootstrap from "@ga4/Ga4PageBootstrap";
+import Ga4TestPanel from "@ga4/Ga4TestPanel";
 
 export default function MainScreen() {
   const [galleryOpen, setGalleryOpen] = useState(false);
@@ -62,6 +66,11 @@ export default function MainScreen() {
       />
 
       <CouponTable />
+
+      {/* (GA4 Mock) 페이지 로드 시 dataLayer 부트스트랩(gtm.js·nuxtRoute 등, 렌더 없음) */}
+      <Ga4PageBootstrap />
+      {/* (GA4 Mock) dataLayer.push 테스트 버튼 + 실시간 모니터 */}
+      <Ga4TestPanel />
 
       <EventPopup offer={eventPopupOffer} onClose={dismissPopup} />
     </ScrollView>

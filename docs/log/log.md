@@ -2,6 +2,8 @@
 
 ## Log Index
 
+173. 2026-07-13 GA4 dataLayer mock 리뷰 반영 + 문서화 — 실제 U+ dataLayer 규격 대조로 개선: behavior_var 를 PC/Mobile×채널 프리셋으로 조합 주입(pushPageViewPreset)·pushNuxtRoute behaviorVar 인자화, gtm.click 간소화(DOM 참조 제외) 이벤트 추가, 인터랙션 이벤트 파일 분리(ga4Events_interaction). screen_id/content_group/site_type 는 근거 없어 미추가(주석 명시). docs/main/02 §8 GA4 섹션 신설
+172. 2026-07-13 GA4 dataLayer 모의(Mock) 구현 — /at-test/main 에 GA4/GTM 없이 window.dataLayer 초기화·push 테스트 환경 구축(Adobe Tags Google Data Layer Extension 연동용). +html.tsx 로 head 최상단 dataLayer 초기화(Adobe Tags 자리 주석 확보), ga4_frontend/ga4-test 전용 패키지(코어·이벤트·부트스트랩·테스트 패널) 신설, @ga4/* 별칭 추가, main 에 마운트
 171. 2026-06-30 로그인 모달 2단계화(방식 선택 → 테이블/아이디 입력)·배포 네트워크 문서(443 인바운드·네이티브 API 의존) — LoginModal choice/table/input·U000000001~U005122768 직접입력(API 불필요). docs 01~04·README·03 §7.1 동기화
 170. 2026-06-26 EAS 루트 .easignore 정정 + telecom API 503·DB 권한 문서화 — monorepo EAS는 git 루트 아카이브라 frontend/.easignore 무효→저장소 루트 /.easignore 신설(backend/docs 제외·frontend env config 포함)·frontend/.easignore 삭제. 서버 git pull 빌드 절차·check-ignore 검증. telecom 라우터 503(DBAPIError/SQLAlchemyError/OSError)은 기존 구현·03 §4.3 정리. telecom_db 사용자 DB SELECT 권한 운영 안내
 169. 2026-06-26 EAS Android 빌드 "Bundle JavaScript" 실패 수정 — loadConfig 가 env/config.{dev,prd}.json 을 정적 import 하는데 두 파일이 .gitignore 제외라 EAS(git 업로드)에서 누락→번들 실패. frontend/.easignore 추가로 config 파일 업로드 포함(빌드 머신에 실제 파일 존재 필요). 로컬 프로덕션 export 로 코드 정상 확인 *(이후 루트 .easignore 로 정정 — 170)*
@@ -175,6 +177,34 @@
 12. 2026-04-27 docs/main AT_TEST_PAGE PRD v1.0 작성
 
 ## Log Body
+
+173. 2026-07-13 GA4 dataLayer mock 리뷰 반영 + 문서화
+
+Purpose: 실제 유플홈(U+) 운영 dataLayer 규격을 레퍼런스로 mock 을 대조 검토한 피드백을 반영. GTM 자동 생성 필드(gtm.uniqueEventId 카운터·단일 gtm.js·동적 gtm.start)는 이미 충족 상태라 유지하고, behavior_var 조합 주입·gtm.click 간소화만 개선. 근거 없는 필드는 넣지 않아 mock 신뢰도 유지.
+
+Changes:
+
+- (ga4Events) behavior_var 프리셋 도입 — buildBehaviorVar(host×channel)·BEHAVIOR_VAR_PRESETS(pc_main/mobile_main/pc_test/mobile_test), site_category 를 "환경|채널|개인"으로 일관 조립. pushNuxtRoute 에 behaviorVar 인자 추가(기본 pc_main), pushPageViewPreset(preset) 신설로 오디언스 조건 조합 테스트 지원
+- (분리) 인터랙션 이벤트를 ga4Events_interaction.ts 로 분리(productClick·signUp·login·gtmClick·custom), ga4Events 에서 재-export(소비 측 단일 import). gtm.click 은 실제 gtm.element(DOM 참조) 대신 문자열 필드(elementText/Classes/Id)만 담은 간소화 버전
+- (패널) Ga4TestPanel 에 페이지뷰 프리셋 버튼 3종(PC/대표·Mobile/대표·PC/테스트)·gtm.click 버튼 추가
+- (미반영·근거 없음) 리뷰의 screen_id/content_group/site_type 은 저장소·인수인계 문서에 정의가 없어 추가하지 않음(behavior_var 는 실제 샘플의 3필드만 유지, 코드/문서 주석에 사유 명시). 필드 확정 시 반영 예정
+- (docs) docs/main/02 프론트 가이드: 디렉터리 구조·@ga4/* 별칭 반영, §7/§8 재배치 후 §8 "GA4 dataLayer 모의(Mock)" 신설(+html 로드순서·패키지 구조·이벤트 설계·검증)
+
+Changed files: frontend/ga4_frontend/ga4-test/ga4Events.ts, frontend/ga4_frontend/ga4-test/ga4Events_interaction.ts, frontend/ga4_frontend/ga4-test/Ga4TestPanel.tsx, docs/main/02_AT_TEST_PAGE_FRONTEND_GUIDE.md, docs/log/log.md
+
+172. 2026-07-13 GA4 dataLayer 모의(Mock) 구현
+
+Purpose: 실제 GA4(gtag.js)·GTM 컨테이너 없이 `/at-test/main` 에서 `window.dataLayer` 배열을 초기화하고 push 가 동작하는 테스트 환경을 만든다. Adobe Tags 의 Google Data Layer Extension 이 이 dataLayer 를 읽어 Data Element/Rule 에서 활용하는 연동을 검증하기 위함. 유플홈(U+) GA4 dataLayer 구조(nuxtRoute·behavior_var 등)를 모방.
+
+Changes:
+
+- (HTML 셸) `app/+html.tsx` 신설 — Expo Router 웹 루트 head 최상단에 `window.dataLayer = window.dataLayer || [];` 삽입(가장 먼저), 그 아래 Adobe Tags(Launch) 임베드 코드 자리를 주석으로 확보(로드 순서 dataLayer→Adobe Tags→스타일 고정)
+- (전용 패키지) `frontend/ga4_frontend/ga4-test/` 신설로 기능·파일 분리: `ga4DataLayer.types.ts`(스키마 타입), `ga4DataLayer.ts`(코어 init/push/get·uniqueEventId·window 가드), `ga4Events.ts`(부트스트랩 gtm.js·nuxtRoute·gtm.dom·gtm.load + 인터랙션 pageView/productClick/signUp/login/custom), `Ga4PageBootstrap.tsx`(페이지 로드 자동 push, 웹 1회 가드), `Ga4TestPanel.tsx`(버튼 5종 + 실시간 dataLayer 모니터, RN 컴포넌트·네이티브 안내)
+- (경로) `tsconfig.json` 에 `@ga4/*` → `ga4_frontend/ga4-test/*` 별칭 추가(@adobe/* 관례 준수)
+- (연결) `app/main.tsx` 에 `Ga4PageBootstrap`(렌더 없음)·`Ga4TestPanel` 마운트, docstring 동기화
+- 주의: GA4/GTM 실 스크립트는 로드하지 않음(순수 JS 배열), window.dataLayer 는 웹 전용이라 네이티브는 no-op/안내
+
+Changed files: frontend/app/+html.tsx, frontend/ga4_frontend/ga4-test/ga4DataLayer.types.ts, frontend/ga4_frontend/ga4-test/ga4DataLayer.ts, frontend/ga4_frontend/ga4-test/ga4Events.ts, frontend/ga4_frontend/ga4-test/Ga4PageBootstrap.tsx, frontend/ga4_frontend/ga4-test/Ga4TestPanel.tsx, frontend/tsconfig.json, frontend/app/main.tsx, docs/log/log.md
 
 171. 2026-06-30 로그인 모달 2단계화(방식 선택 → 테이블 선택 / 아이디 입력)
 
